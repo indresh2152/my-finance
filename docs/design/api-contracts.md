@@ -95,7 +95,7 @@ Writes `USER_REGISTER` to `audit_logs`.
 ```json
 {
   "username": "indresh",
-  "password": "s3cret"
+  "password": "S3cur3P@ss!"
 }
 ```
 
