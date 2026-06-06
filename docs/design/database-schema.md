@@ -517,7 +517,7 @@ cron.schedule('30 20 * * *', async () => {
 ## Migrations Strategy
 
 - One file per migration: `YYYYMMDDHHMMSS_description.sql`
-- Applied in sequence; tracked in `schema_migrations` table (managed by Drizzle Kit or node-pg-migrate).
+- Applied in sequence; tracked in `schema_migrations` table (managed by Drizzle Kit).
 - No destructive DDL in migrations without a rollback file.
 
 ### Auto-migration on startup

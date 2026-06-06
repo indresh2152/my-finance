@@ -110,7 +110,7 @@ The Express server applies migrations and seeds dev data automatically before it
 ```
 Container starts
     │
-    ├─► runMigrations()       ← apply pending SQL migrations (Drizzle Kit / node-pg-migrate)
+    ├─► runMigrations()       ← apply pending SQL migrations (Drizzle Kit)
     │       │ failure → process.exit(1) → container restarts (Docker/K8s restart policy)
     │       │                             GET /ready returns 503 until next successful start
     │

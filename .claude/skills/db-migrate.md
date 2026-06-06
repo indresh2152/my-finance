@@ -7,7 +7,7 @@ description: Run database migrations (auto on startup) or manually via npm scrip
 
 Migrations run **automatically on app startup** via `runMigrations()` called before `app.listen`. Manual migration is only needed when you want to migrate without restarting the server (rare).
 
-**Against Compose Postgres (manual override):**
+**Manual (Compose Postgres):**
 ```bash
 docker compose exec api npm run db:migrate
 ```
@@ -16,4 +16,4 @@ docker compose exec api npm run db:migrate
 1. Ensure `DATABASE_URL` is set in `apps/api/.env`
 2. `cd apps/api && npm run db:migrate`
 
-Dev seed (creates `devuser` / `dev@example.com` if users table is empty) runs automatically in `NODE_ENV=development` on startup. To run it manually: `npm run db:seed`.
+Dev seed runs automatically in `NODE_ENV=development` on startup. To run it manually: `npm run db:seed`.
