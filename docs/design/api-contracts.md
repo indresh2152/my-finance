@@ -9,6 +9,12 @@ Auth: `Authorization: Bearer <accessToken>` on all protected routes.
 
 **PAN requirement:** All financial data endpoints (`/overview`, `/credit-cards`, `/bank-accounts`, `/loans`, `/investments`, `/insurance`) require a registered PAN. If the authenticated user has no PAN, these endpoints return `403 PAN_NOT_REGISTERED`. Frontend should detect this code and redirect to the PAN registration flow rather than treating it as a generic "access denied."
 
+**PAN gate flow (two layers):**
+1. **Primary**: On login or register, the response includes `hasPan: true/false`. If `false`, the frontend immediately redirects to `/pan-register` before the user can access any financial endpoint. This avoids unnecessary API calls.
+2. **Fallback**: If a user somehow reaches a financial endpoint without a registered PAN (e.g., deep-linked URL), the API returns `403 PAN_NOT_REGISTERED`. Frontend catches this and redirects to `/pan-register`.
+
+Both layers are required. The primary gate avoids unnecessary API calls; the fallback ensures the API never leaks instrument data without a registered PAN.
+
 ---
 
 ## Infrastructure Endpoints
@@ -192,6 +198,16 @@ Returns the user's registered PAN profile.
 
 Returns a summary of all financial instruments linked to the user's PAN — one number per category.
 
+**Calculation rules:**
+- `totalCreditLimit` — sum of `credit_limit` across all ACTIVE credit cards
+- `totalCreditBalance` — sum of `current_balance` (amount owed) across all ACTIVE credit cards
+- `totalBankBalance` — sum of `balance` across all ACTIVE and DORMANT bank accounts (negative balances included; overdrawn accounts reduce the total)
+- `totalLoanOutstanding` — sum of `outstanding_amount` across all ACTIVE loans
+- `totalInvestmentValue` — sum of `current_value` across all investments (all statuses included)
+- `totalInsuredAmount` — sum of `sum_assured` across all ACTIVE insurance policies
+- Accounts/cards/loans with `status='CLOSED'` or `status='EXPIRED'` are excluded from all totals
+- All values rounded to 2 decimal places
+
 **Response 200**
 ```json
 {
@@ -286,6 +302,9 @@ Returns a single card (same shape as above, single object).
 }
 ```
 
+**Field notes:**
+- `interestRate` and `maturityDate` are present **only** for `accountType: "FD"` and `accountType: "RD"`. They are **omitted** (not null) for SAVINGS and CURRENT accounts. Frontend must treat absence as not applicable.
+
 ---
 
 ## Loans
@@ -319,6 +338,14 @@ Returns a single card (same shape as above, single object).
 ## Investments
 
 ### GET /investments
+
+**Query parameters**
+
+| Param  | Type     | Default | Description                                                              |
+|--------|----------|---------|--------------------------------------------------------------------------|
+| `type` | string[] | —       | Filter by `investment_type`. Repeatable: `?type=MUTUAL_FUND&type=STOCKS` |
+
+Filtering is server-side. If omitted, all investment types are returned. Valid values match the `investment_type` enum: `MUTUAL_FUND`, `STOCKS`, `PPF`, `NPS`, `FD`, `BONDS`, `OTHER`.
 
 **Response 200**
 ```json
@@ -416,7 +443,13 @@ Returns a single card (same shape as above, single object).
 
 Updates the authenticated user's password or email. Requires the current password to be supplied for all changes.
 
-**Request**
+**Validation rules:**
+- `currentPassword` is always required
+- Exactly one of `newPassword` or `newEmail` must be present (sending both or neither returns 400 `VALIDATION_ERROR`)
+- `newPassword` must meet the same strength rules as registration: minimum 8 chars, at least one uppercase letter, one digit, one special character
+- `newEmail` must be a valid email address not already in use
+
+**Request** (change password)
 ```json
 {
   "currentPassword": "OldP@ss!",
@@ -445,6 +478,11 @@ Or to change email:
 **Response 401**
 ```json
 { "error": { "code": "WRONG_PASSWORD", "message": "Current password is incorrect" } }
+```
+
+**Response 409**
+```json
+{ "error": { "code": "EMAIL_TAKEN", "message": "Email is already registered" } }
 ```
 
 Writes `USER_PROFILE_UPDATE` to `audit_logs`.

@@ -75,6 +75,7 @@ Credit card discovery by PAN is one of the core features. The system is structur
 | `/investments`            | `InvestmentsPage`      | Yes  | Mutual funds, stocks, PPF, NPS, bonds                 |
 | `/insurance`              | `InsurancePage`        | Yes  | Life, health, vehicle, home insurance policies        |
 | `/profile`                | `ProfilePage`          | Yes  | User profile and PAN registration                     |
+| `/pan-register`           | `PanRegisterPage`      | Yes  | First-time PAN registration gate; shown when `hasPan: false` on login or redirected from a financial endpoint returning 403 PAN_NOT_REGISTERED |
 
 ### State Management
 
@@ -175,7 +176,7 @@ Incoming HTTP request
 - `/health` and `/ready` are excluded from audit logging — they are probe endpoints, not user actions.
 - Route handlers do **not** call `auditLog()` directly; the middleware handles all routes automatically.
 - Adding a new route only requires adding one entry to `ROUTE_ACTION_MAP` in `audit.middleware.ts` — no risk of forgetting to log.
-- Failed logins (`POST /auth/login` returning 401) are recorded as `USER_LOGIN_FAILED` rather than `USER_LOGIN`, distinguished by checking `res.statusCode` inside the finish handler.
+- Failed logins (`POST /auth/login` returning 401) are recorded as `USER_LOGIN_FAILED` rather than `USER_LOGIN`, distinguished by checking `res.statusCode` inside the finish handler. `user_id` is NULL in `audit_logs` for these rows (the user was not authenticated); the column is nullable to allow this.
 
 ---
 

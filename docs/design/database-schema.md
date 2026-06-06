@@ -47,7 +47,7 @@ All tables use `UUID` primary keys (`gen_random_uuid()`). Timestamps are `TIMEST
           │                      │ investment_type  │  │ policy_type      │
           │                      │ institution_name │  │ insurer          │
           │                      │ scheme_name      │  │ policy_no_hash   │
-          │                      │ folio_display    │  │ policy_no_masked │
+          │                      │ folio_display    │  │ policy_number_masked │
           │                      │ current_value    │  │ sum_assured      │
           │                      │ invested_amount  │  │ premium_amount   │
           │                      │ ...              │  │ next_due_date    │

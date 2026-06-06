@@ -77,6 +77,7 @@ npm install i18next i18next-fs-backend
 - Zod validation messages are built via factory functions that receive `lng` and call `i18next.t('validation.<key>', { lng })`.
 - Locale JSON files live in `apps/api/src/locales/<lang>.json` with top-level groups `error` and `validation`.
 - In tests, always pass `lng: 'en'` explicitly so results are deterministic.
+- **Error code casing:** The `code` field in API error responses is `UPPER_SNAKE_CASE` (e.g. `PAN_INVALID`). The i18n key is lowercase: `error.pan_invalid`. Always lowercase the code before the i18n lookup: `i18next.t(\`error.${code.toLowerCase()}\`, { lng })`.
 
 ## Graceful shutdown
 
