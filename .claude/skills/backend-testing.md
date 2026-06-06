@@ -169,10 +169,15 @@ describe('Migration 001: create_users', () => {
 
   beforeAll(async () => {
     pool = new Pool({ connectionString: process.env.TEST_DATABASE_URL });
+    // Apply the migration under test
     await runMigration(pool, '001_create_users.sql');
   });
 
-  afterAll(() => pool.end());
+  afterAll(async () => {
+    // Drop the table so re-runs start from a clean slate
+    await pool.query('DROP TABLE IF EXISTS users CASCADE');
+    await pool.end();
+  });
 
   it('should create the users table', async () => {
     const { rows } = await pool.query(
@@ -191,8 +196,18 @@ describe('Migration 001: create_users', () => {
     expect(rows[0].data_type).toBe('uuid');
     expect(rows[0].is_nullable).toBe('NO');
   });
+
+  it('should be idempotent (safe to run twice)', async () => {
+    await expect(runMigration(pool, '001_create_users.sql')).resolves.not.toThrow();
+  });
 });
 ```
+
+**Test database setup:**
+- Set `TEST_DATABASE_URL` in `apps/api/.env.test` (e.g., `postgresql://postgres:postgres@localhost:5432/myfinance_test`).
+- Create the test DB once: `createdb myfinance_test` or `docker compose exec postgres createdb -U postgres myfinance_test`.
+- Each migration test file drops the table(s) it created in `afterAll` so the suite is re-runnable.
+- Migration tests must never touch the `DATABASE_URL` (development) database.
 
 Use a dedicated `TEST_DATABASE_URL` pointing to a separate test database. Never run migration tests against the development or production database.
 

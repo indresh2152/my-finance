@@ -92,17 +92,31 @@ Always render with the full provider tree the component needs:
 ```tsx
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from '@mui/material/styles';
 import { theme } from '../../theme';
 
-const renderWithProviders = (ui: React.ReactElement) =>
-  render(<ThemeProvider theme={theme}>{ui}</ThemeProvider>);
+const renderWithProviders = (ui: React.ReactElement, { initialEntries = ['/'] } = {}) => {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },  // no retries in tests
+  });
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={initialEntries}>
+        <ThemeProvider theme={theme}>{ui}</ThemeProvider>
+      </MemoryRouter>
+    </QueryClientProvider>
+  );
+};
 
 it('should display the card network badge', () => {
   renderWithProviders(<CreditCardRow card={mockCard} />);
   expect(screen.getByText('VISA')).toBeInTheDocument();
 });
 ```
+
+A fresh `QueryClient` per test prevents cached data leaking between tests. Pass `initialEntries` when testing route-dependent behavior (e.g., components that read `useParams`).
 
 Query priority (RTL best practice — highest to lowest):
 1. `getByRole` — accessible role + name

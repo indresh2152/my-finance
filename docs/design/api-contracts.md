@@ -78,7 +78,7 @@ Validation rules (Zod):
   }
 }
 ```
-`refreshToken` set as `HttpOnly; SameSite=Strict; Secure` cookie.  
+`refreshToken` set as `HttpOnly; SameSite=Strict; Secure; Path=/api/v1/auth/refresh` cookie. The `Path` restriction ensures the browser only sends the cookie to the refresh endpoint, never to financial data endpoints.  
 Writes `USER_REGISTER` to `audit_logs`.
 
 **Response 409**
@@ -111,7 +111,7 @@ Writes `USER_REGISTER` to `audit_logs`.
   }
 }
 ```
-`refreshToken` set as `HttpOnly; SameSite=Strict; Secure` cookie.
+`refreshToken` set as `HttpOnly; SameSite=Strict; Secure; Path=/api/v1/auth/refresh` cookie. The `Path` restriction ensures the browser only sends the cookie to the refresh endpoint, never to financial data endpoints.
 
 **Response 401**
 ```json
@@ -124,10 +124,19 @@ Writes `USER_REGISTER` to `audit_logs`.
 
 Uses the `refreshToken` cookie. No body needed.
 
+**Rotation policy:** Each call issues a **new** refresh token and revokes the old one (single-use tokens). The old `refresh_tokens` row gets `revoked_at = NOW()`. If a revoked token is presented, all sessions for that user are immediately invalidated (refresh token reuse detection — indicates token theft).
+
 **Response 200**
 ```json
 { "accessToken": "<new jwt>" }
 ```
+A new `refreshToken` cookie is set with the same attributes (`HttpOnly; SameSite=Strict; Secure; Path=/api/v1/auth/refresh`), replacing the old one.
+
+**Response 401**
+```json
+{ "error": { "code": "REFRESH_TOKEN_INVALID", "message": "Session expired. Please log in again." } }
+```
+Returned when the refresh token is missing, expired, or revoked. Frontend must redirect to `/login` on this response.
 
 ---
 
@@ -345,7 +354,7 @@ Returns a single card (same shape as above, single object).
 |--------|----------|---------|--------------------------------------------------------------------------|
 | `type` | string[] | —       | Filter by `investment_type`. Repeatable: `?type=MUTUAL_FUND&type=STOCKS` |
 
-Filtering is server-side. If omitted, all investment types are returned. Valid values match the `investment_type` enum: `MUTUAL_FUND`, `STOCKS`, `PPF`, `NPS`, `FD`, `BONDS`, `OTHER`.
+Filtering is server-side. If omitted, all investment types are returned. Valid values match the `investment_type` enum: `MUTUAL_FUND`, `STOCKS`, `PPF`, `NPS`, `BONDS`, `GOVT_SECURITIES`, `GOLD`, `REAL_ESTATE`, `OTHER`. Note: `FD` (Fixed Deposit) is a bank account type, not an investment type — filter `GET /bank-accounts` by `accountType=FD` instead.
 
 **Response 200**
 ```json
@@ -512,9 +521,11 @@ Writes `USER_DELETE` to `audit_logs`.
 
 ---
 
-### GET /users/me/data-export
+### POST /users/me/data-export
 
 Initiates DPDP right-to-access. Creates a `data_requests` row with `request_type='EXPORT'`. The export is assembled asynchronously; delivery mechanism (email link or in-app download) is TBD.
+
+**No request body required.**
 
 **Response 202**
 ```json
@@ -524,7 +535,7 @@ Initiates DPDP right-to-access. Creates a `data_requests` row with `request_type
 }
 ```
 
-Writes `DATA_EXPORT_REQUEST` to `audit_logs` (add to `audit_action` enum before implementing).
+Writes `DATA_EXPORT_REQUEST` to `audit_logs`.
 
 ---
 
@@ -593,7 +604,8 @@ All errors follow:
 
 | HTTP Status | When                                      |
 |-------------|-------------------------------------------|
-| 400         | Validation failure (Zod) or invalid PAN format |
+| 400         | Malformed request (unparseable JSON, missing required field) |
+| 422         | Validation failure (Zod schema) or invalid PAN format |
 | 401         | Missing or expired token (`UNAUTHORIZED`) |
 | 403         | Token valid but access denied — includes `PAN_NOT_REGISTERED` (user has no PAN yet) |
 | 404         | Resource not found                        |

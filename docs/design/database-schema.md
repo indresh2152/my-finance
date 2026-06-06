@@ -115,7 +115,7 @@ CREATE INDEX idx_pan_profiles_pan_hash ON pan_profiles (pan_hash);
 
 **Notes:**
 - Full PAN (`ABCDE1234F`) is **never stored**. `pan_hash` is an HMAC-SHA256 using a server-side secret from env, making offline dictionary attacks infeasible.
-- `pan_masked` is computed client-side before submission: replace positions 6–9 (the 4 digits) with `#`. Example: `ABCDE1234F` → `ABCDE####F`.
+- `pan_masked` is computed **server-side** in `pan.utils.ts` during `POST /pan/register`: replace the 4 numeric digits (positions 6–9) with `#`. Example: `ABCDE1234F` → `ABCDE####F`. Never accept or trust a `pan_masked` value from the client — the server always derives it from the raw PAN before discarding the raw value.
 - `verified_at` can be set when PAN is confirmed via an OTP or third-party verification service.
 - Each user has at most **one** PAN profile (UNIQUE constraint on `user_id`).
 
@@ -326,7 +326,7 @@ CREATE TYPE audit_action AS ENUM (
   -- User profile
   'USER_PROFILE_VIEW',    -- GET /users/me
   'USER_PROFILE_UPDATE',  -- PATCH /users/me (password/email change)
-  'DATA_EXPORT_REQUEST',  -- GET /users/me/data-export (DPDP right-to-access)
+  'DATA_EXPORT_REQUEST',  -- POST /users/me/data-export (DPDP right-to-access)
   -- PAN
   'PAN_REGISTER',       -- POST /pan/register
   'PAN_VIEW',           -- GET /pan
@@ -407,7 +407,7 @@ const ROUTE_ACTION_MAP: Record<string, AuditAction> = {
   'DELETE /api/v1/users/me':            AuditAction.USER_DELETE,
   'GET /api/v1/users/me':               AuditAction.USER_PROFILE_VIEW,
   'PATCH /api/v1/users/me':             AuditAction.USER_PROFILE_UPDATE,
-  'GET /api/v1/users/me/data-export':   AuditAction.DATA_EXPORT_REQUEST,
+  'POST /api/v1/users/me/data-export':  AuditAction.DATA_EXPORT_REQUEST,
   'POST /api/v1/pan/register':          AuditAction.PAN_REGISTER,
   'GET /api/v1/pan':                    AuditAction.PAN_VIEW,
   'GET /api/v1/overview':               AuditAction.OVERVIEW_VIEW,

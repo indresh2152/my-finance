@@ -83,6 +83,45 @@ Credit card discovery by PAN is one of the core features. The system is structur
 - **UI/local state**: `useState` / `useReducer` — no global store needed
 - **Auth state**: React Context (`AuthContext`) — holds JWT + user info + PAN masked display
 
+### AuthContext shape
+
+```ts
+interface AuthUser {
+  id: string;
+  username: string;
+  email: string;
+  hasPan: boolean;
+  panMasked: string | null;
+}
+
+interface AuthContextValue {
+  user: AuthUser | null;
+  accessToken: string | null;  // stored in a useRef, not useState, to avoid re-renders
+  login: (username: string, password: string) => Promise<void>;
+  logout: () => Promise<void>;
+  setPan: (panMasked: string) => void;  // called after successful POST /pan/register
+  isLoading: boolean;  // true during initial silent-refresh-on-mount
+}
+```
+
+### Silent refresh on page reload
+
+On every app mount (`App.tsx`), before rendering any protected route, `AuthContext` calls `POST /api/v1/auth/refresh`:
+- If the refresh token cookie is valid → store the new access token in memory; set `user` from the JWT payload or from a subsequent `GET /users/me`; set `isLoading: false`.
+- If the refresh response is 401 → `user` stays `null`; `isLoading: false` → user sees the login page.
+
+During `isLoading: true`, render a full-page loading spinner — never flash protected content or the login page before the check completes.
+
+### ProtectedRoute
+
+`ProtectedRoute` wraps all authenticated routes. Behavior:
+1. If `isLoading` is true → render the full-page spinner.
+2. If `user` is null → redirect to `/login?redirect=<current path>` so the user returns to the original URL after logging in.
+3. If `user.hasPan` is false and the route is a financial route (`/`, `/credit-cards`, `/bank-accounts`, `/loans`, `/investments`, `/insurance`) → redirect to `/pan-register`.
+4. Otherwise → render the child route.
+
+After successful `POST /pan/register`, call `AuthContext.setPan(panMasked)` which sets `hasPan: true` in context, then navigate to `/`.
+
 ---
 
 ## Backend Architecture
@@ -127,10 +166,17 @@ apps/api/
 │   │   ├── pan.utils.ts       (validate PAN format, compute HMAC, produce masked string)
 │   │   ├── currency.utils.ts  (INR formatting helpers)
 │   │   └── token.utils.ts
-│   └── app.ts
+│   ├── app.ts        ← exports createApp({ db, jwtSecret }) factory for testability
+│   └── server.ts     ← calls createApp with real deps, calls app.listen()
 ├── .env.example
 └── package.json
 ```
+
+`app.ts` must export a **factory function**, not a singleton:
+```ts
+export function createApp(deps: { db: DbPool; jwtSecret: string }): Express { ... }
+```
+`server.ts` is the entry point and calls `createApp` with the real database pool and secrets. Integration tests call `createApp` with a test pool and a fixed secret — never importing the real `server.ts`. This pattern is required for all integration tests (see `skills/backend-testing.md`).
 
 ---
 
@@ -200,11 +246,16 @@ Incoming HTTP request
 ```
 1. User submits username + password
 2. API validates credentials, returns:
-   - accessToken  (JWT, 15 min TTL, payload: userId, roles)
-   - refreshToken (JWT, 7 day TTL, stored in HttpOnly cookie)
-3. Frontend stores accessToken in memory (NOT localStorage)
-4. On expiry, silent refresh via /api/v1/auth/refresh using cookie
-5. Logout: clear cookie server-side, discard in-memory token
+   - accessToken  (JWT, 15 min TTL, payload: { userId, username, email, hasPan })
+   - refreshToken (JWT, 7 day TTL, stored in HttpOnly cookie, Path=/api/v1/auth/refresh)
+3. Frontend stores accessToken in a useRef inside AuthContext (NOT localStorage, NOT useState)
+4. On token expiry: Axios response interceptor catches 401, calls POST /auth/refresh,
+   queues concurrent in-flight requests, retries them with the new token on success,
+   or redirects to /login on REFRESH_TOKEN_INVALID.
+5. On page reload: AuthContext calls POST /auth/refresh on mount before rendering routes.
+   Full-page spinner shown during this check (isLoading: true).
+6. Refresh token rotation: each POST /auth/refresh issues a new token and revokes the old.
+7. Logout: DELETE /auth/logout clears the cookie server-side; AuthContext clears accessToken.
 ```
 
 ---
