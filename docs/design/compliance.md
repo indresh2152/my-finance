@@ -228,13 +228,94 @@ OWASP Application Security Verification Standard Level 2 is the baseline for app
 | V4 — Access Control | Financial data scoped to owner's PAN only | Designed |
 | V5 — Validation | Zod schemas on all inputs; PAN regex validation | Designed |
 | V6 — Cryptography | HMAC-SHA256 for PAN/card hashes; bcrypt for passwords | Designed |
-| V7 — Error Handling | Generic error messages; no stack traces to client | To implement |
+| V7 — Error Handling | Generic error messages; no stack traces to client | Designed |
 | V8 — Data Protection | PAN never logged; sensitive fields excluded from responses | Designed |
 | V9 — Communication | TLS 1.2+ enforced; HSTS header via helmet | Helmet configured |
-| V10 — Malicious Code | Dependency scanning; `npm audit` in CI | To implement |
+| V10 — Malicious Code | Dependency scanning; `npm audit` in CI; ESLint security plugin | Designed |
 | V12 — Files | No user file upload endpoints planned | N/A |
 | V13 — API | Rate limiting; versioned API (`/api/v1/`) | Designed |
 | V14 — Config | Secrets via env vars; no secrets in image | Designed |
+
+### V7 — Error Handling — Design
+
+Express uses a single global error middleware registered last in `app.ts`. All route handlers pass errors to `next(err)` rather than handling them inline.
+
+```
+apps/api/src/middleware/error.middleware.ts
+```
+
+Behaviour:
+
+| Error type | HTTP status | Client response | Server log |
+|---|---|---|---|
+| `ZodError` (validation) | 422 | `{ error: { code: "VALIDATION_ERROR", fields: {...} } }` | Warn |
+| Known `AppError` (thrown with `code` + `status`) | As set | `{ error: { code, message } }` | Info |
+| Everything else | 500 | `{ error: { code: "INTERNAL_ERROR", message: "An unexpected error occurred" } }` | Error with full stack |
+
+Key invariants enforced by this middleware:
+- Stack traces **never** appear in the response body — in any environment.
+- The generic 500 message is a hardcoded string, never derived from `err.message`.
+- All unhandled errors are logged with `requestId` (from `x-request-id` header) for correlation.
+- The `message` field in `AppError` responses is a human-readable string sourced from the i18n locale file (see `skills/i18n.md`) — never a raw internal message.
+- The error middleware is registered **after** all route definitions and before the process `uncaughtException` handler.
+
+`AppError` shape (thrown by service layer):
+```ts
+class AppError extends Error {
+  constructor(
+    public readonly code: string,   // UPPER_SNAKE_CASE, e.g. PAN_NOT_FOUND
+    public readonly status: number, // HTTP status
+    message: string                 // i18n-resolved message
+  ) { super(message); }
+}
+```
+
+### V10 — Malicious Code — Design
+
+Three enforcement layers:
+
+**1. Developer machine (pre-commit hook via Husky)**
+```bash
+npm audit --audit-level=high   # run in apps/web and apps/api
+eslint --plugin security .     # no eval(), Function(), exec() with user input
+```
+A commit is blocked if either command exits non-zero.
+
+**2. CI (PR merge gate — GitHub Actions)**
+```yaml
+- name: Audit dependencies
+  run: |
+    cd apps/web && npm audit --audit-level=moderate
+    cd ../api  && npm audit --audit-level=moderate
+```
+PRs cannot merge if any moderate, high, or critical vulnerability is found.
+`npm ci` (not `npm install`) is used throughout CI to enforce the lock file.
+
+**3. Docker build gate**
+The `builder` stage in the Dockerfile runs `npm audit --audit-level=high` before the production build. The image fails to build if vulnerable packages are present.
+
+Additional controls:
+- `package-lock.json` is committed for both apps; CI uses `npm ci`.
+- Dependabot is enabled for weekly automated dependency update PRs.
+- `eslint-plugin-security` is a dev dependency in both apps; its rules run in the pre-commit hook and CI lint step.
+- No `eval()`, `new Function()`, or `child_process.exec()` with user-controlled input — enforced by ESLint rules `security/detect-eval-with-expression` and `security/detect-child-process`.
+
+### OWASP Top 10 (2021) Cross-Reference
+
+ASVS L2 is a superset of the OWASP Top 10. This table maps each Top 10 category to its corresponding ASVS control in this design.
+
+| OWASP Top 10 (2021) | Covered by | Design reference |
+|---|---|---|
+| A01 — Broken Access Control | V4 | Financial data scoped to authenticated user's PAN only |
+| A02 — Cryptographic Failures | V6 | HMAC-SHA256 for PAN/card; bcrypt for passwords; TLS 1.2+ |
+| A03 — Injection | V5 | Zod validation on all inputs; parameterized queries via Drizzle/pg |
+| A04 — Insecure Design | V1 / architecture | Threat-modelled architecture; security-first design mandates |
+| A05 — Security Misconfiguration | V14 + V9 | Secrets via env vars; helmet headers; no debug endpoints in production |
+| A06 — Vulnerable & Outdated Components | V10 | `npm audit` at pre-commit, CI, and Docker build; Dependabot |
+| A07 — Identification & Authentication Failures | V2 + V3 | JWT TTL + rotation; HttpOnly cookie; brute-force rate limiting |
+| A08 — Software & Data Integrity Failures | V10 | Lock files committed; `npm ci` in CI; Docker build audit gate |
+| A09 — Security Logging & Monitoring Failures | V7 + V8 | Structured pino logs with `requestId`; `audit_logs` table; CERT-In 180-day retention |
+| A10 — Server-Side Request Forgery | N/A | No user-supplied URLs are fetched server-side |
 
 ---
 

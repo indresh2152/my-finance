@@ -31,6 +31,47 @@ All error responses must use this exact shape:
 
 Use consistent `code` strings so the frontend can key on them.
 
+## Error handling middleware (V7 — OWASP ASVS)
+
+Register a single global error middleware **last** in `app.ts`, after all routes. Never handle errors inline in route handlers — always call `next(err)`.
+
+```ts
+// apps/api/src/middleware/error.middleware.ts
+export function errorMiddleware(
+  err: unknown,
+  req: Request,
+  res: Response,
+  _next: NextFunction
+): void {
+  if (err instanceof ZodError) {
+    res.status(422).json({ error: { code: 'VALIDATION_ERROR', fields: err.flatten() } });
+    return;
+  }
+  if (err instanceof AppError) {
+    res.status(err.status).json({ error: { code: err.code, message: err.message } });
+    return;
+  }
+  logger.error({ err, requestId: req.headers['x-request-id'] }, 'Unhandled error');
+  res.status(500).json({ error: { code: 'INTERNAL_ERROR', message: 'An unexpected error occurred' } });
+}
+```
+
+Three invariants that must never be broken:
+- Stack traces never appear in the response body — in any `NODE_ENV`.
+- The 500 message is a hardcoded string, never `err.message`.
+- Unhandled errors are always logged with `requestId` for correlation.
+
+`AppError` (thrown by the service layer):
+```ts
+class AppError extends Error {
+  constructor(
+    public readonly code: string,   // UPPER_SNAKE_CASE
+    public readonly status: number,
+    message: string                 // i18n-resolved; see skills/i18n.md
+  ) { super(message); }
+}
+```
+
 ## Database
 
 - snake_case column names in PostgreSQL; camelCase in the TypeScript layer — use a mapper function

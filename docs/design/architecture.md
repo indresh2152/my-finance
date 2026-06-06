@@ -242,6 +242,8 @@ For full detail on each framework see `docs/design/compliance.md`.
 | Token theft (XSS)                 | Access token in memory only; refresh in HttpOnly cookie         |
 | Over-fetching financial data      | All instruments scoped to authenticated user's PAN only         |
 | Sensitive fields in audit metadata| Never put PAN, account numbers, or policy numbers in JSONB logs |
+| Stack trace / internals leakage   | Global Express error middleware returns only generic 500 shape; stack never in response body |
+| Vulnerable dependencies           | `npm audit` at pre-commit, CI merge gate, and Docker build; Dependabot weekly PRs |
 
 ---
 

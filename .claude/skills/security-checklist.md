@@ -27,4 +27,12 @@ description: Pre-PR security checklist for auth, PAN handling, DB queries, and D
 - [ ] User consent is recorded (`consent_given_at`, `consent_version`) before collecting financial data (DPDP)
 - [ ] Right-to-erasure endpoint (`DELETE /users/me`) is implemented (DPDP)
 - [ ] No folio numbers, demat account IDs, or policy numbers exposed in raw form (SEBI/IRDAI)
-- [ ] `npm audit` passes with no high/critical vulnerabilities before merge
+- [ ] Global error middleware is registered last in `app.ts` (after all routes)
+- [ ] No route handler catches errors inline — all errors passed to `next(err)`
+- [ ] No stack trace in any HTTP response body — in any environment
+- [ ] Unknown/unhandled errors return `{ error: { code: "INTERNAL_ERROR", message: "An unexpected error occurred" } }` — never `err.message`
+- [ ] Unhandled errors are logged with `requestId` for correlation
+- [ ] `npm audit --audit-level=high` passes with no high/critical vulnerabilities (pre-commit)
+- [ ] `npm audit --audit-level=moderate` passes in CI for both `apps/web` and `apps/api`
+- [ ] CI uses `npm ci` (not `npm install`) to enforce lock file
+- [ ] `eslint-plugin-security` rules pass — no `eval()`, `new Function()`, or `exec()` with user-controlled input
