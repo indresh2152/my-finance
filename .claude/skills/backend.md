@@ -62,6 +62,22 @@ Use structured logging (e.g. `pino`) — log `user_id` and `request_id` for trac
 Handled by `audit.middleware.ts` via `ROUTE_ACTION_MAP` — do not add per-route audit calls.
 To audit a new route: add one entry to `ROUTE_ACTION_MAP`.
 
+## Internationalisation (i18n)
+
+See `skills/i18n.md` for the full standard — summary below.
+
+**Install:**
+```bash
+npm install i18next i18next-fs-backend
+```
+
+- Call `await initI18n()` in `app.ts` before `app.listen()`.
+- Add `localeMiddleware` to the Express chain after `express.json()` — it sets `req.language` from the `Accept-Language` header.
+- Every `error.message` in API responses comes from `i18next.t('error.<code>', { lng: req.language })`. Never hardcode message strings.
+- Zod validation messages are built via factory functions that receive `lng` and call `i18next.t('validation.<key>', { lng })`.
+- Locale JSON files live in `apps/api/src/locales/<lang>.json` with top-level groups `error` and `validation`.
+- In tests, always pass `lng: 'en'` explicitly so results are deterministic.
+
 ## Graceful shutdown
 
 Handle `SIGTERM`: stop accepting new connections, drain in-flight requests, close DB pool, then exit.

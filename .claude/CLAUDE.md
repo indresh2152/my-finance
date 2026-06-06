@@ -87,6 +87,7 @@ Individual skill files live in `.claude/skills/`:
 | `api-test` | `skills/api-test.md` | Testing REST endpoints with curl |
 | `compliance` | `skills/compliance.md` | PCI, RBI, DPDP, CERT-In, SOC 2 |
 | `security-checklist` | `skills/security-checklist.md` | Pre-PR security gate |
+| `i18n` | `skills/i18n.md` | Any user-visible string — frontend or backend; all text from locale JSON files |
 
 ## Design docs
 
@@ -101,6 +102,7 @@ All design artifacts live in `docs/design/`:
 | `compliance.md` | Full PCI, RBI, DPDP, CERT-In, SOC 2 requirements |
 | `wireframes.md` | UI wireframes |
 | `testing-strategy.md` | Testing approach, stack choices, coverage policy, migration testing |
+| `i18n.md` | i18n architecture — locale files, library setup, frontend + backend patterns |
 
 ## Tech stack
 

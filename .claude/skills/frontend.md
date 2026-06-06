@@ -149,6 +149,26 @@ const formatINR = (amount: number) =>
 
 Use React Router v6 (`createBrowserRouter`). Protected routes check JWT and redirect to `/login` if missing.
 
+## Internationalisation (i18n)
+
+See `skills/i18n.md` for the full standard — summary below.
+
+**Install:**
+```bash
+npm install i18next react-i18next i18next-browser-languagedetector
+```
+
+- Import the `i18n.ts` singleton once in `main.tsx` — never inside components.
+- Every visible string comes from `t('key')`. No hardcoded text in JSX, ever.
+- Use `useTranslation('namespaceName')` in each component:
+  ```tsx
+  const { t } = useTranslation('cards');
+  <Typography>{t('pageTitle')}</Typography>
+  ```
+- Locale JSON files live in `apps/web/src/locales/<lang>/<namespace>.json`.
+- Number and date formatting uses `Intl.NumberFormat` / `Intl.DateTimeFormat` directly — do not put formatted values in JSON files.
+- In tests, wrap with `<I18nextProvider i18n={i18n}>` — never mock `useTranslation`.
+
 ## General
 
 - Never use inline `style={{}}` when `sx` covers it

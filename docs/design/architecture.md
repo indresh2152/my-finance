@@ -58,7 +58,8 @@ Credit card discovery by PAN is one of the core features. The system is structur
 - **React Query (TanStack Query)** for server state / caching
 - **React Hook Form + Zod** for form validation
 - **Axios** for HTTP client
-- **Tailwind CSS** for styling
+- **MUI v5 (Material UI)** for styling and component library
+- **i18next + react-i18next** for internationalisation — all UI strings sourced from `apps/web/src/locales/<lang>/<namespace>.json`
 - **Intl.NumberFormat with `en-IN` locale** for Indian number formatting (₹5,00,000)
 
 ### Pages and Routes
@@ -94,6 +95,7 @@ Credit card discovery by PAN is one of the core features. The system is structur
 - **bcrypt** — password hashing
 - **express-rate-limit** — rate limiting on sensitive endpoints
 - **helmet** + **cors** — security headers
+- **i18next + i18next-fs-backend** — internationalisation; all `error.message` strings sourced from `apps/api/src/locales/<lang>.json`; language detected from `Accept-Language` header via `localeMiddleware`
 
 ### Folder Structure
 
@@ -148,6 +150,9 @@ Incoming HTTP request
   express.json()        — parse JSON body
         │
         ▼
+  localeMiddleware      — sets req.language from Accept-Language header (fallback: 'en')
+        │
+        ▼
   rateLimiter           — global or route-specific (express-rate-limit)
         │
         ▼
@@ -166,6 +171,7 @@ Incoming HTTP request
 ```
 
 **Key points:**
+- `localeMiddleware` runs before `rateLimiter` so that rate-limit error messages can be translated via `req.language`.
 - `/health` and `/ready` are excluded from audit logging — they are probe endpoints, not user actions.
 - Route handlers do **not** call `auditLog()` directly; the middleware handles all routes automatically.
 - Adding a new route only requires adding one entry to `ROUTE_ACTION_MAP` in `audit.middleware.ts` — no risk of forgetting to log.
