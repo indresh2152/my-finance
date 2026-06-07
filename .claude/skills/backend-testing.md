@@ -3,6 +3,9 @@ name: backend-testing
 description: Backend unit testing with Jest — 80% coverage required at commit and in CI, including migrations
 ---
 
+> **Runner: Jest — `apps/api` only.**
+> Do NOT use Vitest here. Mock/spy with `jest.*`, not `vi.*`. Config lives in `jest.config.ts`, not `vite.config.ts`.
+
 **Trigger:** Any time backend code is written or modified in `apps/api/`. Tests are written in the same session as the code — never deferred.
 
 ## Coverage policy
@@ -33,7 +36,10 @@ const config: Config = {
   coverageThreshold: {
     global: { lines: 80, branches: 80, functions: 80, statements: 80 },
   },
-  coveragePathIgnorePatterns: ['/node_modules/', 'src/index.ts'],
+  coveragePathIgnorePatterns: ['/node_modules/', 'src/server.ts'],
+  moduleNameMapper: { '^@/(.*)$': '<rootDir>/$1' },
+  forceExit: true,      // prevents lingering handles from crashing the worker
+  testTimeout: 30000,   // bcrypt with 12 rounds is slow under coverage instrumentation
 };
 
 export default config;
@@ -224,7 +230,20 @@ For every service method or handler, test:
 
 - Mock DB at the query level (`db.query`, `db.transaction`) — not entire models
 - Use `jest.spyOn` over `jest.fn()` when you want to preserve the original implementation for other tests
-- Reset all mocks between tests: `afterEach(() => jest.clearAllMocks())`
+- **Use `jest.resetAllMocks()` in `afterEach`, not `jest.clearAllMocks()`.**
+  `clearAllMocks` only wipes call history — it does NOT flush the `mockResolvedValueOnce` queue. Leftover queue entries bleed into the next test and cause silent mock-order bugs.
+- Always pair `resetAllMocks` with a `beforeEach` that sets a safe default, so unexpected calls (e.g. from middleware that fires asynchronously after the response) return a valid Promise instead of `undefined`:
+
+```ts
+const mockDb = { query: jest.fn() };
+
+beforeEach(() => {
+  // Default: any call not covered by a mockResolvedValueOnce returns safely
+  mockDb.query.mockResolvedValue({ rows: [] });
+});
+afterEach(() => jest.resetAllMocks());
+```
+
 - Never use `jest.mock()` on internal modules — it hides design problems; use dependency injection instead
 
 ## Running tests
@@ -239,6 +258,20 @@ cd apps/api && npx jest --coverage
 # Run a single file
 cd apps/api && npx jest src/services/pan.service.test.ts
 ```
+
+## Verify after every code change
+
+**Before claiming any change is complete**, run the full test suite and confirm all three:
+
+```bash
+cd apps/api && npx jest --coverage
+```
+
+1. Exit code 0 — no failing tests
+2. Coverage table shows ≥ 80 % for lines, branches, functions, statements across `All files`
+3. No new skipped or `.only` tests in the output
+
+Do not move on to the next task while tests are red or coverage is below threshold. Failing tests discovered at commit time were missed earlier — catch them here first.
 
 ## What the 80 % threshold means in practice
 

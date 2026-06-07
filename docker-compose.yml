@@ -1,0 +1,58 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: myfinance
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build:
+      context: .
+      target: deps
+    working_dir: /app/apps/api
+    command: npx nodemon --watch src --ext ts --exec "npx ts-node src/server.ts"
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/myfinance
+      JWT_SECRET: dev-jwt-secret-change-in-production
+      REFRESH_TOKEN_SECRET: dev-refresh-secret-change-in-production
+      PAN_HMAC_SECRET: dev-pan-hmac-secret-change-in-production
+      CORS_ORIGIN: http://localhost:5173
+      PORT: 4000
+    ports:
+      - "4000:4000"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    build:
+      context: .
+      target: deps
+    working_dir: /app/apps/web
+    command: npx vite --host 0.0.0.0
+    environment:
+      VITE_API_BASE_URL: http://localhost:4000
+    ports:
+      - "5173:5173"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    depends_on:
+      - api
+
+volumes:
+  pgdata:

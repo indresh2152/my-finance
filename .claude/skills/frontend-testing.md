@@ -3,6 +3,9 @@ name: frontend-testing
 description: Frontend unit testing with Vitest + React Testing Library — 80% coverage required at commit and in CI
 ---
 
+> **Runner: Vitest — `apps/web` only.**
+> Do NOT use Jest here. Mock/spy with `vi.*`, not `jest.*`. Config lives in `vite.config.ts`, not `jest.config.ts`.
+
 **Trigger:** Any time frontend code is written or modified in `apps/web/`. Tests are written in the same session as the code — never deferred.
 
 ## Coverage policy
@@ -198,6 +201,42 @@ cd apps/web && npx vitest run --coverage
 # Browse uncovered lines after a run
 open coverage/index.html
 ```
+
+## Verify after every code change
+
+**Before claiming any change is complete**, run the full test suite and confirm all three:
+
+```bash
+cd apps/web && npx vitest run --coverage
+```
+
+1. Exit code 0 — no failing tests
+2. Coverage table shows ≥ 80 % for lines, branches, functions, statements
+3. No new skipped or `.only` tests in the output
+
+Do not move on to the next task while tests are red or coverage is below threshold.
+
+## Vitest globals — `vi.*` not `jest.*`
+
+This project uses **Vitest**, not Jest. The test runner globals are different:
+
+| What you need | Vitest (correct) | Jest (wrong — will throw `jest is not defined`) |
+|---|---|---|
+| Spy on a method | `vi.spyOn(obj, 'method')` | `jest.spyOn(…)` |
+| Stub a function | `vi.fn()` | `jest.fn()` |
+| Mock a module | `vi.mock('../module')` | `jest.mock(…)` |
+| Fake timers | `vi.useFakeTimers()` | `jest.useFakeTimers()` |
+| Advance timers | `vi.advanceTimersByTime(ms)` | `jest.advanceTimersByTime(ms)` |
+| Reset mocks | `vi.clearAllMocks()` | `jest.clearAllMocks()` |
+
+Import `vi` explicitly at the top of every test file that uses it:
+```ts
+import { vi } from 'vitest';
+```
+
+`vi` is also available as a global when `globals: true` is set in `vite.config.ts`, but importing it explicitly makes the dependency clear and avoids editor warnings.
+
+**Common mistake**: copying examples from Jest documentation or older code will silently fail with `ReferenceError: jest is not defined`. Always check that spy/mock calls use `vi.*`.
 
 ## What NOT to mock
 

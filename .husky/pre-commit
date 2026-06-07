@@ -1,0 +1,9 @@
+#!/usr/bin/env sh
+set -e
+
+echo "▶ Backend tests (80% coverage gate)"
+cd apps/api && npx jest --coverage
+cd ../..
+
+echo "▶ Frontend tests (80% coverage gate)"
+cd apps/web && npx vitest run --coverage

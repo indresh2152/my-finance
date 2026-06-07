@@ -1,0 +1,16 @@
+{
+  "pageTitle": "Credit Cards",
+  "pageSubtitle": "All credit cards linked to your PAN",
+  "creditLimit": "Credit Limit",
+  "availableCredit": "Available Credit",
+  "currentBalance": "Current Balance",
+  "billingCycleDay": "Billing Date",
+  "expiresOn": "Expires",
+  "nameOnCard": "Name on Card",
+  "cardNetwork": "Network",
+  "emptyState": "No credit cards linked to this PAN yet.",
+  "emptyStateHint": "Credit cards associated with your PAN will appear here.",
+  "errors": {
+    "loadFailed": "Failed to load credit cards. Please try again."
+  }
+}

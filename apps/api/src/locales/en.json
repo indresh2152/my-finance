@@ -1,0 +1,29 @@
+{
+  "error": {
+    "pan_invalid": "PAN format is invalid. Must be 10 characters: 5 letters, 4 digits, 1 letter (e.g. ABCDE1234F)",
+    "pan_already_registered": "A PAN is already linked to this account",
+    "pan_not_registered": "No PAN registered for this account",
+    "pan_not_found": "No PAN profile found for this account",
+    "invalid_credentials": "Username or password is incorrect",
+    "unauthorized": "Authentication required",
+    "forbidden": "You do not have permission to perform this action",
+    "not_found": "The requested resource was not found",
+    "rate_limit_exceeded": "Too many requests. Please try again in a few minutes.",
+    "internal": "An unexpected error occurred. Please try again.",
+    "username_taken": "Username is already taken",
+    "email_taken": "Email is already registered",
+    "refresh_token_invalid": "Session expired. Please log in again.",
+    "user_not_found": "User not found"
+  },
+  "validation": {
+    "pan_required": "PAN is required",
+    "pan_format": "PAN must be 10 characters: 5 letters, 4 digits, 1 letter (e.g. ABCDE1234F)",
+    "username_required": "Username is required",
+    "username_format": "Username must be 3-50 characters: letters, numbers, underscores only",
+    "email_required": "Email address is required",
+    "email_invalid": "Enter a valid email address",
+    "password_required": "Password is required",
+    "password_min": "Password must be at least 8 characters",
+    "password_complexity": "Password must contain at least one uppercase letter, one digit, and one special character"
+  }
+}

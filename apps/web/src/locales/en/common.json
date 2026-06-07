@@ -1,0 +1,26 @@
+{
+  "appName": "MyFinance",
+  "loading": "Loading...",
+  "error": "Something went wrong",
+  "retry": "Try again",
+  "save": "Save",
+  "cancel": "Cancel",
+  "submit": "Submit",
+  "back": "Back",
+  "logout": "Logout",
+  "nav": {
+    "home": "Home",
+    "creditCards": "Credit Cards",
+    "profile": "Profile"
+  },
+  "home": {
+    "welcomeBack": "Welcome back, {{username}}",
+    "panLabel": "PAN"
+  },
+  "status": {
+    "active": "Active",
+    "blocked": "Blocked",
+    "expired": "Expired",
+    "closed": "Closed"
+  }
+}

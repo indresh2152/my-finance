@@ -1,0 +1,20 @@
+{
+  "registerTitle": "Link Your PAN",
+  "registerSubtitle": "Enter your Permanent Account Number to access your financial data",
+  "panLabel": "PAN (Permanent Account Number)",
+  "panPlaceholder": "e.g. ABCDE1234F",
+  "panHint": "10 characters: 5 letters, 4 digits, 1 letter",
+  "registerButton": "Link PAN",
+  "registering": "Linking...",
+  "successMessage": "PAN linked successfully",
+  "linkedPan": "Linked PAN",
+  "errors": {
+    "invalidFormat": "PAN must be 10 characters: 5 letters, 4 digits, 1 letter (e.g. ABCDE1234F)",
+    "alreadyRegistered": "A PAN is already linked to this account",
+    "registrationFailed": "Failed to link PAN. Please try again."
+  },
+  "validation": {
+    "required": "PAN is required",
+    "format": "PAN must match the format ABCDE1234F (5 letters, 4 digits, 1 letter)"
+  }
+}

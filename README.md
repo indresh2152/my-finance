@@ -22,8 +22,9 @@ A personal finance dashboard for Indian users. Link your PAN (Permanent Account 
 | Layer        | Choice                                            |
 |--------------|---------------------------------------------------|
 | Frontend     | React 18 + Vite 5, React Router v6, React Query   |
-| Styling      | Tailwind CSS, `en-IN` locale for INR formatting   |
+| UI           | MUI v5 (Material UI), `en-IN` locale for INR formatting |
 | Forms        | React Hook Form + Zod                             |
+| i18n         | i18next + react-i18next (English locale, JSON files) |
 | Backend      | Node.js 24 LTS + Express + TypeScript             |
 | Validation   | Zod (backend schemas)                             |
 | ORM          | Drizzle ORM (raw `pg` for complex queries)        |
@@ -271,6 +272,162 @@ Full testing strategy: [docs/design/testing-strategy.md](docs/design/testing-str
 Key mitigations: rate limiting on auth and PAN registration endpoints; access token in memory only (not `localStorage`); refresh token in `HttpOnly; SameSite=Strict` cookie; all financial reads scoped to the authenticated user's PAN; every API access written to `audit_logs`.
 
 Full compliance detail: [docs/design/compliance.md](docs/design/compliance.md)
+
+---
+
+## For developers
+
+This section covers everything you need to start working on the code.
+
+### Prerequisites
+
+| Tool | Version | Notes |
+|------|---------|-------|
+| Node.js | 24 LTS | `node --version` must show `v24.x` |
+| Docker | 24+ | Includes Docker Compose v2 |
+| Git | Any | `git --version` |
+
+### First-time setup
+
+```bash
+# 1. Clone and install workspace dependencies
+git clone <repo-url> my-finance
+cd my-finance
+npm install
+
+# 2. Create env file from the example
+cp apps/api/.env.example apps/api/.env
+
+# 3. Fill in the secrets — generate with: openssl rand -hex 32
+#    Required vars: DATABASE_URL, JWT_SECRET, REFRESH_TOKEN_SECRET, PAN_HMAC_SECRET
+#    See apps/api/.env.example for all variables
+```
+
+### Run the dev environment (recommended)
+
+Docker Compose starts Postgres, the API (nodemon), and the Vite dev server all together:
+
+```bash
+docker compose up
+```
+
+| Service | URL |
+|---------|-----|
+| Frontend (Vite HMR) | `http://localhost:5173` |
+| API (nodemon) | `http://localhost:4000` |
+| Postgres | `localhost:5432` |
+
+**Dev seed account** — created automatically on first start:
+
+| Field | Value |
+|-------|-------|
+| username | `devuser` |
+| password | `devpass123` |
+
+### Run without Docker
+
+```bash
+# Start Postgres separately (or point DATABASE_URL at an existing instance)
+# Then, in two terminals:
+
+# Terminal 1 — API
+cd apps/api
+npm run dev   # nodemon, restarts on TypeScript changes
+
+# Terminal 2 — Frontend
+cd apps/web
+npm run dev   # Vite HMR at localhost:5173
+```
+
+### Run tests
+
+```bash
+# Backend (Jest + Supertest) — from repo root or apps/api
+npm test --workspace=apps/api
+# or: cd apps/api && npx jest --coverage
+
+# Frontend (Vitest + React Testing Library) — from repo root or apps/web
+npm test --workspace=apps/web
+# or: cd apps/web && npx vitest run --coverage
+
+# Both suites from the root
+npm test
+```
+
+All three commands enforce the **80% coverage gate** (lines, branches, functions, statements). A commit that drops any metric below 80% is blocked by the pre-commit hook.
+
+**Watch mode** for faster iteration during development:
+
+```bash
+cd apps/api && npx jest --watch
+cd apps/web && npx vitest
+```
+
+### Run database migrations manually
+
+Migrations run automatically on server start. To run them standalone:
+
+```bash
+cd apps/api && npx ts-node src/db/migrate.ts
+```
+
+Migration SQL files live in [apps/api/src/db/migrations/](apps/api/src/db/migrations/).
+
+### Build the production image
+
+```bash
+# Build
+docker build -t my-finance:local .
+
+# Run prod-like locally (built image + Postgres)
+docker compose -f docker-compose.prod.yml up --build
+# App available at http://localhost:4000 (UI + API on same origin)
+```
+
+### Code quality
+
+Every commit goes through two Husky hooks:
+
+| Hook | Check |
+|------|-------|
+| `pre-commit` | Runs Jest + Vitest with coverage. Blocks if < 80%. |
+| `commit-msg` | Validates commit message format via commitlint. |
+
+**Commit message format:** `type(scope): description`
+
+```bash
+git commit -m "feat(cards): add credit card detail page"
+git commit -m "fix(auth): handle expired refresh token on concurrent requests"
+git commit -m "test(pan): add coverage for duplicate registration path"
+```
+
+Scopes: `pan`, `auth`, `cards`, `accounts`, `loans`, `investments`, `insurance`, `overview`, `db`, `migration`, `web`, `api`, `docker`, `deps`, `i18n`
+
+### Project layout for contributors
+
+```
+apps/
+  api/src/
+    db/           schema.ts + migrations/ + seed.ts
+    middleware/   auth, audit, validate, rateLimit, error, locale
+    routes/       auth, pan, credit-cards, users
+    services/     auth.service, pan.service, credit-cards.service
+    utils/        pan.utils, token.utils
+    locales/      en.json  ← all backend error/validation strings
+    app.ts        createApp() factory (used in tests)
+    server.ts     entry point
+
+  web/src/
+    components/   AppLayout
+    context/      AuthContext
+    pages/        LoginPage, HomePage, CreditCardsPage, PanRegisterPage
+    routes/       ProtectedRoute
+    services/     api.ts  ← Axios instance + interceptors
+    locales/en/   common, auth, cards, pan JSON files
+    i18n.ts       i18next singleton
+    App.tsx        router
+    main.tsx      entry point
+```
 
 ---
 

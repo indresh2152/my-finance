@@ -3,9 +3,21 @@
 ## Principles
 
 1. **Tests are written in the same session as the code.** There is no "add tests later" — untested code is incomplete code.
-2. **Test public behaviour, not implementation.** Tests verify what a unit does, not how it does it internally. This allows safe refactoring.
-3. **80 % coverage is the required floor.** Meeting the threshold means key paths were executed; it does not mean every edge case was considered. Write tests for all branches, error paths, and boundary values — coverage is the safety net, not the ceiling.
-4. **Test code is production-quality code.** All ISO-level standards (naming, structure, no magic values, no `any`) apply equally to test files.
+2. **Run tests after every code change.** Before moving on to the next task, the full test suite must pass and coverage must be ≥ 80 %. Failing tests discovered at commit time were missed earlier.
+3. **Test public behaviour, not implementation.** Tests verify what a unit does, not how it does it internally. This allows safe refactoring.
+4. **80 % coverage is the required floor.** Meeting the threshold means key paths were executed; it does not mean every edge case was considered. Write tests for all branches, error paths, and boundary values — coverage is the safety net, not the ceiling.
+5. **Test code is production-quality code.** All ISO-level standards (naming, structure, no magic values, no `any`) apply equally to test files.
+
+---
+
+## Test runner assignment
+
+| App | Runner | Config file | Mock/spy API |
+|---|---|---|---|
+| `apps/web` (frontend) | **Vitest** | `vite.config.ts` → `test:` block | `vi.fn()`, `vi.spyOn()`, `vi.mock()` |
+| `apps/api` (backend) | **Jest** | `jest.config.ts` | `jest.fn()`, `jest.spyOn()`, `jest.mock()` |
+
+These are mutually exclusive. Never use Vitest in `apps/api` or Jest in `apps/web`. Using `jest.*` globals in a Vitest file throws `ReferenceError: jest is not defined` at runtime — there is no compatibility shim.
 
 ---
 
@@ -186,3 +198,40 @@ Tests are always co-located — never in a separate `__tests__/` directory.
 | Assertions on CSS class names | Couples tests to implementation details |
 | `container.querySelector` in RTL tests | Bypasses accessibility-first query priority |
 | Empty `catch {}` in tests | Masks assertion failures |
+| `jest.*` APIs in `apps/web` tests | Vitest uses `vi.*` — `jest.*` throws `ReferenceError: jest is not defined` at runtime |
+
+---
+
+## Known pitfalls
+
+### `jest.*` vs `vi.*` (frontend)
+
+The frontend test runner is **Vitest**, not Jest. They share similar APIs but are incompatible globals.
+
+In `apps/web`, always use:
+- `vi.fn()` not `jest.fn()`
+- `vi.spyOn()` not `jest.spyOn()`
+- `vi.mock()` not `jest.mock()`
+- `vi.useFakeTimers()` not `jest.useFakeTimers()`
+
+Import `vi` from `'vitest'` at the top of any file that uses these APIs. Copying examples from Jest documentation will produce `ReferenceError: jest is not defined` at test runtime.
+
+### Over-broad role queries in RTL
+
+`getByRole('button', { name: /foo/i })` throws if multiple buttons match. Prefer an exact text match or add a more specific accessible name on the element. Use `getAllByRole` when intentionally querying multiple matches.
+
+### Stale DOM assertions after async navigation
+
+After an action that causes a redirect (e.g., successful login), assert that the **new** page is visible rather than asserting the old page is gone. Waiting for a component to disappear is fragile; waiting for its successor to appear is stable:
+
+```ts
+// Fragile
+await waitFor(() => expect(screen.queryByText('Sign in')).not.toBeInTheDocument());
+
+// Stable
+await waitFor(() => expect(screen.getByText('Dashboard')).toBeInTheDocument());
+```
+
+### Refresh-token mock order in Supertest
+
+The `POST /api/v1/auth/refresh` handler makes DB queries in a fixed order: ① look up token row, ② revoke old token, ③ fetch user, ④ insert new token. `mockDb.query` resolves calls in the order they are queued with `.mockResolvedValueOnce`. Providing fewer mock values than DB calls, or providing them in the wrong order, causes the handler to receive an empty/null result mid-flight and return 401. Always queue all four resolved values in order.
