@@ -1,10 +1,6 @@
 import request from 'supertest';
-import type { Router } from 'express';
+import express, { Router, type Express } from 'express';
 import { createApp, type AppDeps } from '../app';
-import { authRouter } from '../routes/auth.routes';
-import { panRouter } from '../routes/pan.routes';
-import { creditCardsRouter } from '../routes/credit-cards.routes';
-import { usersRouter } from '../routes/users.routes';
 import { getOpenApiDocument, BEARER_SCHEME } from './openapi';
 import { OPENAPI_SPEC_PATH } from './api-docs.router';
 import { withEnv } from '../test/with-env';
@@ -20,16 +16,46 @@ const deps: AppDeps = {
 /** Cookie-authenticated routes are intentionally not exposed: the docs are bearer-only. */
 const UNDOCUMENTED_ROUTES = new Set(['post /api/v1/auth/refresh']);
 
-interface RouteLayer {
-  route?: { path: string; methods: Record<string, boolean> };
+const API_PREFIX = '/api/v1';
+
+interface Layer {
+  regexp: RegExp;
+  route?: { path: unknown; methods: Record<string, boolean> };
+  handle: { stack?: Layer[] };
 }
 
-const listRoutes = (prefix: string, router: Router): string[] =>
-  (router.stack as RouteLayer[]).flatMap((layer) => {
-    if (!layer.route) return [];
-    const fullPath = `${prefix}${layer.route.path}`.replace(/\/$/, '');
-    return Object.keys(layer.route.methods).map((method) => `${method} ${fullPath}`);
+/** Express 4 keeps only a compiled regexp for a mount path, e.g. `^\/api\/v1\/pan\/?(?=\/|$)`. */
+const MOUNT_REGEXP_SOURCE = /^\^((?:\\\/[\w-]+)*)\\\/\?\(\?=\\\/\|\$\)$/;
+
+const mountPath = (layer: Layer): string => {
+  const match = MOUNT_REGEXP_SOURCE.exec(layer.regexp.source);
+  if (!match) throw new Error(`Cannot read router mount path from /${layer.regexp.source}/`);
+  return (match[1] ?? '').replace(/\\\//g, '/');
+};
+
+const collectRoutes = (stack: Layer[], prefix: string): string[] =>
+  stack.flatMap((layer) => {
+    if (layer.route) {
+      const { path, methods } = layer.route;
+      if (typeof path !== 'string') throw new Error(`Unsupported route path under ${prefix}`);
+      // OpenAPI writes path params as {id}; Express writes them as :id.
+      const fullPath = `${prefix}${path}`.replace(/\/$/, '').replace(/:(\w+)/g, '{$1}');
+      return Object.keys(methods).map((method) => `${method} ${fullPath}`);
+    }
+    if (layer.handle.stack) {
+      return collectRoutes(layer.handle.stack, `${prefix}${mountPath(layer)}`);
+    }
+    return [];
   });
+
+/**
+ * Every `/api/v1` route the app actually serves, found by walking its router stack.
+ * Relies on Express 4 internals (`app._router`, `layer.regexp`): rewrite on the Express 5 upgrade.
+ */
+const listApiRoutes = (app: Express): string[] =>
+  collectRoutes((app as unknown as { _router: { stack: Layer[] } })._router.stack, '').filter(
+    (route) => route.includes(` ${API_PREFIX}/`),
+  );
 
 describe('API docs mounting', () => {
   it(
@@ -94,14 +120,36 @@ describe('OpenAPI document', () => {
   });
 
   it('should document every API route except cookie-authenticated ones', () => {
-    const appRoutes = [
-      ...listRoutes('/api/v1/auth', authRouter(deps)),
-      ...listRoutes('/api/v1/pan', panRouter(deps)),
-      ...listRoutes('/api/v1/credit-cards', creditCardsRouter(deps)),
-      ...listRoutes('/api/v1/users', usersRouter(deps)),
-    ].filter((route) => !UNDOCUMENTED_ROUTES.has(route));
+    const appRoutes = listApiRoutes(createApp(deps)).filter(
+      (route) => !UNDOCUMENTED_ROUTES.has(route),
+    );
 
     expect(documentedRoutes.sort()).toEqual(appRoutes.sort());
+  });
+
+  it('should discover routes on every mounted router, including nested ones and path params', () => {
+    const nested = Router();
+    nested.delete('/:accountId', jest.fn());
+    const mailbox = Router();
+    mailbox.get('/', jest.fn());
+    mailbox.use('/accounts', nested);
+
+    const app = express();
+    app.use(Router());
+    app.use(`${API_PREFIX}/mailbox`, mailbox);
+    app.get('/health', jest.fn());
+
+    expect(listApiRoutes(app).sort()).toEqual([
+      'delete /api/v1/mailbox/accounts/{accountId}',
+      'get /api/v1/mailbox',
+    ]);
+  });
+
+  it('should fail loudly on a mount path it cannot read', () => {
+    const app = express();
+    app.use('/api/v1/:tenant', Router());
+
+    expect(() => listApiRoutes(app)).toThrow('Cannot read router mount path');
   });
 
   it('should require the bearer token on every route except login and register', () => {

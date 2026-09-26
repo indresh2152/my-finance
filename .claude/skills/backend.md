@@ -106,7 +106,7 @@ Rules:
 - **Reuse the route's Zod schema** (the `build*Schema(lng)` factory exported from the routes file) for request bodies. Never copy a schema into `openapi.ts`, because the docs will drift from what the route actually validates.
 - Response schemas must match what the handler really sends: field names, nullability, and the `{ error: { code, message } }` error shape.
 - Every summary, description, and tag comes from `apiDocs.*` keys in `apps/api/src/locales/<lang>.json` (see `skills/i18n.md`). Add the key to **every** locale file.
-- **A new router must be added to the `listRoutes(...)` list** in `apps/api/src/docs/api-docs.router.test.ts` (test: "should document every API route except cookie-authenticated ones"). That test only compares the routers it lists, so a router left out of the list can go undocumented without failing it.
+- The drift test in `apps/api/src/docs/api-docs.router.test.ts` ("should document every API route except cookie-authenticated ones") walks the app's router stack and compares every `/api/v1` route against the spec. Any undocumented route, or any documented route that does not exist, fails the test. Mount routers under literal paths (`app.use('/api/v1/mailbox', router)`). The test cannot read a mount path that has parameters, such as `/api/v1/:tenant`, and fails on purpose if it meets one.
 - Routes that are intentionally undocumented, such as cookie-authenticated ones, go in `UNDOCUMENTED_ROUTES` in that test with a comment explaining why. Leaving a route out of the docs for any other reason is not allowed.
 - If the public/bearer split changes, update the `publicRoutes` list in the "should require the bearer token" test.
 - Also update the contract in `docs/design/api-contracts.md` so the design doc matches the code.
