@@ -15,7 +15,9 @@
   },
   "home": {
     "welcomeBack": "Welcome back, {{username}}",
-    "panLabel": "PAN"
+    "panLabel": "PAN",
+    "linkPanPrompt": "Link your PAN to see your credit cards and other financial data.",
+    "linkPanAction": "Link PAN"
   },
   "status": {
     "active": "Active",

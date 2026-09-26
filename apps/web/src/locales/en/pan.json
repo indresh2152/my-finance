@@ -6,12 +6,16 @@
   "panHint": "10 characters: 5 letters, 4 digits, 1 letter",
   "registerButton": "Link PAN",
   "registering": "Linking...",
+  "skipButton": "Skip for now",
   "successMessage": "PAN linked successfully",
+  "verifiedMessage": "PAN verified successfully",
   "linkedPan": "Linked PAN",
   "errors": {
     "invalidFormat": "PAN must be 10 characters: 5 letters, 4 digits, 1 letter (e.g. ABCDE1234F)",
     "alreadyRegistered": "A PAN is already linked to this account",
-    "registrationFailed": "Failed to link PAN. Please try again."
+    "registrationFailed": "Failed to link PAN. Please try again.",
+    "verificationFailed": "PAN could not be verified. Please check your PAN and try again.",
+    "kycUnavailable": "PAN verification service is currently unavailable. Please try again later."
   },
   "validation": {
     "required": "PAN is required",

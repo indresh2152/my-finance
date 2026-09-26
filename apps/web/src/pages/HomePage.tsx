@@ -1,7 +1,9 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
+  Alert,
   Box,
+  Button,
   Card,
   CardContent,
   Container,
@@ -30,6 +32,20 @@ export const HomePage: React.FC = () => {
             <> &nbsp;&bull;&nbsp; {t('home.panLabel')}: {user.panMasked}</>
           )}
         </Typography>
+      )}
+
+      {user && !user.hasPan && (
+        <Alert
+          severity="info"
+          sx={{ mb: 3 }}
+          action={
+            <Button color="inherit" size="small" onClick={() => navigate('/pan-register')}>
+              {t('home.linkPanAction')}
+            </Button>
+          }
+        >
+          {t('home.linkPanPrompt')}
+        </Alert>
       )}
 
       <Grid container spacing={3}>

@@ -1,11 +1,12 @@
 import { screen, waitFor } from '@testing-library/react';
 import { renderWithProviders } from '../test/renderWithProviders';
 import { ProtectedRoute } from './ProtectedRoute';
-import { AuthProvider } from '../context/AuthContext';
+import { AuthProvider, useAuth } from '../context/AuthContext';
+import userEvent from '@testing-library/user-event';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import React from 'react';
-import { Route, Routes } from 'react-router-dom';
+import { Route, Routes, useNavigate } from 'react-router-dom';
 
 const server = setupServer(
   http.post('/api/v1/auth/refresh', () => new HttpResponse(null, { status: 401 })),
@@ -15,9 +16,26 @@ beforeAll(() => server.listen({ onUnhandledRequest: 'warn' }));
 afterEach(() => server.resetHandlers());
 afterAll(() => server.close());
 
-const ChildPage: React.FC = () => <div>Protected Content</div>;
+const ChildPage: React.FC = () => {
+  const navigate = useNavigate();
+  return (
+    <div>
+      Protected Content
+      <button onClick={() => navigate('/credit-cards')}>Go to cards</button>
+    </div>
+  );
+};
 const LoginPage: React.FC = () => <div>Login Page</div>;
-const PanRegisterPage: React.FC = () => <div>PAN Register Page</div>;
+const PanRegisterPage: React.FC = () => {
+  const { skipPan } = useAuth();
+  const navigate = useNavigate();
+  return (
+    <div>
+      PAN Register Page
+      <button onClick={() => { skipPan(); navigate('/'); }}>Skip</button>
+    </div>
+  );
+};
 
 const renderRoute = (initialPath: string): ReturnType<typeof renderWithProviders> =>
   renderWithProviders(
@@ -72,5 +90,33 @@ describe('ProtectedRoute', () => {
     );
     renderRoute('/credit-cards');
     await waitFor(() => expect(screen.getByText('Protected Content')).toBeInTheDocument());
+  });
+
+  it('should allow the home route but still gate financial routes after the user skips PAN', async () => {
+    server.use(
+      http.post('/api/v1/auth/refresh', () => HttpResponse.json({ accessToken: 'token' })),
+      http.get('/api/v1/users/me', () =>
+        HttpResponse.json({ id: '1', username: 'u', email: 'e@e.com', hasPan: false, panMasked: null }),
+      ),
+    );
+    renderRoute('/pan-register');
+    await waitFor(() => screen.getByRole('button', { name: 'Skip' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Skip' }));
+    await waitFor(() => expect(screen.getByText('Protected Content')).toBeInTheDocument());
+  });
+
+  it('should still redirect credit cards to /pan-register after the user skips PAN', async () => {
+    server.use(
+      http.post('/api/v1/auth/refresh', () => HttpResponse.json({ accessToken: 'token' })),
+      http.get('/api/v1/users/me', () =>
+        HttpResponse.json({ id: '1', username: 'u', email: 'e@e.com', hasPan: false, panMasked: null }),
+      ),
+    );
+    renderRoute('/pan-register');
+    await waitFor(() => screen.getByRole('button', { name: 'Skip' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Skip' }));
+    await waitFor(() => screen.getByRole('button', { name: 'Go to cards' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Go to cards' }));
+    await waitFor(() => expect(screen.getByText(/PAN Register Page/)).toBeInTheDocument());
   });
 });

@@ -13,7 +13,9 @@ import {
   Paper,
   CircularProgress,
 } from '@mui/material';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import { useTranslation } from 'react-i18next';
+import axios from 'axios';
 import { useAuth } from '../context/AuthContext';
 import apiClient from '../services/api';
 
@@ -31,11 +33,24 @@ interface PanRegisterResponse {
   verifiedAt: string | null;
 }
 
+const resolveApiError = (
+  err: unknown,
+  t: (key: string) => string,
+): string => {
+  if (axios.isAxiosError(err)) {
+    const code: string | undefined = err.response?.data?.error?.code;
+    if (code === 'PAN_VERIFICATION_FAILED') return t('errors.verificationFailed');
+    if (code === 'PAN_KYC_UNAVAILABLE') return t('errors.kycUnavailable');
+  }
+  return t('errors.registrationFailed');
+};
+
 export const PanRegisterPage: React.FC = () => {
   const { t } = useTranslation('pan');
-  const { setPan } = useAuth();
+  const { setPan, skipPan } = useAuth();
   const navigate = useNavigate();
   const [apiError, setApiError] = useState<string | null>(null);
+  const [verified, setVerified] = useState(false);
 
   const {
     control,
@@ -53,10 +68,20 @@ export const PanRegisterPage: React.FC = () => {
         pan: data.pan.toUpperCase(),
       });
       setPan(result.panMasked);
-      navigate('/', { replace: true });
-    } catch {
-      setApiError(t('errors.registrationFailed'));
+      if (result.verifiedAt !== null) {
+        setVerified(true);
+        setTimeout(() => navigate('/', { replace: true }), 1500);
+      } else {
+        navigate('/', { replace: true });
+      }
+    } catch (err) {
+      setApiError(resolveApiError(err, t));
     }
+  };
+
+  const handleSkip = (): void => {
+    skipPan();
+    navigate('/', { replace: true });
   };
 
   return (
@@ -69,6 +94,12 @@ export const PanRegisterPage: React.FC = () => {
           <Typography variant="body2" color="text.secondary" mb={3}>
             {t('registerSubtitle')}
           </Typography>
+
+          {verified && (
+            <Alert severity="success" icon={<CheckCircleOutlineIcon />} sx={{ mb: 2 }}>
+              {t('verifiedMessage')}
+            </Alert>
+          )}
 
           {apiError && (
             <Alert severity="error" sx={{ mb: 2 }}>
@@ -109,6 +140,16 @@ export const PanRegisterPage: React.FC = () => {
               startIcon={isSubmitting ? <CircularProgress size={18} color="inherit" /> : undefined}
             >
               {isSubmitting ? t('registering') : t('registerButton')}
+            </Button>
+
+            <Button
+              variant="text"
+              fullWidth
+              disabled={isSubmitting}
+              onClick={handleSkip}
+              sx={{ mt: 1 }}
+            >
+              {t('skipButton')}
             </Button>
           </Box>
         </Paper>

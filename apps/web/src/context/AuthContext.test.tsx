@@ -73,6 +73,16 @@ describe('AuthContext', () => {
     expect(result.current.user).toBeNull();
   });
 
+  it('should set panSkipped after skipPan and reset it on logout', async () => {
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.panSkipped).toBe(false);
+    act(() => { result.current.skipPan(); });
+    expect(result.current.panSkipped).toBe(true);
+    await act(async () => { await result.current.logout(); });
+    expect(result.current.panSkipped).toBe(false);
+  });
+
   it('should update hasPan after setPan', async () => {
     const { result } = renderHook(() => useAuth(), { wrapper });
     await waitFor(() => expect(result.current.isLoading).toBe(false));

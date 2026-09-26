@@ -16,6 +16,8 @@ export interface AuthContextValue {
   login: (username: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   setPan: (panMasked: string) => void;
+  panSkipped: boolean;
+  skipPan: () => void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -40,6 +42,7 @@ interface MeResponse {
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [panSkipped, setPanSkipped] = useState(false);
   const tokenRef = useRef<string | null>(null);
 
   const login = useCallback(async (username: string, password: string): Promise<void> => {
@@ -62,7 +65,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       tokenRef.current = null;
       setAccessToken(null);
       setUser(null);
+      setPanSkipped(false);
     }
+  }, []);
+
+  const skipPan = useCallback((): void => {
+    setPanSkipped(true);
   }, []);
 
   const setPan = useCallback((panMasked: string): void => {
@@ -101,7 +109,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, logout, setPan }}>
+    <AuthContext.Provider value={{ user, isLoading, login, logout, setPan, panSkipped, skipPan }}>
       {children}
     </AuthContext.Provider>
   );

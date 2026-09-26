@@ -9,6 +9,7 @@ import React from 'react';
 import { Route, Routes } from 'react-router-dom';
 
 const CreditCardsStub: React.FC = () => <div>Credit Cards Page</div>;
+const PanRegisterStub: React.FC = () => <div>PAN Register Page</div>;
 
 const server = setupServer(
   http.post('/api/v1/auth/refresh', () =>
@@ -29,6 +30,7 @@ const renderPage = (): ReturnType<typeof renderWithProviders> =>
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/credit-cards" element={<CreditCardsStub />} />
+        <Route path="/pan-register" element={<PanRegisterStub />} />
       </Routes>
     </AuthProvider>,
   );
@@ -54,5 +56,23 @@ describe('HomePage', () => {
     await waitFor(() => screen.getByRole('button', { name: /credit cards/i }));
     await userEvent.click(screen.getByRole('button', { name: /credit cards/i }));
     await waitFor(() => expect(screen.getByText('Credit Cards Page')).toBeInTheDocument());
+  });
+
+  it('should not show the link-PAN prompt when a PAN is linked', async () => {
+    renderPage();
+    await waitFor(() => screen.getByText(/johndoe/));
+    expect(screen.queryByText(/link your pan/i)).not.toBeInTheDocument();
+  });
+
+  it('should show a link-PAN prompt that navigates to PAN registration when no PAN is linked', async () => {
+    server.use(
+      http.get('/api/v1/users/me', () =>
+        HttpResponse.json({ id: '1', username: 'johndoe', email: 'j@j.com', hasPan: false, panMasked: null }),
+      ),
+    );
+    renderPage();
+    await waitFor(() => expect(screen.getByText(/link your pan/i)).toBeInTheDocument());
+    await userEvent.click(screen.getByRole('button', { name: 'Link PAN' }));
+    await waitFor(() => expect(screen.getByText('PAN Register Page')).toBeInTheDocument());
   });
 });
