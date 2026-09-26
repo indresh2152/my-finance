@@ -16,7 +16,7 @@ const getCookieOptions = () => ({
   path: COOKIE_PATH,
 });
 
-const buildRegisterSchema = (lng: string): z.ZodObject<{
+export const buildRegisterSchema = (lng: string): z.ZodObject<{
   username: z.ZodString;
   email: z.ZodString;
   password: z.ZodString;
@@ -39,7 +39,7 @@ const buildRegisterSchema = (lng: string): z.ZodObject<{
       ),
   });
 
-const buildLoginSchema = (lng: string): z.ZodObject<{
+export const buildLoginSchema = (lng: string): z.ZodObject<{
   username: z.ZodString;
   password: z.ZodString;
 }> =>

@@ -6,7 +6,7 @@ import { requireAuth } from '../middleware/auth.middleware';
 import { panRateLimiter } from '../middleware/rateLimit.middleware';
 import { i18next } from '../i18n';
 
-const buildPanSchema = (lng: string): z.ZodObject<{ pan: z.ZodString }> =>
+export const buildPanSchema = (lng: string): z.ZodObject<{ pan: z.ZodString }> =>
   z.object({
     pan: z
       .string({ required_error: i18next.t('validation.pan_required', { lng }) })
@@ -15,7 +15,7 @@ const buildPanSchema = (lng: string): z.ZodObject<{ pan: z.ZodString }> =>
 
 export const panRouter = (deps: AppDeps): Router => {
   const router = Router();
-  const service = new PanService(deps.db, deps.panHmacSecret);
+  const service = new PanService(deps.db, deps.panHmacSecret, deps.panVerifier);
 
   router.post(
     '/register',

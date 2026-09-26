@@ -4,6 +4,8 @@
     "pan_already_registered": "A PAN is already linked to this account",
     "pan_not_registered": "No PAN registered for this account",
     "pan_not_found": "No PAN profile found for this account",
+    "pan_verification_failed": "PAN could not be verified. Please check your PAN and try again.",
+    "pan_kyc_unavailable": "PAN verification service is currently unavailable. Please try again later.",
     "invalid_credentials": "Username or password is incorrect",
     "unauthorized": "Authentication required",
     "forbidden": "You do not have permission to perform this action",
@@ -25,5 +27,46 @@
     "password_required": "Password is required",
     "password_min": "Password must be at least 8 characters",
     "password_complexity": "Password must contain at least one uppercase letter, one digit, and one special character"
+  },
+  "apiDocs": {
+    "title": "my-finance API",
+    "description": "Interactive reference for the my-finance REST API. To call protected endpoints: 1) run POST /api/v1/auth/login, 2) copy the accessToken from the response, 3) click Authorize and paste it. Access tokens are short-lived; log in again when calls start returning 401.",
+    "security": {
+      "bearer": "Access token (JWT) returned by POST /api/v1/auth/login or /api/v1/auth/register."
+    },
+    "tags": {
+      "auth": "Auth",
+      "users": "Users",
+      "pan": "PAN",
+      "creditCards": "Credit cards"
+    },
+    "operations": {
+      "register": "Create an account",
+      "login": "Log in and get an access token",
+      "loginDescription": "Returns a bearer access token. Use it with the Authorize button to call protected endpoints.",
+      "logout": "Log out and revoke the current session",
+      "getMe": "Get the signed-in user's profile",
+      "registerPan": "Link and verify your PAN",
+      "getPan": "Get your linked PAN profile (masked)",
+      "listCreditCards": "List credit cards linked to your PAN"
+    },
+    "schemas": {
+      "accessToken": "Bearer token for the Authorization header.",
+      "panMasked": "PAN with the four digits hidden, e.g. ABCDE####F.",
+      "inrAmount": "Amount in INR (₹)."
+    },
+    "responses": {
+      "ok": "Success",
+      "created": "Created",
+      "noContent": "Logged out",
+      "badRequest": "Invalid request",
+      "unauthorized": "Missing, invalid or expired bearer token",
+      "invalidCredentials": "Username or password is incorrect",
+      "notFound": "Not found",
+      "conflict": "Already exists",
+      "validation": "Request body failed validation",
+      "rateLimited": "Too many requests",
+      "panNotRegistered": "No PAN is linked to this account"
+    }
   }
 }

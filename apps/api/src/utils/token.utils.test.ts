@@ -37,6 +37,13 @@ describe('signAccessToken / verifyAccessToken', () => {
 });
 
 describe('signRefreshToken / verifyRefreshToken', () => {
+  it('should produce distinct tokens for the same user signed within the same second', () => {
+    const first = signRefreshToken(PAYLOAD.userId, REFRESH_SECRET);
+    const second = signRefreshToken(PAYLOAD.userId, REFRESH_SECRET);
+    expect(first).not.toBe(second);
+    expect(hashToken(first)).not.toBe(hashToken(second));
+  });
+
   it('should round-trip a refresh token', () => {
     const token = signRefreshToken(PAYLOAD.userId, REFRESH_SECRET);
     const decoded = verifyRefreshToken(token, REFRESH_SECRET);

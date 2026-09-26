@@ -13,12 +13,15 @@ import { authRouter } from './routes/auth.routes';
 import { panRouter } from './routes/pan.routes';
 import { creditCardsRouter } from './routes/credit-cards.routes';
 import { usersRouter } from './routes/users.routes';
+import { apiDocsRouter, API_DOCS_PATH } from './docs/api-docs.router';
+import type { PanVerifier } from './services/pan.verifier';
 
 export interface AppDeps {
   db: Pool;
   jwtSecret: string;
   refreshTokenSecret: string;
   panHmacSecret: string;
+  panVerifier: PanVerifier;
 }
 
 export const createApp = (deps: AppDeps): Express => {
@@ -58,6 +61,10 @@ export const createApp = (deps: AppDeps): Express => {
   app.use('/api/v1/pan', panRouter(deps));
   app.use('/api/v1/credit-cards', creditCardsRouter(deps));
   app.use('/api/v1/users', usersRouter(deps));
+
+  if (process.env['API_DOCS_ENABLED'] === 'true') {
+    app.use(API_DOCS_PATH, apiDocsRouter());
+  }
 
   if (process.env['NODE_ENV'] === 'production') {
     const publicDir = path.join(__dirname, '..', 'public');

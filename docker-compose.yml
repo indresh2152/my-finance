@@ -28,6 +28,7 @@ services:
       REFRESH_TOKEN_SECRET: dev-refresh-secret-change-in-production
       PAN_HMAC_SECRET: dev-pan-hmac-secret-change-in-production
       CORS_ORIGIN: http://localhost:5173
+      API_DOCS_ENABLED: "true"
       PORT: 4000
     ports:
       - "4000:4000"

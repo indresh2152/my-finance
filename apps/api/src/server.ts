@@ -1,8 +1,10 @@
+import 'dotenv/config';
 import { getPool, closePool } from './db/index';
 import { runMigrations } from './db/migrate';
 import { seedDevData } from './db/seed';
 import { initI18n } from './i18n';
 import { createApp } from './app';
+import { SetuPanVerifier } from './services/setu-pan.verifier';
 import pino from 'pino';
 
 const logger = pino({ name: 'server' });
@@ -15,11 +17,19 @@ const start = async (): Promise<void> => {
   await runMigrations(pool);
   await seedDevData(pool);
 
+  const panVerifier = new SetuPanVerifier(
+    process.env['SETU_BASE_URL'] ?? 'https://dg-sandbox.setu.co',
+    process.env['SETU_CLIENT_ID'] ?? '',
+    process.env['SETU_CLIENT_SECRET'] ?? '',
+    process.env['SETU_PRODUCT_INSTANCE_ID'] ?? '',
+  );
+
   const app = createApp({
     db: pool,
     jwtSecret: process.env['JWT_SECRET'] ?? '',
     refreshTokenSecret: process.env['REFRESH_TOKEN_SECRET'] ?? '',
     panHmacSecret: process.env['PAN_HMAC_SECRET'] ?? '',
+    panVerifier,
   });
 
   const server = app.listen(PORT, () => {

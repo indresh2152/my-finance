@@ -11,6 +11,7 @@ const deps: AppDeps = {
   jwtSecret: 'test-jwt-secret-at-least-32-chars!!',
   refreshTokenSecret: 'test-refresh-secret-32-chars-min!!',
   panHmacSecret: 'test-pan-hmac-secret-32-chars-min!',
+  panVerifier: { verify: jest.fn() } as never,
 };
 
 const app = createApp(deps);

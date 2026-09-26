@@ -23,6 +23,7 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       REFRESH_TOKEN_SECRET: ${REFRESH_TOKEN_SECRET}
       PAN_HMAC_SECRET: ${PAN_HMAC_SECRET}
+      API_DOCS_ENABLED: ${API_DOCS_ENABLED:-false}
       PORT: 4000
     ports:
       - "4000:4000"

@@ -13,6 +13,7 @@ const app = createApp({
   jwtSecret: JWT_SECRET,
   refreshTokenSecret: REFRESH_SECRET,
   panHmacSecret: 'test-pan-hmac-at-least-32-chars-min!',
+  panVerifier: { verify: jest.fn() } as never,
 });
 
 // The audit middleware fires pool.query asynchronously after the response is sent.

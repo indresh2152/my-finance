@@ -11,6 +11,7 @@ const app = createApp({
   jwtSecret: JWT_SECRET,
   refreshTokenSecret: 'test-refresh-at-least-32-chars-min!',
   panHmacSecret: 'test-pan-hmac-at-least-32-chars-min!',
+  panVerifier: { verify: jest.fn() } as never,
 });
 
 const validToken = signAccessToken(

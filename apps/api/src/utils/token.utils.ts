@@ -12,7 +12,7 @@ export const signAccessToken = (payload: AccessTokenPayload, secret: string): st
   jwt.sign(payload, secret, { expiresIn: '15m' });
 
 export const signRefreshToken = (userId: string, secret: string): string =>
-  jwt.sign({ userId }, secret, { expiresIn: '7d' });
+  jwt.sign({ userId }, secret, { expiresIn: '7d', jwtid: crypto.randomUUID() });
 
 export const verifyAccessToken = (token: string, secret: string): AccessTokenPayload =>
   jwt.verify(token, secret) as AccessTokenPayload;
