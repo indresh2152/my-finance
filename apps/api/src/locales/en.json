@@ -16,7 +16,12 @@
     "username_taken": "Username is already taken",
     "email_taken": "Email is already registered",
     "refresh_token_invalid": "Session expired. Please log in again.",
-    "user_not_found": "User not found"
+    "user_not_found": "User not found",
+    "mailbox_provider_not_supported": "This email provider isn't supported yet.",
+    "mailbox_already_linked": "This mailbox is already linked to your account.",
+    "mailbox_not_found": "Mailbox not found.",
+    "mailbox_reauth_required": "Access to this mailbox has expired. Reconnect it to continue syncing.",
+    "mailbox_sync_too_frequent": "This mailbox was synced recently. Try again in a few minutes."
   },
   "validation": {
     "pan_required": "PAN is required",
