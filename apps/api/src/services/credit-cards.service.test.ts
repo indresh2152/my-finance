@@ -72,4 +72,17 @@ describe('CreditCardsService.listByUserId', () => {
       expect.objectContaining({ creditLimit: null, availableCredit: null, currentBalance: null }),
     ]);
   });
+
+  it('should only list cards added by the user, not email-derived cards', async () => {
+    const db = makeDb();
+    db.query
+      .mockResolvedValueOnce({ rows: [{ id: PAN_PROFILE_ID }] })
+      .mockResolvedValueOnce({ rows: [] });
+    const service = new CreditCardsService(db as never);
+
+    await service.listByUserId(USER_ID, LNG);
+
+    const cardsSql = db.query.mock.calls[1]?.[0] as string;
+    expect(cardsSql).toContain("source = 'USER'");
+  });
 });

@@ -73,7 +73,7 @@ export class CreditCardsService {
               expiry_month, expiry_year, name_on_card, status,
               credit_limit, available_credit, current_balance, billing_cycle_day
        FROM credit_cards
-       WHERE pan_profile_id = $1
+       WHERE pan_profile_id = $1 AND source = 'USER'
        ORDER BY created_at DESC`,
       [panProfileId],
     );

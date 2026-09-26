@@ -1,3 +1,4 @@
+import { sql } from 'drizzle-orm';
 import {
   pgTable,
   uuid,
@@ -11,6 +12,8 @@ import {
   pgEnum,
   inet,
   jsonb,
+  uniqueIndex,
+  check,
 } from 'drizzle-orm/pg-core';
 
 export const cardStatusEnum = pgEnum('card_status', ['ACTIVE', 'BLOCKED', 'EXPIRED', 'CLOSED']);
@@ -50,7 +53,15 @@ export const auditActionEnum = pgEnum('audit_action', [
   'INVESTMENT_LIST',
   'INSURANCE_LIST',
   'AUDIT_LOG_VIEW',
+  'MAILBOX_LINK',
+  'MAILBOX_UNLINK',
+  'MAILBOX_SYNC',
+  'EMAIL_CARD_LIST',
+  'EMAIL_ACCOUNT_LIST',
+  'STATEMENT_DOWNLOAD',
 ]);
+// USER rows / EMAIL rows: see credit_cards and bank_accounts below — mirrored by db/mailbox.schema.ts too.
+export const recordSourceEnum = pgEnum('record_source', ['USER', 'EMAIL']);
 
 export const users = pgTable('users', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -77,27 +88,45 @@ export const panProfiles = pgTable('pan_profiles', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
-export const creditCards = pgTable('credit_cards', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  panProfileId: uuid('pan_profile_id')
-    .notNull()
-    .references(() => panProfiles.id, { onDelete: 'cascade' }),
-  cardNumberHash: text('card_number_hash').notNull().unique(),
-  cardNumberLast4: char('card_number_last4', { length: 4 }).notNull(),
-  cardNetwork: cardNetworkEnum('card_network').notNull(),
-  issuingBank: varchar('issuing_bank', { length: 100 }).notNull(),
-  cardVariant: cardVariantEnum('card_variant').notNull().default('CLASSIC'),
-  expiryMonth: smallint('expiry_month').notNull(),
-  expiryYear: smallint('expiry_year').notNull(),
-  nameOnCard: varchar('name_on_card', { length: 100 }).notNull(),
-  status: cardStatusEnum('status').notNull().default('ACTIVE'),
-  creditLimit: numeric('credit_limit', { precision: 15, scale: 2 }),
-  availableCredit: numeric('available_credit', { precision: 15, scale: 2 }),
-  currentBalance: numeric('current_balance', { precision: 15, scale: 2 }),
-  billingCycleDay: smallint('billing_cycle_day'),
-  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
-  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
-});
+// USER rows: added by the user, all identity fields required.
+// EMAIL rows: derived from bank emails; only masked last4 + bank are known.
+export const creditCards = pgTable(
+  'credit_cards',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    panProfileId: uuid('pan_profile_id')
+      .notNull()
+      .references(() => panProfiles.id, { onDelete: 'cascade' }),
+    source: recordSourceEnum('source').notNull().default('USER'),
+    cardNumberHash: text('card_number_hash'),
+    cardNumberLast4: char('card_number_last4', { length: 4 }).notNull(),
+    cardNetwork: cardNetworkEnum('card_network'),
+    issuingBank: varchar('issuing_bank', { length: 100 }).notNull(),
+    cardVariant: cardVariantEnum('card_variant').notNull().default('CLASSIC'),
+    expiryMonth: smallint('expiry_month'),
+    expiryYear: smallint('expiry_year'),
+    nameOnCard: varchar('name_on_card', { length: 100 }),
+    status: cardStatusEnum('status').notNull().default('ACTIVE'),
+    creditLimit: numeric('credit_limit', { precision: 15, scale: 2 }),
+    availableCredit: numeric('available_credit', { precision: 15, scale: 2 }),
+    currentBalance: numeric('current_balance', { precision: 15, scale: 2 }),
+    billingCycleDay: smallint('billing_cycle_day'),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    uniqueIndex('uq_credit_cards_card_number_hash')
+      .on(t.cardNumberHash)
+      .where(sql`${t.cardNumberHash} IS NOT NULL`),
+    uniqueIndex('uq_credit_cards_email')
+      .on(t.panProfileId, t.issuingBank, t.cardNumberLast4)
+      .where(sql`${t.source} = 'EMAIL'`),
+    check(
+      'credit_cards_user_fields_required',
+      sql`${t.source} <> 'USER' OR (${t.cardNumberHash} IS NOT NULL AND ${t.cardNetwork} IS NOT NULL AND ${t.expiryMonth} IS NOT NULL AND ${t.expiryYear} IS NOT NULL AND ${t.nameOnCard} IS NOT NULL)`,
+    ),
+  ],
+);
 
 export const refreshTokens = pgTable('refresh_tokens', {
   id: uuid('id').primaryKey().defaultRandom(),
