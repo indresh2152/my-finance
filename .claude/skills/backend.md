@@ -92,6 +92,26 @@ Use structured logging (e.g. `pino`) — log `user_id` and `request_id` for trac
 - SPA catch-all: Express serves `index.html` for all non-`/api/`, non-static GET routes
 - Health: `GET /health` → 200 fast (no DB). Readiness: `GET /ready` → checks DB connectivity
 
+## API documentation (OpenAPI) — keep in lockstep with routes
+
+The OpenAPI spec served at `/api/docs` is built in `apps/api/src/docs/openapi.ts`. **Any change to an API endpoint must make the same change to the API docs in the same commit.** Nothing is done until the docs match the code.
+
+| Route change | Required docs change |
+|---|---|
+| **Added** endpoint | Add a `registry.registerPath(...)` entry with method, path, tag, summary, `security: bearer` (unless it is public), request body/params, and **every** status code the handler can return |
+| **Modified** endpoint (path, method, auth, request body, query/path params, response shape, status codes, rate limit → 429) | Update the matching `registerPath` entry and any registered schemas to match |
+| **Removed** endpoint | Delete its `registerPath` entry, plus any schemas and `apiDocs.*` locale keys that are no longer used |
+
+Rules:
+- **Reuse the route's Zod schema** (the `build*Schema(lng)` factory exported from the routes file) for request bodies. Never copy a schema into `openapi.ts`, because the docs will drift from what the route actually validates.
+- Response schemas must match what the handler really sends: field names, nullability, and the `{ error: { code, message } }` error shape.
+- Every summary, description, and tag comes from `apiDocs.*` keys in `apps/api/src/locales/<lang>.json` (see `skills/i18n.md`). Add the key to **every** locale file.
+- **A new router must be added to the `listRoutes(...)` list** in `apps/api/src/docs/api-docs.router.test.ts` (test: "should document every API route except cookie-authenticated ones"). That test only compares the routers it lists, so a router left out of the list can go undocumented without failing it.
+- Routes that are intentionally undocumented, such as cookie-authenticated ones, go in `UNDOCUMENTED_ROUTES` in that test with a comment explaining why. Leaving a route out of the docs for any other reason is not allowed.
+- If the public/bearer split changes, update the `publicRoutes` list in the "should require the bearer token" test.
+- Also update the contract in `docs/design/api-contracts.md` so the design doc matches the code.
+- Verify by running `npm test -w apps/api -- api-docs`, then with `API_DOCS_ENABLED=true` open `/api/docs` and check the endpoint renders correctly.
+
 ## Auth
 
 - JWT access token (short-lived) + refresh token (HTTP-only cookie, long-lived)

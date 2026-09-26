@@ -67,7 +67,9 @@ These apply to **every line of code written**, with no exceptions:
 
 4. **ISO-level coding standards** — see `skills/code-quality.md`. Apply to production code, test code, and migration scripts equally.
 
-5. **Simplify, then adversarial review, before any change is done.** Order: tests green → `/simplify` → re-run tests → `/code-review` (plus `/security-review` for PAN, auth, or financial-data code) → fix every finding → re-run tests → **build both apps** (`npm run build -w apps/api`, `npm run build -w apps/web`). This is mandatory after every code change, and the pre-commit hook does not build → lint + format → commit. Review runs last so it sees the exact code that ships. See the "Pre-completion review" section in `skills/code-quality.md`.
+5. **API docs stay in sync with the API.** Every API endpoint added, modified, or removed gets the same change in the OpenAPI docs (`apps/api/src/docs/openapi.ts`, served at `/api/docs`) and in `docs/design/api-contracts.md`, in the same commit. See "API documentation (OpenAPI)" in `skills/backend.md`.
+
+6. **Simplify, then adversarial review, before any change is done.** Order: tests green → `/simplify` → re-run tests → `/code-review` (plus `/security-review` for PAN, auth, or financial-data code) → fix every finding → re-run tests → **build both apps** (`npm run build -w apps/api`, `npm run build -w apps/web`). This is mandatory after every code change, and the pre-commit hook does not build → lint + format → commit. Review runs last so it sees the exact code that ships. See the "Pre-completion review" section in `skills/code-quality.md`.
 
 ## Skills
 

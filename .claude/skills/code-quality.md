@@ -271,7 +271,7 @@ export default config;
 
 Run the steps in this order:
 
-1. **Implement and get tests green.** The unit tests for the change must pass and meet the 80 % coverage threshold.
+1. **Implement and get tests green.** The unit tests for the change must pass and meet the 80 % coverage threshold. **If any API endpoint was added, modified, or removed, the OpenAPI docs (`apps/api/src/docs/openapi.ts`) and `docs/design/api-contracts.md` must be updated in the same change.** See "API documentation (OpenAPI)" in `skills/backend.md`. `/code-review` in step 3 must also check that the docs match the routes.
 2. **Simplify: run `/simplify`.** It cleans up reuse, redundancy, and efficiency problems in the changed code. Then re-run the tests. `/simplify` does not look for bugs, so the tests are what confirm it preserved behaviour.
 3. **Adversarial review: run `/code-review`.** It reviews the diff for correctness bugs, edge cases, and failure modes. For any change that touches PAN handling, auth, tokens, external verification calls, or financial data, also run `/security-review` and work through `skills/security-checklist.md`.
 4. **Resolve every finding, then re-run the tests.** Fix confirmed findings. If you reject a finding, record the reason in the PR description; do not skip it silently. Re-run `/simplify` only if the fixes were substantial.

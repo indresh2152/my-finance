@@ -27,6 +27,7 @@ description: Pre-PR security checklist for auth, PAN handling, DB queries, and D
 - [ ] User consent is recorded (`consent_given_at`, `consent_version`) before collecting financial data (DPDP)
 - [ ] Right-to-erasure endpoint (`DELETE /users/me`) is implemented (DPDP)
 - [ ] No folio numbers, demat account IDs, or policy numbers exposed in raw form (SEBI/IRDAI)
+- [ ] Every added/modified/removed API endpoint is reflected in the OpenAPI docs (`apps/api/src/docs/openapi.ts`), including correct `security`, and no sensitive field (full PAN, account number) appears in a documented schema
 - [ ] Global error middleware is registered last in `app.ts` (after all routes)
 - [ ] No route handler catches errors inline — all errors passed to `next(err)`
 - [ ] No stack trace in any HTTP response body — in any environment

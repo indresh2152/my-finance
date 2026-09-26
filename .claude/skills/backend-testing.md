@@ -140,6 +140,8 @@ it('should return 200 with card list for authenticated user', async () => {
 
 Cover every HTTP status code path the route can return (200, 400, 401, 403, 404, 422, 500).
 
+**API docs drift test.** When a route is added, changed, or removed, `apps/api/src/docs/api-docs.router.test.ts` must still pass. A **new router** must also be added to that test's `listRoutes(...)` list, because the test only checks the routers it lists. The status codes documented in `openapi.ts` must match the status codes the route tests cover. See "API documentation (OpenAPI)" in `skills/backend.md`.
+
 ## Middleware tests
 
 Test middleware as isolated functions — pass mock `req`, `res`, `next`:
