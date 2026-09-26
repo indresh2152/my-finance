@@ -7,7 +7,7 @@ import {
 
 const HTTP_NOT_FOUND = 404;
 const INVALID_GRANT = 'invalid_grant';
-const FORM_CONTENT_TYPE = 'application/x-www-form-urlencoded';
+export const FORM_CONTENT_TYPE = 'application/x-www-form-urlencoded';
 
 export interface TokenResponse {
   access_token: string;

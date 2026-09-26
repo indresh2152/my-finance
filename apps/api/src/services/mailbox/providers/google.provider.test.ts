@@ -79,6 +79,14 @@ describe('GoogleMailProvider.getAccessToken', () => {
     spyOnFetch().mockResolvedValueOnce(jsonResponse({ error: 'invalid_grant' }, 400));
     await expect(provider.getAccessToken('rt')).rejects.toBeInstanceOf(ReauthRequiredError);
   });
+
+  it('should return the rotated refresh token when Google issues a new one', async () => {
+    spyOnFetch().mockResolvedValueOnce(jsonResponse({ access_token: 'at', refresh_token: 'rt2' }));
+    await expect(provider.getAccessToken('rt')).resolves.toEqual({
+      accessToken: 'at',
+      rotatedRefreshToken: 'rt2',
+    });
+  });
 });
 
 describe('GoogleMailProvider.revoke', () => {
@@ -124,6 +132,18 @@ describe('GoogleMailProvider.search', () => {
     const senders = Array.from({ length: 21 }, (_v, i) => `s${i}@bank.com`);
     const ids = await collect(provider.search('at', { senders, since: new Date(0) }));
     expect(ids).toEqual(['m9']);
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+  });
+
+  it('should stop paginating when nextPageToken repeats the previous token', async () => {
+    const fetchSpy = spyOnFetch()
+      .mockResolvedValueOnce(jsonResponse({ messages: [{ id: 'm1' }], nextPageToken: 'p1' }))
+      .mockResolvedValueOnce(jsonResponse({ messages: [{ id: 'm2' }], nextPageToken: 'p1' }))
+      .mockRejectedValue(new Error('fetched past repeated token'));
+    const ids = await collect(
+      provider.search('at', { senders: ['x@axisbank.com'], since: new Date(0) }),
+    );
+    expect(ids).toEqual(['m1', 'm2']);
     expect(fetchSpy).toHaveBeenCalledTimes(2);
   });
 });

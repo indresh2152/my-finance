@@ -1,6 +1,6 @@
 import { htmlToText } from '../../../utils/html-to-text';
 import { extractAddress } from '../../../parsers/sender-match';
-import { getJson, postTokenForm } from './provider-http';
+import { FORM_CONTENT_TYPE, getJson, postTokenForm } from './provider-http';
 import {
   ProviderNotFoundError,
   ProviderRequestError,
@@ -132,7 +132,7 @@ export class GoogleMailProvider implements MailProvider {
   async revoke(refreshToken: string): Promise<void> {
     const response = await fetch(REVOKE_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      headers: { 'Content-Type': FORM_CONTENT_TYPE },
       body: new URLSearchParams({ token: refreshToken }),
     });
     // 400 means the token is already invalid — nothing left to revoke.
@@ -211,6 +211,10 @@ export class GoogleMailProvider implements MailProvider {
       );
       for (const message of page.messages ?? []) {
         yield { id: message.id };
+      }
+      // Guard against a buggy API response repeating the same token forever.
+      if (page.nextPageToken && page.nextPageToken === pageToken) {
+        break;
       }
       pageToken = page.nextPageToken;
     } while (pageToken);
