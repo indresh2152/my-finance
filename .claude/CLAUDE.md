@@ -17,7 +17,7 @@ Built with React + Vite on the frontend and Node.js (Express) on the backend, ba
 - Validation regex: `/^[A-Z]{5}[0-9]{4}[A-Z]$/`
 - Display masking: hide the 4 numeric digits → `ABCDE####F`
 
-## Monorepo layout (planned)
+## Monorepo layout
 
 ```
 my-finance/
@@ -50,7 +50,7 @@ See `docs/design/deployment.md` for the full Dockerfile, Compose files, and K8s 
 - **One PAN per user.** Each app user links exactly one PAN. All their financial instruments are fetched via that single PAN profile.
 - **India-specific.** Currency is INR (₹). Use Indian number formatting (lakhs/crores). Banks, card networks, and regulatory context are India-specific.
 - **Security-first.** All financial data lookups go through authenticated endpoints. Rate-limit PAN registration and lookup routes.
-- **No code yet.** Project is in design phase. Do not scaffold code until the user explicitly asks.
+- **Implementation is underway.** The MVP is built and working: auth (register/login/refresh), PAN verification and linking, credit card listing, and OpenAPI docs. New features still follow the design docs in `docs/design/` and the plans in `docs/superpowers/`. Areas in the broader vision that are not built yet (bank accounts, loans, investments, insurance) need a design or plan before any code is written.
 
 ## Quality mandates (always active)
 
@@ -66,6 +66,8 @@ These apply to **every line of code written**, with no exceptions:
 3. **Commit message format** enforced by `commitlint` in the `commit-msg` hook. Format: `type(scope): description`. See `skills/code-quality.md` for the full type/scope list.
 
 4. **ISO-level coding standards** — see `skills/code-quality.md`. Apply to production code, test code, and migration scripts equally.
+
+5. **Simplify, then adversarial review, before any change is done.** Order: tests green → `/simplify` → re-run tests → `/code-review` (plus `/security-review` for PAN, auth, or financial-data code) → fix every finding → re-run tests → **build both apps** (`npm run build -w apps/api`, `npm run build -w apps/web`). This is mandatory after every code change, and the pre-commit hook does not build → lint + format → commit. Review runs last so it sees the exact code that ships. See the "Pre-completion review" section in `skills/code-quality.md`.
 
 ## Skills
 

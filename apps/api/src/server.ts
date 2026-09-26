@@ -44,8 +44,12 @@ const start = async (): Promise<void> => {
     });
   };
 
-  process.on('SIGTERM', () => { void shutdown(); });
-  process.on('SIGINT', () => { void shutdown(); });
+  process.on('SIGTERM', () => {
+    void shutdown();
+  });
+  process.on('SIGINT', () => {
+    void shutdown();
+  });
 };
 
 start().catch((err: unknown) => {

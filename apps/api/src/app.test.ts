@@ -1,6 +1,7 @@
 import request from 'supertest';
 import { createApp } from './app';
 import type { AppDeps } from './app';
+import { withEnv } from './test/with-env';
 
 const mockDb = {
   query: jest.fn().mockResolvedValue({ rows: [] }),
@@ -41,4 +42,17 @@ describe('GET /ready', () => {
     expect(res.status).toBe(503);
     expect(res.body).toEqual({ status: 'not ready', db: 'unreachable' });
   });
+});
+
+describe('unmatched /api paths in production', () => {
+  it.each(['/api/docs/', '/api/v1/does-not-exist'])(
+    'should return a JSON 404 for %s instead of the SPA shell',
+    (path) =>
+      withEnv({ NODE_ENV: 'production', API_DOCS_ENABLED: undefined }, async () => {
+        const res = await request(createApp(deps)).get(path);
+        expect(res.status).toBe(404);
+        expect(res.headers['content-type']).toMatch(/application\/json/);
+        expect(res.body.error.code).toBe('NOT_FOUND');
+      })(),
+  );
 });

@@ -1,6 +1,9 @@
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 
+/** Lifetime of a refresh token: the JWT, its refresh_tokens row, and its cookie. */
+export const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
 export interface AccessTokenPayload {
   userId: string;
   username: string;
@@ -12,7 +15,10 @@ export const signAccessToken = (payload: AccessTokenPayload, secret: string): st
   jwt.sign(payload, secret, { expiresIn: '15m' });
 
 export const signRefreshToken = (userId: string, secret: string): string =>
-  jwt.sign({ userId }, secret, { expiresIn: '7d', jwtid: crypto.randomUUID() });
+  jwt.sign({ userId }, secret, {
+    expiresIn: REFRESH_TOKEN_TTL_MS / 1000,
+    jwtid: crypto.randomUUID(),
+  });
 
 export const verifyAccessToken = (token: string, secret: string): AccessTokenPayload =>
   jwt.verify(token, secret) as AccessTokenPayload;

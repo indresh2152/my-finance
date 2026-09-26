@@ -1,7 +1,7 @@
 import { Router, type Request, type Response, type NextFunction } from 'express';
 import type { AppDeps } from '../app';
 import { CreditCardsService } from '../services/credit-cards.service';
-import { requireAuth } from '../middleware/auth.middleware';
+import { getAuthUser, requireAuth } from '../middleware/auth.middleware';
 
 export const creditCardsRouter = (deps: AppDeps): Router => {
   const router = Router();
@@ -12,7 +12,7 @@ export const creditCardsRouter = (deps: AppDeps): Router => {
     requireAuth,
     async (req: Request, res: Response, next: NextFunction): Promise<void> => {
       try {
-        const cards = await service.listByUserId(req.user!.id, req.language);
+        const cards = await service.listByUserId(getAuthUser(req).id, req.language);
         res.json({ cards });
       } catch (err) {
         next(err);

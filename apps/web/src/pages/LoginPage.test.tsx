@@ -19,7 +19,13 @@ const server = setupServer(
     }),
   ),
   http.get('/api/v1/users/me', () =>
-    HttpResponse.json({ id: '1', username: 'testuser', email: 't@t.com', hasPan: true, panMasked: 'ABCDE####F' }),
+    HttpResponse.json({
+      id: '1',
+      username: 'testuser',
+      email: 't@t.com',
+      hasPan: true,
+      panMasked: 'ABCDE####F',
+    }),
   ),
 );
 

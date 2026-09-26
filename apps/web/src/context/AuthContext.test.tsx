@@ -43,9 +43,7 @@ describe('AuthContext', () => {
 
   it('should restore session when refresh succeeds', async () => {
     server.use(
-      http.post('/api/v1/auth/refresh', () =>
-        HttpResponse.json({ accessToken: 'restored-token' }),
-      ),
+      http.post('/api/v1/auth/refresh', () => HttpResponse.json({ accessToken: 'restored-token' })),
     );
     const { result } = renderHook(() => useAuth(), { wrapper });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
@@ -63,13 +61,13 @@ describe('AuthContext', () => {
 
   it('should clear user after logout', async () => {
     server.use(
-      http.post('/api/v1/auth/refresh', () =>
-        HttpResponse.json({ accessToken: 'token' }),
-      ),
+      http.post('/api/v1/auth/refresh', () => HttpResponse.json({ accessToken: 'token' })),
     );
     const { result } = renderHook(() => useAuth(), { wrapper });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
-    await act(async () => { await result.current.logout(); });
+    await act(async () => {
+      await result.current.logout();
+    });
     expect(result.current.user).toBeNull();
   });
 
@@ -77,17 +75,25 @@ describe('AuthContext', () => {
     const { result } = renderHook(() => useAuth(), { wrapper });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.panSkipped).toBe(false);
-    act(() => { result.current.skipPan(); });
+    act(() => {
+      result.current.skipPan();
+    });
     expect(result.current.panSkipped).toBe(true);
-    await act(async () => { await result.current.logout(); });
+    await act(async () => {
+      await result.current.logout();
+    });
     expect(result.current.panSkipped).toBe(false);
   });
 
   it('should update hasPan after setPan', async () => {
     const { result } = renderHook(() => useAuth(), { wrapper });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
-    await act(async () => { await result.current.login('testuser', 'pass'); });
-    act(() => { result.current.setPan('ABCDE####F'); });
+    await act(async () => {
+      await result.current.login('testuser', 'pass');
+    });
+    act(() => {
+      result.current.setPan('ABCDE####F');
+    });
     expect(result.current.user?.hasPan).toBe(true);
     expect(result.current.user?.panMasked).toBe('ABCDE####F');
   });

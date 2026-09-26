@@ -1,14 +1,15 @@
-import express, { type Express, type Request, type Response } from 'express';
+import express, { type Express, type NextFunction, type Request, type Response } from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import path from 'path';
+import i18next from 'i18next';
 import type { Pool } from 'pg';
 
 import { localeMiddleware } from './middleware/locale.middleware';
 import { authMiddleware } from './middleware/auth.middleware';
 import { auditMiddleware } from './middleware/audit.middleware';
-import { errorMiddleware } from './middleware/error.middleware';
+import { errorMiddleware, AppError } from './middleware/error.middleware';
 import { authRouter } from './routes/auth.routes';
 import { panRouter } from './routes/pan.routes';
 import { creditCardsRouter } from './routes/credit-cards.routes';
@@ -65,6 +66,14 @@ export const createApp = (deps: AppDeps): Express => {
   if (process.env['API_DOCS_ENABLED'] === 'true') {
     app.use(API_DOCS_PATH, apiDocsRouter());
   }
+
+  // Unmatched API paths must 404 rather than fall through to the SPA catch-all,
+  // which would otherwise serve index.html (e.g. an iframe of disabled docs nesting the app).
+  app.use('/api', (req: Request, _res: Response, next: NextFunction): void => {
+    next(
+      new AppError('NOT_FOUND', 404, i18next.t('error.not_found', { lng: req.language ?? 'en' })),
+    );
+  });
 
   if (process.env['NODE_ENV'] === 'production') {
     const publicDir = path.join(__dirname, '..', 'public');

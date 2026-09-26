@@ -11,11 +11,15 @@ import { Route, Routes } from 'react-router-dom';
 const LoginPage: React.FC = () => <div>Login Page</div>;
 
 const server = setupServer(
-  http.post('/api/v1/auth/refresh', () =>
-    HttpResponse.json({ accessToken: 'token' }),
-  ),
+  http.post('/api/v1/auth/refresh', () => HttpResponse.json({ accessToken: 'token' })),
   http.get('/api/v1/users/me', () =>
-    HttpResponse.json({ id: '1', username: 'johndoe', email: 'j@j.com', hasPan: true, panMasked: 'ABCDE####F' }),
+    HttpResponse.json({
+      id: '1',
+      username: 'johndoe',
+      email: 'j@j.com',
+      hasPan: true,
+      panMasked: 'ABCDE####F',
+    }),
   ),
   http.delete('/api/v1/auth/logout', () => new HttpResponse(null, { status: 204 })),
 );
@@ -50,6 +54,13 @@ describe('AppLayout', () => {
   it('should render the Credit Cards nav link', async () => {
     renderLayout();
     await waitFor(() => expect(screen.getByText('Credit Cards')).toBeInTheDocument());
+  });
+
+  it('should render the API Docs nav link pointing to the in-app docs page', async () => {
+    renderLayout();
+    await waitFor(() =>
+      expect(screen.getByRole('link', { name: 'API Docs' })).toHaveAttribute('href', '/api-docs'),
+    );
   });
 
   it('should navigate to login after logout', async () => {

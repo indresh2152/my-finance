@@ -1,10 +1,14 @@
 import request from 'supertest';
 import { createApp } from '../app';
 import { signAccessToken } from '../utils/token.utils';
+import { initI18n } from '../i18n';
 
 const JWT_SECRET = 'test-jwt-secret-at-least-32-chars!!';
 
 const mockDb = { query: jest.fn() };
+
+// Loads locales/en.json so translated error messages can be asserted.
+beforeAll(initI18n);
 
 const app = createApp({
   db: mockDb as never,
@@ -29,7 +33,9 @@ describe('GET /api/v1/users/me', () => {
 
   it('should return user data with hasPan: false when no PAN profile exists', async () => {
     mockDb.query.mockResolvedValueOnce({
-      rows: [{ id: 'user-uuid', username: 'testuser', email: 'test@example.com', pan_masked: null }],
+      rows: [
+        { id: 'user-uuid', username: 'testuser', email: 'test@example.com', pan_masked: null },
+      ],
     });
     const res = await request(app)
       .get('/api/v1/users/me')
@@ -45,7 +51,14 @@ describe('GET /api/v1/users/me', () => {
 
   it('should return hasPan: true when PAN profile exists', async () => {
     mockDb.query.mockResolvedValueOnce({
-      rows: [{ id: 'user-uuid', username: 'testuser', email: 'test@example.com', pan_masked: 'ABCDE####F' }],
+      rows: [
+        {
+          id: 'user-uuid',
+          username: 'testuser',
+          email: 'test@example.com',
+          pan_masked: 'ABCDE####F',
+        },
+      ],
     });
     const res = await request(app)
       .get('/api/v1/users/me')
@@ -61,5 +74,6 @@ describe('GET /api/v1/users/me', () => {
       .get('/api/v1/users/me')
       .set('Authorization', `Bearer ${validToken}`);
     expect(res.status).toBe(404);
+    expect(res.body.error).toEqual({ code: 'USER_NOT_FOUND', message: 'User not found' });
   });
 });

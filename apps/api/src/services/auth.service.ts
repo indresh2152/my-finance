@@ -1,12 +1,18 @@
 import bcrypt from 'bcryptjs';
 import type { Pool } from 'pg';
-import { signAccessToken, signRefreshToken, verifyRefreshToken, hashToken } from '../utils/token.utils';
+import {
+  signAccessToken,
+  signRefreshToken,
+  verifyRefreshToken,
+  hashToken,
+  REFRESH_TOKEN_TTL_MS,
+} from '../utils/token.utils';
 import type { AccessTokenPayload } from '../utils/token.utils';
 import { AppError } from '../middleware/error.middleware';
+import { firstRowOrThrow } from '../utils/db.utils';
 import { i18next } from '../i18n';
 
 const BCRYPT_ROUNDS = 12;
-const REFRESH_TOKEN_TTL_DAYS = 7;
 
 interface UserRow {
   id: string;
@@ -41,7 +47,9 @@ export class AuthService {
     password: string,
     lng: string,
   ): Promise<{ tokens: AuthTokens; user: AuthUser }> {
-    const usernameExists = await this.db.query('SELECT id FROM users WHERE username = $1', [username]);
+    const usernameExists = await this.db.query('SELECT id FROM users WHERE username = $1', [
+      username,
+    ]);
     if (usernameExists.rows.length > 0) {
       throw new AppError('USERNAME_TAKEN', 409, i18next.t('error.username_taken', { lng }));
     }
@@ -60,8 +68,13 @@ export class AuthService {
       [username, email, passwordHash],
     );
 
-    const newUser = rows[0]!;
-    const user: AuthUser = { id: newUser.id, username: newUser.username, email: newUser.email, hasPan: false };
+    const newUser = firstRowOrThrow(rows, 'insert users');
+    const user: AuthUser = {
+      id: newUser.id,
+      username: newUser.username,
+      email: newUser.email,
+      hasPan: false,
+    };
     const tokens = await this.issueTokens(newUser.id, user, lng);
 
     return { tokens, user };
@@ -82,15 +95,23 @@ export class AuthService {
       [username],
     );
 
-    if (rows.length === 0) {
-      throw new AppError('INVALID_CREDENTIALS', 401, i18next.t('error.invalid_credentials', { lng }));
+    const row = rows[0];
+    if (!row) {
+      throw new AppError(
+        'INVALID_CREDENTIALS',
+        401,
+        i18next.t('error.invalid_credentials', { lng }),
+      );
     }
 
-    const row = rows[0]!;
     const passwordMatch = await bcrypt.compare(password, row.password_hash);
 
     if (!passwordMatch) {
-      throw new AppError('INVALID_CREDENTIALS', 401, i18next.t('error.invalid_credentials', { lng }));
+      throw new AppError(
+        'INVALID_CREDENTIALS',
+        401,
+        i18next.t('error.invalid_credentials', { lng }),
+      );
     }
 
     const user: AuthUser = {
@@ -104,16 +125,17 @@ export class AuthService {
     return { tokens, user };
   }
 
-  async refresh(
-    rawRefreshToken: string,
-    lng: string,
-  ): Promise<AuthTokens> {
+  async refresh(rawRefreshToken: string, lng: string): Promise<AuthTokens> {
     let userId: string;
 
     try {
       ({ userId } = verifyRefreshToken(rawRefreshToken, this.refreshTokenSecret));
     } catch {
-      throw new AppError('REFRESH_TOKEN_INVALID', 401, i18next.t('error.refresh_token_invalid', { lng }));
+      throw new AppError(
+        'REFRESH_TOKEN_INVALID',
+        401,
+        i18next.t('error.refresh_token_invalid', { lng }),
+      );
     }
 
     const tokenHash = hashToken(rawRefreshToken);
@@ -123,24 +145,40 @@ export class AuthService {
       [tokenHash, userId],
     );
 
-    if (rows.length === 0) {
-      throw new AppError('REFRESH_TOKEN_INVALID', 401, i18next.t('error.refresh_token_invalid', { lng }));
+    const storedToken = rows[0];
+    if (!storedToken) {
+      throw new AppError(
+        'REFRESH_TOKEN_INVALID',
+        401,
+        i18next.t('error.refresh_token_invalid', { lng }),
+      );
     }
 
-    if (rows[0]!.revoked_at !== null) {
+    if (storedToken.revoked_at !== null) {
       // Token reuse detected — revoke all sessions
       await this.db.query(
         'UPDATE refresh_tokens SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL',
         [userId],
       );
-      throw new AppError('REFRESH_TOKEN_INVALID', 401, i18next.t('error.refresh_token_invalid', { lng }));
+      throw new AppError(
+        'REFRESH_TOKEN_INVALID',
+        401,
+        i18next.t('error.refresh_token_invalid', { lng }),
+      );
     }
 
     // Revoke used token
-    await this.db.query('UPDATE refresh_tokens SET revoked_at = NOW() WHERE token_hash = $1', [tokenHash]);
+    await this.db.query('UPDATE refresh_tokens SET revoked_at = NOW() WHERE token_hash = $1', [
+      tokenHash,
+    ]);
 
     // Fetch current user for new token payload
-    const userRes = await this.db.query<{ id: string; username: string; email: string; pan_masked: string | null }>(
+    const userRes = await this.db.query<{
+      id: string;
+      username: string;
+      email: string;
+      pan_masked: string | null;
+    }>(
       `SELECT u.id, u.username, u.email, p.pan_masked
        FROM users u
        LEFT JOIN pan_profiles p ON p.user_id = u.id
@@ -148,25 +186,32 @@ export class AuthService {
       [userId],
     );
 
-    if (userRes.rows.length === 0) {
-      throw new AppError('REFRESH_TOKEN_INVALID', 401, i18next.t('error.refresh_token_invalid', { lng }));
+    const user = userRes.rows[0];
+    if (!user) {
+      throw new AppError(
+        'REFRESH_TOKEN_INVALID',
+        401,
+        i18next.t('error.refresh_token_invalid', { lng }),
+      );
     }
 
-    const user = userRes.rows[0]!;
-    return this.issueTokens(user.id, {
-      id: user.id,
-      username: user.username,
-      email: user.email,
-      hasPan: user.pan_masked !== null,
-    }, lng);
+    return this.issueTokens(
+      user.id,
+      {
+        id: user.id,
+        username: user.username,
+        email: user.email,
+        hasPan: user.pan_masked !== null,
+      },
+      lng,
+    );
   }
 
   async logout(rawRefreshToken: string): Promise<void> {
     const tokenHash = hashToken(rawRefreshToken);
-    await this.db.query(
-      'UPDATE refresh_tokens SET revoked_at = NOW() WHERE token_hash = $1',
-      [tokenHash],
-    );
+    await this.db.query('UPDATE refresh_tokens SET revoked_at = NOW() WHERE token_hash = $1', [
+      tokenHash,
+    ]);
   }
 
   private async issueTokens(
@@ -186,7 +231,7 @@ export class AuthService {
     const accessToken = signAccessToken(jwtPayload, this.jwtSecret);
     const refreshToken = signRefreshToken(userId, this.refreshTokenSecret);
     const tokenHash = hashToken(refreshToken);
-    const expiresAt = new Date(Date.now() + REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000);
+    const expiresAt = new Date(Date.now() + REFRESH_TOKEN_TTL_MS);
 
     await this.db.query(
       `INSERT INTO refresh_tokens (user_id, token_hash, expires_at, user_agent, ip_address)

@@ -3,6 +3,7 @@ import {
   OpenApiGeneratorV3,
   extendZodWithOpenApi,
   type ResponseConfig,
+  type RouteConfig,
 } from '@asteasolutions/zod-to-openapi';
 import { z } from 'zod';
 import { i18next } from '../i18n';
@@ -90,7 +91,7 @@ const buildOpenApiDocument = (lng: string): OpenAPIObject => {
     content: { [JSON_CONTENT]: { schema } },
   });
   const error = (key: string): ResponseConfig => json(t(`responses.${key}`), errorSchema);
-  const body = (schema: z.ZodTypeAny) => ({
+  const body = (schema: z.ZodTypeAny): Pick<NonNullable<RouteConfig['request']>, 'body'> => ({
     body: { required: true, content: { [JSON_CONTENT]: { schema } } },
   });
 

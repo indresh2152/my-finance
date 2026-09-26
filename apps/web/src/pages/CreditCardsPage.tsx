@@ -90,12 +90,11 @@ export const CreditCardsPage: React.FC = () => {
         </Grid>
       )}
 
-      {isError && (
-        <Alert severity="error">{t('errors.loadFailed')}</Alert>
-      )}
+      {isError && <Alert severity="error">{t('errors.loadFailed')}</Alert>}
 
-      {!isLoading && !isError && (
-        data?.cards.length === 0 ? (
+      {!isLoading &&
+        !isError &&
+        (data?.cards.length === 0 ? (
           <Alert severity="info">
             {t('emptyState')}
             <Box mt={0.5}>
@@ -107,58 +106,57 @@ export const CreditCardsPage: React.FC = () => {
         ) : (
           <Grid container spacing={2}>
             {data?.cards.map((card) => (
-            <Grid item xs={12} sm={6} md={4} key={card.id}>
-              <Card variant="outlined" sx={{ height: '100%' }}>
-                <CardContent>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                    <Typography variant="subtitle1" fontWeight={700}>
-                      {card.issuingBank}
+              <Grid item xs={12} sm={6} md={4} key={card.id}>
+                <Card variant="outlined" sx={{ height: '100%' }}>
+                  <CardContent>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                      <Typography variant="subtitle1" fontWeight={700}>
+                        {card.issuingBank}
+                      </Typography>
+                      <Chip
+                        label={tCommon(`status.${card.status.toLowerCase()}` as 'status.active')}
+                        color={statusColor(card.status)}
+                        size="small"
+                      />
+                    </Box>
+                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                      {card.cardNetwork} •••• {card.cardNumberLast4}
                     </Typography>
-                    <Chip
-                      label={tCommon(`status.${card.status.toLowerCase()}` as 'status.active')}
-                      color={statusColor(card.status)}
-                      size="small"
-                    />
-                  </Box>
-                  <Typography variant="body2" color="text.secondary" gutterBottom>
-                    {card.cardNetwork} •••• {card.cardNumberLast4}
-                  </Typography>
-                  <Stack spacing={0.5} mt={1}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography variant="caption" color="text.secondary">
-                        {t('creditLimit')}
-                      </Typography>
-                      <Typography variant="caption" fontWeight={600}>
-                        {formatINR(card.creditLimit)}
-                      </Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography variant="caption" color="text.secondary">
-                        {t('availableCredit')}
-                      </Typography>
-                      <Typography variant="caption" fontWeight={600}>
-                        {formatINR(card.availableCredit)}
-                      </Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                      <Typography variant="caption" color="text.secondary">
-                        {t('currentBalance')}
-                      </Typography>
-                      <Typography variant="caption" fontWeight={600}>
-                        {formatINR(card.currentBalance)}
-                      </Typography>
-                    </Box>
-                  </Stack>
-                  <Typography variant="caption" color="text.secondary" display="block" mt={1}>
-                    {t('expiresOn')} {String(card.expiryMonth).padStart(2, '0')}/{card.expiryYear}
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-          ))}
+                    <Stack spacing={0.5} mt={1}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <Typography variant="caption" color="text.secondary">
+                          {t('creditLimit')}
+                        </Typography>
+                        <Typography variant="caption" fontWeight={600}>
+                          {formatINR(card.creditLimit)}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <Typography variant="caption" color="text.secondary">
+                          {t('availableCredit')}
+                        </Typography>
+                        <Typography variant="caption" fontWeight={600}>
+                          {formatINR(card.availableCredit)}
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <Typography variant="caption" color="text.secondary">
+                          {t('currentBalance')}
+                        </Typography>
+                        <Typography variant="caption" fontWeight={600}>
+                          {formatINR(card.currentBalance)}
+                        </Typography>
+                      </Box>
+                    </Stack>
+                    <Typography variant="caption" color="text.secondary" display="block" mt={1}>
+                      {t('expiresOn')} {String(card.expiryMonth).padStart(2, '0')}/{card.expiryYear}
+                    </Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+            ))}
           </Grid>
-        )
-      )}
+        ))}
     </Container>
   );
 };

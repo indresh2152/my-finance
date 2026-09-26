@@ -15,6 +15,11 @@ import LogoutIcon from '@mui/icons-material/Logout';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 
+const NAV_LINKS = [
+  { to: '/credit-cards', labelKey: 'nav.creditCards' },
+  { to: '/api-docs', labelKey: 'nav.apiDocs' },
+] as const;
+
 export const AppLayout: React.FC = () => {
   const { t } = useTranslation('common');
   const { user, logout } = useAuth();
@@ -47,18 +52,23 @@ export const AppLayout: React.FC = () => {
             />
           )}
 
-          <Button
-            color="inherit"
-            component={RouterLink}
-            to="/credit-cards"
-            sx={{ mr: 1, display: { xs: 'none', sm: 'inline-flex' } }}
-          >
-            {t('nav.creditCards')}
-          </Button>
+          {NAV_LINKS.map(({ to, labelKey }) => (
+            <Button
+              key={to}
+              color="inherit"
+              component={RouterLink}
+              to={to}
+              sx={{ mr: 1, display: { xs: 'none', sm: 'inline-flex' } }}
+            >
+              {t(labelKey)}
+            </Button>
+          ))}
 
           <IconButton
             color="inherit"
-            onClick={() => { void handleLogout(); }}
+            onClick={() => {
+              void handleLogout();
+            }}
             aria-label={t('logout')}
             title={t('logout')}
           >

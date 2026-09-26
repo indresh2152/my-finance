@@ -21,15 +21,17 @@ const mockCard = {
 };
 
 const server = setupServer(
-  http.post('/api/v1/auth/refresh', () =>
-    HttpResponse.json({ accessToken: 'token' }),
-  ),
+  http.post('/api/v1/auth/refresh', () => HttpResponse.json({ accessToken: 'token' })),
   http.get('/api/v1/users/me', () =>
-    HttpResponse.json({ id: '1', username: 'u', email: 'e@e.com', hasPan: true, panMasked: 'ABCDE####F' }),
+    HttpResponse.json({
+      id: '1',
+      username: 'u',
+      email: 'e@e.com',
+      hasPan: true,
+      panMasked: 'ABCDE####F',
+    }),
   ),
-  http.get('/api/v1/credit-cards', () =>
-    HttpResponse.json({ cards: [mockCard] }),
-  ),
+  http.get('/api/v1/credit-cards', () => HttpResponse.json({ cards: [mockCard] })),
 );
 
 beforeAll(() => server.listen({ onUnhandledRequest: 'warn' }));
@@ -72,7 +74,9 @@ describe('CreditCardsPage', () => {
     server.use(http.get('/api/v1/credit-cards', () => new HttpResponse(null, { status: 500 })));
     renderPage();
     await waitFor(() =>
-      expect(screen.getByText('Failed to load credit cards. Please try again.')).toBeInTheDocument(),
+      expect(
+        screen.getByText('Failed to load credit cards. Please try again.'),
+      ).toBeInTheDocument(),
     );
   });
 });

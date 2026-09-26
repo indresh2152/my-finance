@@ -55,13 +55,24 @@ describe('POST /api/v1/pan/register', () => {
   });
 
   it('should return 409 when PAN is already registered', async () => {
-    mockDb.query.mockResolvedValueOnce({ rows: [{ id: 'existing' }] });
+    mockDb.query.mockResolvedValueOnce({ rows: [{ user_id: 'user-uuid' }] });
     const res = await request(app)
       .post('/api/v1/pan/register')
       .set('Authorization', `Bearer ${validToken}`)
       .send({ pan: 'ABCDE1234F' });
     expect(res.status).toBe(409);
     expect(res.body.error.code).toBe('PAN_ALREADY_REGISTERED');
+  });
+
+  it('should return 409 when the PAN is linked to another account', async () => {
+    mockDb.query.mockResolvedValueOnce({ rows: [{ user_id: 'someone-else' }] });
+    const res = await request(app)
+      .post('/api/v1/pan/register')
+      .set('Authorization', `Bearer ${validToken}`)
+      .send({ pan: 'ABCDE1234F' });
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('PAN_LINKED_TO_ANOTHER_ACCOUNT');
+    expect(mockVerifier.verify).not.toHaveBeenCalled();
   });
 
   it('should return 422 when Setu returns invalid PAN', async () => {
@@ -89,17 +100,15 @@ describe('POST /api/v1/pan/register', () => {
   });
 
   it('should return 201 with non-null verifiedAt on successful registration', async () => {
-    mockDb.query
-      .mockResolvedValueOnce({ rows: [] })
-      .mockResolvedValueOnce({
-        rows: [
-          {
-            id: 'pan-uuid',
-            pan_masked: 'ABCDE####F',
-            verified_at: '2026-06-07T00:00:00Z',
-          },
-        ],
-      });
+    mockDb.query.mockResolvedValueOnce({ rows: [] }).mockResolvedValueOnce({
+      rows: [
+        {
+          id: 'pan-uuid',
+          pan_masked: 'ABCDE####F',
+          verified_at: '2026-06-07T00:00:00Z',
+        },
+      ],
+    });
     const res = await request(app)
       .post('/api/v1/pan/register')
       .set('Authorization', `Bearer ${validToken}`)
@@ -118,9 +127,7 @@ describe('GET /api/v1/pan', () => {
 
   it('should return 404 when no PAN is registered', async () => {
     mockDb.query.mockResolvedValueOnce({ rows: [] });
-    const res = await request(app)
-      .get('/api/v1/pan')
-      .set('Authorization', `Bearer ${validToken}`);
+    const res = await request(app).get('/api/v1/pan').set('Authorization', `Bearer ${validToken}`);
     expect(res.status).toBe(404);
     expect(res.body.error.code).toBe('PAN_NOT_REGISTERED');
   });
@@ -129,9 +136,7 @@ describe('GET /api/v1/pan', () => {
     mockDb.query.mockResolvedValueOnce({
       rows: [{ id: 'pan-uuid', pan_masked: 'ABCDE####F', verified_at: '2026-06-07T00:00:00Z' }],
     });
-    const res = await request(app)
-      .get('/api/v1/pan')
-      .set('Authorization', `Bearer ${validToken}`);
+    const res = await request(app).get('/api/v1/pan').set('Authorization', `Bearer ${validToken}`);
     expect(res.status).toBe(200);
     expect(res.body.panMasked).toBe('ABCDE####F');
   });

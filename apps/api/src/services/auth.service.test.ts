@@ -32,9 +32,15 @@ describe('AuthService.register', () => {
     db.query
       .mockResolvedValueOnce({ rows: [] }) // username check
       .mockResolvedValueOnce({ rows: [] }) // email check
-      .mockResolvedValueOnce({ rows: [{ id: 'new-uuid', username: 'newuser', email: 'new@e.com' }] }) // INSERT
+      .mockResolvedValueOnce({
+        rows: [{ id: 'new-uuid', username: 'newuser', email: 'new@e.com' }],
+      }) // INSERT
       .mockResolvedValueOnce({ rows: [] }); // INSERT refresh_token
-    const service = new AuthService(db as never, 'test-secret-32-chars-minimum!!', 'test-refresh-32-chars-min!!');
+    const service = new AuthService(
+      db as never,
+      'test-secret-32-chars-minimum!!',
+      'test-refresh-32-chars-min!!',
+    );
     const { tokens, user } = await service.register('newuser', 'new@e.com', 'P@ss1234', LNG);
     expect(tokens.accessToken).toBeTruthy();
     expect(tokens.refreshToken).toBeTruthy();
@@ -69,10 +75,16 @@ describe('AuthService.login', () => {
     const hash = await bcrypt.hash('P@ss1234', 12);
     db.query
       .mockResolvedValueOnce({
-        rows: [{ id: 'uid', username: 'u', email: 'e@e.com', password_hash: hash, pan_masked: null }],
+        rows: [
+          { id: 'uid', username: 'u', email: 'e@e.com', password_hash: hash, pan_masked: null },
+        ],
       })
       .mockResolvedValueOnce({ rows: [] }); // INSERT refresh_token
-    const service = new AuthService(db as never, 'test-secret-32-chars-minimum!!', 'test-refresh-32-chars-min!!');
+    const service = new AuthService(
+      db as never,
+      'test-secret-32-chars-minimum!!',
+      'test-refresh-32-chars-min!!',
+    );
     const { tokens, user } = await service.login('u', 'P@ss1234', LNG);
     expect(tokens.accessToken).toBeTruthy();
     expect(user.hasPan).toBe(false);
@@ -93,7 +105,11 @@ describe('AuthService.refresh', () => {
     db.query.mockResolvedValueOnce({ rows: [] });
     const { signRefreshToken } = await import('../utils/token.utils');
     const token = signRefreshToken('uid', 'test-refresh-32-chars-min!!');
-    const service = new AuthService(db as never, 'test-secret-32-chars-minimum!!', 'test-refresh-32-chars-min!!');
+    const service = new AuthService(
+      db as never,
+      'test-secret-32-chars-minimum!!',
+      'test-refresh-32-chars-min!!',
+    );
     await expect(service.refresh(token, LNG)).rejects.toThrow(
       expect.objectContaining({ code: 'REFRESH_TOKEN_INVALID' }),
     );
@@ -106,7 +122,11 @@ describe('AuthService.refresh', () => {
     db.query
       .mockResolvedValueOnce({ rows: [{ id: 'rt-1', revoked_at: '2024-01-01' }] })
       .mockResolvedValueOnce({ rows: [] }); // revoke all
-    const service = new AuthService(db as never, 'test-secret-32-chars-minimum!!', 'test-refresh-32-chars-min!!');
+    const service = new AuthService(
+      db as never,
+      'test-secret-32-chars-minimum!!',
+      'test-refresh-32-chars-min!!',
+    );
     await expect(service.refresh(token, LNG)).rejects.toThrow(AppError);
     expect(db.query).toHaveBeenCalledTimes(2);
   });

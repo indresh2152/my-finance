@@ -48,10 +48,9 @@ describe('GET /api/v1/credit-cards', () => {
   });
 
   it('should return 200 with card list', async () => {
-    mockDb.query
-      .mockResolvedValueOnce({ rows: [{ id: 'pan-uuid' }] })
-      .mockResolvedValueOnce({
-        rows: [{
+    mockDb.query.mockResolvedValueOnce({ rows: [{ id: 'pan-uuid' }] }).mockResolvedValueOnce({
+      rows: [
+        {
           id: 'card-1',
           card_number_last4: '4242',
           card_network: 'VISA',
@@ -65,8 +64,9 @@ describe('GET /api/v1/credit-cards', () => {
           available_credit: '350000.00',
           current_balance: '150000.00',
           billing_cycle_day: 15,
-        }],
-      });
+        },
+      ],
+    });
     const res = await request(app)
       .get('/api/v1/credit-cards')
       .set('Authorization', `Bearer ${validToken}`);

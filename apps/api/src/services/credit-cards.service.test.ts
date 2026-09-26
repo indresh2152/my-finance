@@ -1,5 +1,4 @@
 import { CreditCardsService } from './credit-cards.service';
-import { AppError } from '../middleware/error.middleware';
 
 const USER_ID = '550e8400-e29b-41d4-a716-446655440000';
 const PAN_PROFILE_ID = 'pan-profile-uuid';
@@ -64,15 +63,13 @@ describe('CreditCardsService.listByUserId', () => {
 
   it('should handle null monetary values', async () => {
     const db = makeDb();
-    db.query
-      .mockResolvedValueOnce({ rows: [{ id: PAN_PROFILE_ID }] })
-      .mockResolvedValueOnce({
-        rows: [{ ...mockCardRow, credit_limit: null, available_credit: null, current_balance: null }],
-      });
+    db.query.mockResolvedValueOnce({ rows: [{ id: PAN_PROFILE_ID }] }).mockResolvedValueOnce({
+      rows: [{ ...mockCardRow, credit_limit: null, available_credit: null, current_balance: null }],
+    });
     const service = new CreditCardsService(db as never);
     const result = await service.listByUserId(USER_ID, LNG);
-    expect(result[0]!.creditLimit).toBeNull();
-    expect(result[0]!.availableCredit).toBeNull();
-    expect(result[0]!.currentBalance).toBeNull();
+    expect(result).toEqual([
+      expect.objectContaining({ creditLimit: null, availableCredit: null, currentBalance: null }),
+    ]);
   });
 });

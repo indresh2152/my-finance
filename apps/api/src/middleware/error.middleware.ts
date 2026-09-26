@@ -3,7 +3,16 @@ import { ZodError } from 'zod';
 import pino from 'pino';
 import i18next from 'i18next';
 
-const logger = pino({ name: 'error' });
+/**
+ * Postgres errors carry the offending row or key values in these fields (e.g.
+ * `Key (pan_hash)=(...) already exists`). Redacted so PAN data and PII never reach logs.
+ */
+export const errorLoggerOptions: pino.LoggerOptions = {
+  name: 'error',
+  redact: { paths: ['err.detail', 'err.where', 'err.internalQuery'], censor: '[redacted]' },
+};
+
+const logger = pino(errorLoggerOptions);
 
 export class AppError extends Error {
   constructor(

@@ -61,11 +61,12 @@ export class CreditCardsService {
       [userId],
     );
 
-    if (panRes.rows.length === 0) {
+    const panProfile = panRes.rows[0];
+    if (!panProfile) {
       throw new AppError('PAN_NOT_REGISTERED', 403, i18next.t('error.pan_not_registered', { lng }));
     }
 
-    const panProfileId = panRes.rows[0]!.id;
+    const panProfileId = panProfile.id;
 
     const { rows } = await this.db.query<CreditCardRow>(
       `SELECT id, card_number_last4, card_network, issuing_bank, card_variant,

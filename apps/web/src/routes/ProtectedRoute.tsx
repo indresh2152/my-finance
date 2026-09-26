@@ -4,7 +4,14 @@ import { useAuth } from '../context/AuthContext';
 import { FullPageSpinner } from '../components/FullPageSpinner';
 
 const HOME_ROUTE = '/';
-const FINANCIAL_ROUTES = new Set(['/', '/credit-cards', '/bank-accounts', '/loans', '/investments', '/insurance']);
+const FINANCIAL_ROUTES = new Set([
+  '/',
+  '/credit-cards',
+  '/bank-accounts',
+  '/loans',
+  '/investments',
+  '/insurance',
+]);
 
 interface ProtectedRouteProps {
   children: React.ReactNode;

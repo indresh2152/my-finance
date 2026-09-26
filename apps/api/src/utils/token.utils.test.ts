@@ -1,4 +1,10 @@
-import { signAccessToken, signRefreshToken, verifyAccessToken, verifyRefreshToken, hashToken } from './token.utils';
+import {
+  signAccessToken,
+  signRefreshToken,
+  verifyAccessToken,
+  verifyRefreshToken,
+  hashToken,
+} from './token.utils';
 import type { AccessTokenPayload } from './token.utils';
 
 const SECRET = 'test-access-secret-at-least-32-chars!!';

@@ -81,9 +81,7 @@ describe('PanRegisterPage', () => {
     await waitFor(() => screen.getByRole('button', { name: /link pan/i }));
     await userEvent.type(screen.getByLabelText(/pan/i), 'ABCDE1234F');
     await userEvent.click(screen.getByRole('button', { name: /link pan/i }));
-    await waitFor(() =>
-      expect(screen.getByText('PAN verified successfully')).toBeInTheDocument(),
-    );
+    await waitFor(() => expect(screen.getByText('PAN verified successfully')).toBeInTheDocument());
   });
 
   it('should show verificationFailed error when API returns PAN_VERIFICATION_FAILED', async () => {
@@ -102,6 +100,48 @@ describe('PanRegisterPage', () => {
     await waitFor(() =>
       expect(
         screen.getByText('PAN could not be verified. Please check your PAN and try again.'),
+      ).toBeInTheDocument(),
+    );
+  });
+
+  it('should show linkedToAnotherAccount error when API returns PAN_LINKED_TO_ANOTHER_ACCOUNT', async () => {
+    server.use(
+      http.post('/api/v1/pan/register', () =>
+        HttpResponse.json(
+          { error: { code: 'PAN_LINKED_TO_ANOTHER_ACCOUNT', message: 'taken' } },
+          { status: 409 },
+        ),
+      ),
+    );
+    renderPage();
+    await waitFor(() => screen.getByRole('button', { name: /link pan/i }));
+    await userEvent.type(screen.getByLabelText(/pan/i), 'ABCDE1234F');
+    await userEvent.click(screen.getByRole('button', { name: /link pan/i }));
+    await waitFor(() =>
+      expect(
+        screen.getByText(
+          'This PAN is already linked to another account. Contact support if you believe this is a mistake.',
+        ),
+      ).toBeInTheDocument(),
+    );
+  });
+
+  it('should show rateLimited error when API returns RATE_LIMIT_EXCEEDED', async () => {
+    server.use(
+      http.post('/api/v1/pan/register', () =>
+        HttpResponse.json(
+          { error: { code: 'RATE_LIMIT_EXCEEDED', message: 'slow down' } },
+          { status: 429 },
+        ),
+      ),
+    );
+    renderPage();
+    await waitFor(() => screen.getByRole('button', { name: /link pan/i }));
+    await userEvent.type(screen.getByLabelText(/pan/i), 'ABCDE1234F');
+    await userEvent.click(screen.getByRole('button', { name: /link pan/i }));
+    await waitFor(() =>
+      expect(
+        screen.getByText('Too many PAN linking attempts. Please try again in 24 hours.'),
       ).toBeInTheDocument(),
     );
   });

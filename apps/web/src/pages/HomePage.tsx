@@ -1,15 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import {
-  Alert,
-  Box,
-  Button,
-  Card,
-  CardContent,
-  Container,
-  Grid,
-  Typography,
-} from '@mui/material';
+import { Alert, Box, Button, Card, CardContent, Container, Grid, Typography } from '@mui/material';
 import CreditCardIcon from '@mui/icons-material/CreditCard';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
@@ -29,7 +20,10 @@ export const HomePage: React.FC = () => {
         <Typography variant="body1" color="text.secondary" mb={4}>
           {t('home.welcomeBack', { username: user.username })}
           {user.panMasked && (
-            <> &nbsp;&bull;&nbsp; {t('home.panLabel')}: {user.panMasked}</>
+            <>
+              {' '}
+              &nbsp;&bull;&nbsp; {t('home.panLabel')}: {user.panMasked}
+            </>
           )}
         </Typography>
       )}

@@ -14,13 +14,42 @@ import {
 } from 'drizzle-orm/pg-core';
 
 export const cardStatusEnum = pgEnum('card_status', ['ACTIVE', 'BLOCKED', 'EXPIRED', 'CLOSED']);
-export const cardNetworkEnum = pgEnum('card_network', ['VISA', 'MASTERCARD', 'AMEX', 'RUPAY', 'DINERS', 'OTHER']);
-export const cardVariantEnum = pgEnum('card_variant', ['CLASSIC', 'GOLD', 'PLATINUM', 'INFINITE', 'SIGNATURE', 'OTHER']);
+export const cardNetworkEnum = pgEnum('card_network', [
+  'VISA',
+  'MASTERCARD',
+  'AMEX',
+  'RUPAY',
+  'DINERS',
+  'OTHER',
+]);
+export const cardVariantEnum = pgEnum('card_variant', [
+  'CLASSIC',
+  'GOLD',
+  'PLATINUM',
+  'INFINITE',
+  'SIGNATURE',
+  'OTHER',
+]);
 export const auditActionEnum = pgEnum('audit_action', [
-  'USER_REGISTER', 'USER_LOGIN', 'USER_LOGIN_FAILED', 'USER_LOGOUT', 'USER_DELETE',
-  'TOKEN_REFRESH', 'USER_PROFILE_VIEW', 'USER_PROFILE_UPDATE', 'DATA_EXPORT_REQUEST',
-  'PAN_REGISTER', 'PAN_VIEW', 'OVERVIEW_VIEW', 'CARD_LIST', 'CARD_VIEW',
-  'BANK_ACCOUNT_LIST', 'LOAN_LIST', 'INVESTMENT_LIST', 'INSURANCE_LIST', 'AUDIT_LOG_VIEW',
+  'USER_REGISTER',
+  'USER_LOGIN',
+  'USER_LOGIN_FAILED',
+  'USER_LOGOUT',
+  'USER_DELETE',
+  'TOKEN_REFRESH',
+  'USER_PROFILE_VIEW',
+  'USER_PROFILE_UPDATE',
+  'DATA_EXPORT_REQUEST',
+  'PAN_REGISTER',
+  'PAN_VIEW',
+  'OVERVIEW_VIEW',
+  'CARD_LIST',
+  'CARD_VIEW',
+  'BANK_ACCOUNT_LIST',
+  'LOAN_LIST',
+  'INVESTMENT_LIST',
+  'INSURANCE_LIST',
+  'AUDIT_LOG_VIEW',
 ]);
 
 export const users = pgTable('users', {
@@ -38,7 +67,10 @@ export const users = pgTable('users', {
 
 export const panProfiles = pgTable('pan_profiles', {
   id: uuid('id').primaryKey().defaultRandom(),
-  userId: uuid('user_id').notNull().unique().references(() => users.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id')
+    .notNull()
+    .unique()
+    .references(() => users.id, { onDelete: 'cascade' }),
   panHash: text('pan_hash').notNull().unique(),
   panMasked: char('pan_masked', { length: 10 }).notNull(),
   verifiedAt: timestamp('verified_at', { withTimezone: true }),
@@ -47,7 +79,9 @@ export const panProfiles = pgTable('pan_profiles', {
 
 export const creditCards = pgTable('credit_cards', {
   id: uuid('id').primaryKey().defaultRandom(),
-  panProfileId: uuid('pan_profile_id').notNull().references(() => panProfiles.id, { onDelete: 'cascade' }),
+  panProfileId: uuid('pan_profile_id')
+    .notNull()
+    .references(() => panProfiles.id, { onDelete: 'cascade' }),
   cardNumberHash: text('card_number_hash').notNull().unique(),
   cardNumberLast4: char('card_number_last4', { length: 4 }).notNull(),
   cardNetwork: cardNetworkEnum('card_network').notNull(),
@@ -67,7 +101,9 @@ export const creditCards = pgTable('credit_cards', {
 
 export const refreshTokens = pgTable('refresh_tokens', {
   id: uuid('id').primaryKey().defaultRandom(),
-  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  userId: uuid('user_id')
+    .notNull()
+    .references(() => users.id, { onDelete: 'cascade' }),
   tokenHash: text('token_hash').notNull().unique(),
   expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
   revokedAt: timestamp('revoked_at', { withTimezone: true }),

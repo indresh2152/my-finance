@@ -33,16 +33,18 @@ interface PanRegisterResponse {
   verifiedAt: string | null;
 }
 
-const resolveApiError = (
-  err: unknown,
-  t: (key: string) => string,
-): string => {
-  if (axios.isAxiosError(err)) {
-    const code: string | undefined = err.response?.data?.error?.code;
-    if (code === 'PAN_VERIFICATION_FAILED') return t('errors.verificationFailed');
-    if (code === 'PAN_KYC_UNAVAILABLE') return t('errors.kycUnavailable');
-  }
-  return t('errors.registrationFailed');
+const API_ERROR_KEYS: ReadonlyMap<string, string> = new Map([
+  ['PAN_VERIFICATION_FAILED', 'errors.verificationFailed'],
+  ['PAN_KYC_UNAVAILABLE', 'errors.kycUnavailable'],
+  ['PAN_ALREADY_REGISTERED', 'errors.alreadyRegistered'],
+  ['PAN_LINKED_TO_ANOTHER_ACCOUNT', 'errors.linkedToAnotherAccount'],
+  ['RATE_LIMIT_EXCEEDED', 'errors.rateLimited'],
+]);
+
+const resolveApiError = (err: unknown, t: (key: string) => string): string => {
+  const code: unknown = axios.isAxiosError(err) ? err.response?.data?.error?.code : undefined;
+  const key = typeof code === 'string' ? API_ERROR_KEYS.get(code) : undefined;
+  return t(key ?? 'errors.registrationFailed');
 };
 
 export const PanRegisterPage: React.FC = () => {

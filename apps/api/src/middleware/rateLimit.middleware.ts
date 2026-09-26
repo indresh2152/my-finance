@@ -1,6 +1,6 @@
-import rateLimit from 'express-rate-limit';
+import rateLimit, { type RateLimitRequestHandler } from 'express-rate-limit';
 
-const makeRateLimiter = (windowMs: number, max: number, message: string) =>
+const makeRateLimiter = (windowMs: number, max: number, message: string): RateLimitRequestHandler =>
   rateLimit({
     windowMs,
     max,

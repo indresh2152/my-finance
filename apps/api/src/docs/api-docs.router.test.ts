@@ -7,6 +7,7 @@ import { creditCardsRouter } from '../routes/credit-cards.routes';
 import { usersRouter } from '../routes/users.routes';
 import { getOpenApiDocument, BEARER_SCHEME } from './openapi';
 import { OPENAPI_SPEC_PATH } from './api-docs.router';
+import { withEnv } from '../test/with-env';
 
 const deps: AppDeps = {
   db: { query: jest.fn() } as never,
@@ -30,22 +31,10 @@ const listRoutes = (prefix: string, router: Router): string[] =>
     return Object.keys(layer.route.methods).map((method) => `${method} ${fullPath}`);
   });
 
-const withDocsFlag = (value: string | undefined, fn: () => Promise<void>) => async () => {
-  const previous = process.env['API_DOCS_ENABLED'];
-  if (value === undefined) delete process.env['API_DOCS_ENABLED'];
-  else process.env['API_DOCS_ENABLED'] = value;
-  try {
-    await fn();
-  } finally {
-    if (previous === undefined) delete process.env['API_DOCS_ENABLED'];
-    else process.env['API_DOCS_ENABLED'] = previous;
-  }
-};
-
 describe('API docs mounting', () => {
   it(
     'should not expose docs when API_DOCS_ENABLED is unset',
-    withDocsFlag(undefined, async () => {
+    withEnv({ API_DOCS_ENABLED: undefined }, async () => {
       const res = await request(createApp(deps)).get(OPENAPI_SPEC_PATH);
       expect(res.status).toBe(404);
     }),
@@ -53,7 +42,7 @@ describe('API docs mounting', () => {
 
   it(
     'should not expose docs when API_DOCS_ENABLED is not exactly "true"',
-    withDocsFlag('1', async () => {
+    withEnv({ API_DOCS_ENABLED: '1' }, async () => {
       const res = await request(createApp(deps)).get(OPENAPI_SPEC_PATH);
       expect(res.status).toBe(404);
     }),
@@ -61,7 +50,7 @@ describe('API docs mounting', () => {
 
   it(
     'should serve the OpenAPI spec when enabled',
-    withDocsFlag('true', async () => {
+    withEnv({ API_DOCS_ENABLED: 'true' }, async () => {
       const res = await request(createApp(deps)).get(OPENAPI_SPEC_PATH);
       expect(res.status).toBe(200);
       expect(res.body.openapi).toBe('3.0.3');
@@ -71,7 +60,7 @@ describe('API docs mounting', () => {
 
   it(
     'should serve the Swagger UI page pointing at the spec, without persisting tokens',
-    withDocsFlag('true', async () => {
+    withEnv({ API_DOCS_ENABLED: 'true' }, async () => {
       const app = createApp(deps);
 
       const page = await request(app).get('/api/docs/');
@@ -97,7 +86,11 @@ describe('OpenAPI document', () => {
   it('should define bearer JWT as the only security scheme', () => {
     const schemes = document.components?.securitySchemes ?? {};
     expect(Object.keys(schemes)).toEqual([BEARER_SCHEME]);
-    expect(schemes[BEARER_SCHEME]).toMatchObject({ type: 'http', scheme: 'bearer', bearerFormat: 'JWT' });
+    expect(schemes[BEARER_SCHEME]).toMatchObject({
+      type: 'http',
+      scheme: 'bearer',
+      bearerFormat: 'JWT',
+    });
   });
 
   it('should document every API route except cookie-authenticated ones', () => {
@@ -115,8 +108,12 @@ describe('OpenAPI document', () => {
     const publicRoutes = ['post /api/v1/auth/login', 'post /api/v1/auth/register'];
 
     for (const [path, item] of Object.entries(document.paths)) {
-      for (const [method, operation] of Object.entries(item as Record<string, { security?: unknown }>)) {
-        const expected = publicRoutes.includes(`${method} ${path}`) ? undefined : [{ [BEARER_SCHEME]: [] }];
+      for (const [method, operation] of Object.entries(
+        item as Record<string, { security?: unknown }>,
+      )) {
+        const expected = publicRoutes.includes(`${method} ${path}`)
+          ? undefined
+          : [{ [BEARER_SCHEME]: [] }];
         expect({ route: `${method} ${path}`, security: operation.security }).toEqual({
           route: `${method} ${path}`,
           security: expected,

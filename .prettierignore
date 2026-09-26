@@ -1,0 +1,7 @@
+# Prose docs are not code; Prettier checks code and config only.
+*.md
+
+# Build and coverage output
+**/dist/
+**/coverage/
+apps/api/public/

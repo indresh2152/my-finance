@@ -13,6 +13,8 @@ export const OPENAPI_SPEC_PATH = `${API_DOCS_PATH}/openapi.json`;
 export const apiDocsRouter = (): Router => {
   const router = Router();
   const uiOptions = {
+    // The web app embeds this page beneath its own header, so Swagger's topbar is redundant.
+    customCss: '.swagger-ui .topbar { display: none }',
     swaggerOptions: {
       url: OPENAPI_SPEC_PATH,
       persistAuthorization: false,
@@ -24,7 +26,11 @@ export const apiDocsRouter = (): Router => {
     res.json(getOpenApiDocument(req.language));
   });
 
-  router.use('/', swaggerUi.serveFiles(undefined, uiOptions), swaggerUi.setup(undefined, uiOptions));
+  router.use(
+    '/',
+    swaggerUi.serveFiles(undefined, uiOptions),
+    swaggerUi.setup(undefined, uiOptions),
+  );
 
   return router;
 };

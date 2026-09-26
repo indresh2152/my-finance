@@ -79,7 +79,11 @@ export const LoginPage: React.FC = () => {
                   fullWidth
                   margin="normal"
                   error={!!fieldState.error}
-                  helperText={fieldState.error ? t(fieldState.error.message as 'validation.usernameRequired') : undefined}
+                  helperText={
+                    fieldState.error
+                      ? t(fieldState.error.message as 'validation.usernameRequired')
+                      : undefined
+                  }
                   autoComplete="username"
                 />
               )}
@@ -97,7 +101,11 @@ export const LoginPage: React.FC = () => {
                   fullWidth
                   margin="normal"
                   error={!!fieldState.error}
-                  helperText={fieldState.error ? t(fieldState.error.message as 'validation.passwordRequired') : undefined}
+                  helperText={
+                    fieldState.error
+                      ? t(fieldState.error.message as 'validation.passwordRequired')
+                      : undefined
+                  }
                   autoComplete="current-password"
                 />
               )}

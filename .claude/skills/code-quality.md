@@ -265,6 +265,33 @@ export default config;
 
 ---
 
+## Pre-completion review — simplify, then adversarial review
+
+**Mandatory for every change** — production code, tests, migrations, and configuration. A change is not "done" and must not be committed until every step below has run.
+
+Run the steps in this order:
+
+1. **Implement and get tests green.** The unit tests for the change must pass and meet the 80 % coverage threshold.
+2. **Simplify: run `/simplify`.** It cleans up reuse, redundancy, and efficiency problems in the changed code. Then re-run the tests. `/simplify` does not look for bugs, so the tests are what confirm it preserved behaviour.
+3. **Adversarial review: run `/code-review`.** It reviews the diff for correctness bugs, edge cases, and failure modes. For any change that touches PAN handling, auth, tokens, external verification calls, or financial data, also run `/security-review` and work through `skills/security-checklist.md`.
+4. **Resolve every finding, then re-run the tests.** Fix confirmed findings. If you reject a finding, record the reason in the PR description; do not skip it silently. Re-run `/simplify` only if the fixes were substantial.
+5. **Build check: build both apps. Mandatory after every code change.** The pre-commit hook does *not* build, so this step is the only build gate before commit. Passing tests do not prove the build works: Vitest strips types without checking them, so a type error can pass every test and still break the build. Both commands must succeed:
+   ```bash
+   npm run build -w apps/api   # tsc -p tsconfig.json
+   npm run build -w apps/web   # tsc -b && vite build
+   ```
+   A failure in either one blocks the change. If the change touches the `Dockerfile`, `package.json`, or the lockfile, also run `docker build -t my-finance:local .` (see `skills/docker-build.md`).
+6. **Lint and format.** Run `npx eslint . --max-warnings 0` and `npx prettier --check .`. Both must pass.
+7. **Commit.** The husky pre-commit gate below then re-runs lint, format, and both test suites against the staged snapshot as the final automated check.
+
+A change is not done just because the tests pass. Step 5 must be run by hand; nothing else runs it.
+
+**Run checks through `rtk proxy` when their output decides pass or fail.** The `rtk` wrapper summarises tool output, and it has reported "all files formatted" while Prettier was actually failing. Check the exit code of the raw command, for example `rtk proxy npx prettier --check .`.
+
+**Why simplify comes before review:** the adversarial review must see the exact code that will ship. If review ran first, the edits `/simplify` makes would never be reviewed. Simplifying first also gives the review a smaller diff to examine.
+
+---
+
 ## Pre-commit gate — husky hooks
 
 Install husky at the repo root:
@@ -282,29 +309,44 @@ npx --no -- commitlint --edit "$1"
 
 This hook runs `commitlint` against the message every developer types. A malformed message aborts the commit immediately with a clear error — before any tests run.
 
-### Hook 2 — `.husky/pre-commit` (code quality + coverage gate)
+### Hook 2 — `.husky/pre-commit` (lint + format + coverage gate, on the staged snapshot)
 
 ```bash
 #!/usr/bin/env sh
+# Runs lint, format and tests against the exact staged snapshot, not the working tree,
+# so unstaged edits can neither fail a good commit nor mask a broken one.
+# Builds are deliberately not run here: they are a mandatory manual step after every
+# code change (see .claude/skills/code-quality.md, "Pre-completion review").
+set -e
 
-set -e   # abort on first failure
+REPO_ROOT=$(git rev-parse --show-toplevel)
+# Must not live under .git: Jest's file crawler ignores everything inside a .git directory.
+SNAPSHOT=$(mktemp -d "${TMPDIR:-/tmp}/my-finance-precommit.XXXXXX")
+trap 'rm -rf "$SNAPSHOT"' EXIT
+trap 'exit 130' INT TERM
 
-echo "▶ Type check"
-npx tsc --noEmit
+# Separate step so set -e catches a failure (e.g. an unmerged index) that the pipe would hide.
+STAGED_TREE=$(git write-tree)
+git archive "$STAGED_TREE" | tar -x -C "$SNAPSHOT"
+for dir in . apps/api apps/web; do
+  ln -s "$REPO_ROOT/$dir/node_modules" "$SNAPSHOT/$dir/node_modules"
+done
+cd "$SNAPSHOT"
 
-echo "▶ Lint"
+echo "▶ Lint (staged snapshot)"
 npx eslint . --max-warnings 0
 
-echo "▶ Format"
+echo "▶ Format (staged snapshot)"
 npx prettier --check .
 
-echo "▶ Frontend tests (80% coverage gate)"
-cd apps/web && npx vitest run --coverage
-cd ../..
-
-echo "▶ Backend tests (80% coverage gate)"
-cd apps/api && npx jest --coverage
+echo "▶ Tests with 80% coverage gate (staged snapshot)"
+npm test
 ```
+
+- **Checks the staged snapshot, not the working tree.** `git write-tree` captures the index, and `git archive` extracts it to a temp directory, with `node_modules` symlinked in. Unstaged edits can neither fail a good commit nor mask a broken one. The working tree and index are never modified.
+- **No builds.** Builds are too slow to run on every commit, so they are a mandatory manual step (Pre-completion review, step 5). The API type check still runs through ts-jest. The web app's types are checked *only* by its build, because Vitest does not type-check.
+- There is no CI pipeline yet, so this hook plus step 5 are the only gates.
+- Prettier skips Markdown via `.prettierignore`, so it only checks code and config.
 
 **Coverage policy — two tiers:**
 

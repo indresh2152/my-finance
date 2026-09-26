@@ -88,8 +88,7 @@ describe('SetuPanVerifier.verify', () => {
     const body = JSON.parse(init.body as string) as Record<string, string>;
     expect(body['pan']).toBe(PAN);
     expect(body['consent']).toBe('Y');
-    expect(body['reason']).toEqual(expect.any(String));
-    expect(body['reason'].length).toBeGreaterThan(0);
+    expect(body['reason']).toEqual(expect.stringMatching(/.+/));
   });
 
   it('should return the Setu message and traceId when verification fails', async () => {

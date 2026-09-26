@@ -2,7 +2,7 @@ import { Router, type Request, type Response, type NextFunction } from 'express'
 import { z } from 'zod';
 import type { AppDeps } from '../app';
 import { PanService } from '../services/pan.service';
-import { requireAuth } from '../middleware/auth.middleware';
+import { getAuthUser, requireAuth } from '../middleware/auth.middleware';
 import { panRateLimiter } from '../middleware/rateLimit.middleware';
 import { i18next } from '../i18n';
 
@@ -24,7 +24,7 @@ export const panRouter = (deps: AppDeps): Router => {
     async (req: Request, res: Response, next: NextFunction): Promise<void> => {
       try {
         const body = buildPanSchema(req.language).parse(req.body);
-        const profile = await service.register(req.user!.id, body.pan, req.language);
+        const profile = await service.register(getAuthUser(req).id, body.pan, req.language);
         res.status(201).json(profile);
       } catch (err) {
         next(err);
@@ -37,7 +37,7 @@ export const panRouter = (deps: AppDeps): Router => {
     requireAuth,
     async (req: Request, res: Response, next: NextFunction): Promise<void> => {
       try {
-        const profile = await service.getByUserId(req.user!.id, req.language);
+        const profile = await service.getByUserId(getAuthUser(req).id, req.language);
         res.json(profile);
       } catch (err) {
         next(err);

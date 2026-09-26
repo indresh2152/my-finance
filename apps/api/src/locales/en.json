@@ -2,6 +2,7 @@
   "error": {
     "pan_invalid": "PAN format is invalid. Must be 10 characters: 5 letters, 4 digits, 1 letter (e.g. ABCDE1234F)",
     "pan_already_registered": "A PAN is already linked to this account",
+    "pan_linked_to_another_account": "This PAN is already linked to another account. Contact support if you believe this is a mistake.",
     "pan_not_registered": "No PAN registered for this account",
     "pan_not_found": "No PAN profile found for this account",
     "pan_verification_failed": "PAN could not be verified. Please check your PAN and try again.",

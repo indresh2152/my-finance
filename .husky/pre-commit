@@ -1,9 +1,29 @@
 #!/usr/bin/env sh
+# Runs lint, format and tests against the exact staged snapshot, not the working tree,
+# so unstaged edits can neither fail a good commit nor mask a broken one.
+# Builds are deliberately not run here: they are a mandatory manual step after every
+# code change (see .claude/skills/code-quality.md, "Pre-completion review").
 set -e
 
-echo "▶ Backend tests (80% coverage gate)"
-cd apps/api && npx jest --coverage
-cd ../..
+REPO_ROOT=$(git rev-parse --show-toplevel)
+# Must not live under .git: Jest's file crawler ignores everything inside a .git directory.
+SNAPSHOT=$(mktemp -d "${TMPDIR:-/tmp}/my-finance-precommit.XXXXXX")
+trap 'rm -rf "$SNAPSHOT"' EXIT
+trap 'exit 130' INT TERM
 
-echo "▶ Frontend tests (80% coverage gate)"
-cd apps/web && npx vitest run --coverage
+# Separate step so set -e catches a failure (e.g. an unmerged index) that the pipe would hide.
+STAGED_TREE=$(git write-tree)
+git archive "$STAGED_TREE" | tar -x -C "$SNAPSHOT"
+for dir in . apps/api apps/web; do
+  ln -s "$REPO_ROOT/$dir/node_modules" "$SNAPSHOT/$dir/node_modules"
+done
+cd "$SNAPSHOT"
+
+echo "▶ Lint (staged snapshot)"
+npx eslint . --max-warnings 0
+
+echo "▶ Format (staged snapshot)"
+npx prettier --check .
+
+echo "▶ Tests with 80% coverage gate (staged snapshot)"
+npm test

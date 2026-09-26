@@ -13,9 +13,11 @@
   "errors": {
     "invalidFormat": "PAN must be 10 characters: 5 letters, 4 digits, 1 letter (e.g. ABCDE1234F)",
     "alreadyRegistered": "A PAN is already linked to this account",
+    "linkedToAnotherAccount": "This PAN is already linked to another account. Contact support if you believe this is a mistake.",
     "registrationFailed": "Failed to link PAN. Please try again.",
     "verificationFailed": "PAN could not be verified. Please check your PAN and try again.",
-    "kycUnavailable": "PAN verification service is currently unavailable. Please try again later."
+    "kycUnavailable": "PAN verification service is currently unavailable. Please try again later.",
+    "rateLimited": "Too many PAN linking attempts. Please try again in 24 hours."
   },
   "validation": {
     "required": "PAN is required",

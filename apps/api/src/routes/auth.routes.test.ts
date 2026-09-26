@@ -1,6 +1,6 @@
 import request from 'supertest';
 import { createApp } from '../app';
-import { signRefreshToken, hashToken } from '../utils/token.utils';
+import { signAccessToken, signRefreshToken, hashToken } from '../utils/token.utils';
 import bcrypt from 'bcryptjs';
 
 const JWT_SECRET = 'test-jwt-secret-at-least-32-chars!!';
@@ -19,7 +19,9 @@ const app = createApp({
 // The audit middleware fires pool.query asynchronously after the response is sent.
 // A default mock value ensures those unexpected calls return a valid Promise
 // instead of undefined (which would cause a TypeError in the .catch() chain).
-beforeEach(() => { mockDb.query.mockResolvedValue({ rows: [] }); });
+beforeEach(() => {
+  mockDb.query.mockResolvedValue({ rows: [] });
+});
 afterEach(() => jest.resetAllMocks());
 
 describe('POST /api/v1/auth/login', () => {
@@ -41,7 +43,15 @@ describe('POST /api/v1/auth/login', () => {
     const hash = await bcrypt.hash('P@ss1234', 12);
     mockDb.query
       .mockResolvedValueOnce({
-        rows: [{ id: 'uid', username: 'testuser', email: 'test@e.com', password_hash: hash, pan_masked: null }],
+        rows: [
+          {
+            id: 'uid',
+            username: 'testuser',
+            email: 'test@e.com',
+            password_hash: hash,
+            pan_masked: null,
+          },
+        ],
       })
       .mockResolvedValueOnce({ rows: [] }); // refresh token insert
     const res = await request(app)
@@ -89,7 +99,9 @@ describe('POST /api/v1/auth/refresh', () => {
     mockDb.query
       .mockResolvedValueOnce({ rows: [{ id: 'rt-1', revoked_at: null }] }) // token lookup
       .mockResolvedValueOnce({ rows: [] }) // revoke old
-      .mockResolvedValueOnce({ rows: [{ id: 'uid', username: 'u', email: 'e@e.com', pan_masked: null }] })
+      .mockResolvedValueOnce({
+        rows: [{ id: 'uid', username: 'u', email: 'e@e.com', pan_masked: null }],
+      })
       .mockResolvedValueOnce({ rows: [] }); // new token insert
     void tokenHash;
     const res = await request(app)
@@ -97,10 +109,77 @@ describe('POST /api/v1/auth/refresh', () => {
       .set('Cookie', `refreshToken=${token}`);
     expect(res.status).toBe(200);
     expect(res.body.accessToken).toBeTruthy();
+    const cookies = res.headers['set-cookie'] as unknown as string[];
+    expect(cookies).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(/^refreshToken=;.*Path=\/api\/v1\/auth\/refresh/),
+        expect.stringMatching(
+          /^refreshToken=[^;]+; Max-Age=604800;.*Path=\/api\/v1\/auth;.*HttpOnly/,
+        ),
+      ]),
+    );
+  });
+});
+
+describe('POST /api/v1/auth/refresh failure', () => {
+  it('should clear the refresh cookies when the token is rejected', async () => {
+    const res = await request(app)
+      .post('/api/v1/auth/refresh')
+      .set('Cookie', 'refreshToken=not-a-valid-jwt');
+    expect(res.status).toBe(401);
+    const cookies = res.headers['set-cookie'] as unknown as string[];
+    expect(cookies).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(/^refreshToken=;.*Path=\/api\/v1\/auth;/),
+        expect.stringMatching(/^refreshToken=;.*Path=\/api\/v1\/auth\/refresh/),
+      ]),
+    );
+  });
+
+  it('should keep the cookie when refresh fails for a server reason', async () => {
+    const token = signRefreshToken('uid', REFRESH_SECRET);
+    mockDb.query.mockRejectedValueOnce(new Error('db down'));
+    const res = await request(app)
+      .post('/api/v1/auth/refresh')
+      .set('Cookie', `refreshToken=${token}`);
+    expect(res.status).toBe(500);
+    expect(res.headers['set-cookie']).toBeUndefined();
   });
 });
 
 describe('DELETE /api/v1/auth/logout', () => {
+  const accessToken = signAccessToken(
+    { userId: 'uid', username: 'u', email: 'e@e.com', hasPan: false },
+    JWT_SECRET,
+  );
+
+  it('should revoke the refresh token sent with the logout request', async () => {
+    const refreshToken = signRefreshToken('uid', REFRESH_SECRET);
+    const res = await request(app)
+      .delete('/api/v1/auth/logout')
+      .set('Authorization', `Bearer ${accessToken}`)
+      .set('Cookie', `refreshToken=${refreshToken}`);
+    expect(res.status).toBe(204);
+    expect(mockDb.query).toHaveBeenCalledWith(
+      expect.stringContaining('UPDATE refresh_tokens SET revoked_at'),
+      [hashToken(refreshToken)],
+    );
+  });
+
+  it('should clear the cookie at both the current and legacy paths', async () => {
+    const res = await request(app)
+      .delete('/api/v1/auth/logout')
+      .set('Authorization', `Bearer ${accessToken}`);
+    expect(res.status).toBe(204);
+    const cookies = res.headers['set-cookie'] as unknown as string[];
+    expect(cookies).toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(/^refreshToken=;.*Path=\/api\/v1\/auth;/),
+        expect.stringMatching(/^refreshToken=;.*Path=\/api\/v1\/auth\/refresh/),
+      ]),
+    );
+  });
+
   it('should return 401 when not authenticated', async () => {
     const res = await request(app).delete('/api/v1/auth/logout');
     expect(res.status).toBe(401);

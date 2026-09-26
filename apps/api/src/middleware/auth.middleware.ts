@@ -1,21 +1,36 @@
 import type { Request, Response, NextFunction } from 'express';
 import { verifyAccessToken } from '../utils/token.utils';
 import i18next from 'i18next';
+import { AppError } from './error.middleware';
+
+export interface AuthenticatedUser {
+  id: string;
+  username: string;
+  email: string;
+  hasPan: boolean;
+}
 
 declare module 'express-serve-static-core' {
   interface Request {
-    user?: {
-      id: string;
-      username: string;
-      email: string;
-      hasPan: boolean;
-    };
+    user?: AuthenticatedUser;
   }
 }
 
+const unauthorizedError = (req: Request): AppError =>
+  new AppError('UNAUTHORIZED', 401, i18next.t('error.unauthorized', { lng: req.language ?? 'en' }));
+
+/**
+ * Returns the authenticated user for a route guarded by `requireAuth`.
+ * Throws a 401 AppError instead of asserting, so a missing guard fails safely.
+ */
+export const getAuthUser = (req: Request): AuthenticatedUser => {
+  if (!req.user) throw unauthorizedError(req);
+  return req.user;
+};
+
 export const authMiddleware =
   (jwtSecret: string) =>
-  (req: Request, res: Response, next: NextFunction): void => {
+  (req: Request, _res: Response, next: NextFunction): void => {
     const authHeader = req.headers['authorization'];
 
     if (!authHeader?.startsWith('Bearer ')) {
@@ -35,23 +50,19 @@ export const authMiddleware =
       };
       next();
     } catch {
-      res.status(401).json({
-        error: {
-          code: 'INVALID_TOKEN',
-          message: i18next.t('error.unauthorized', { lng: req.language ?? 'en' }),
-        },
-      });
+      next(
+        new AppError(
+          'INVALID_TOKEN',
+          401,
+          i18next.t('error.unauthorized', { lng: req.language ?? 'en' }),
+        ),
+      );
     }
   };
 
-export const requireAuth = (req: Request, res: Response, next: NextFunction): void => {
+export const requireAuth = (req: Request, _res: Response, next: NextFunction): void => {
   if (!req.user) {
-    res.status(401).json({
-      error: {
-        code: 'UNAUTHORIZED',
-        message: i18next.t('error.unauthorized', { lng: req.language ?? 'en' }),
-      },
-    });
+    next(unauthorizedError(req));
     return;
   }
   next();

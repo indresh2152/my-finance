@@ -12,11 +12,15 @@ const CreditCardsStub: React.FC = () => <div>Credit Cards Page</div>;
 const PanRegisterStub: React.FC = () => <div>PAN Register Page</div>;
 
 const server = setupServer(
-  http.post('/api/v1/auth/refresh', () =>
-    HttpResponse.json({ accessToken: 'token' }),
-  ),
+  http.post('/api/v1/auth/refresh', () => HttpResponse.json({ accessToken: 'token' })),
   http.get('/api/v1/users/me', () =>
-    HttpResponse.json({ id: '1', username: 'johndoe', email: 'j@j.com', hasPan: true, panMasked: 'ABCDE####F' }),
+    HttpResponse.json({
+      id: '1',
+      username: 'johndoe',
+      email: 'j@j.com',
+      hasPan: true,
+      panMasked: 'ABCDE####F',
+    }),
   ),
 );
 
@@ -67,7 +71,13 @@ describe('HomePage', () => {
   it('should show a link-PAN prompt that navigates to PAN registration when no PAN is linked', async () => {
     server.use(
       http.get('/api/v1/users/me', () =>
-        HttpResponse.json({ id: '1', username: 'johndoe', email: 'j@j.com', hasPan: false, panMasked: null }),
+        HttpResponse.json({
+          id: '1',
+          username: 'johndoe',
+          email: 'j@j.com',
+          hasPan: false,
+          panMasked: null,
+        }),
       ),
     );
     renderPage();

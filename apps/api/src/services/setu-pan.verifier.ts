@@ -6,7 +6,7 @@ import type { PanVerifier, VerificationResult } from './pan.verifier';
 const logger = pino({ name: 'setu-pan-verifier' });
 
 const CONSENT_GIVEN = 'Y';
-const VERIFICATION_REASON = 'Verify PAN ownership to link the user\'s financial accounts';
+const VERIFICATION_REASON = "Verify PAN ownership to link the user's financial accounts";
 const VERIFICATION_SUCCESS = 'SUCCESS';
 
 interface SetuPanResponse {

@@ -32,7 +32,14 @@ const PanRegisterPage: React.FC = () => {
   return (
     <div>
       PAN Register Page
-      <button onClick={() => { skipPan(); navigate('/'); }}>Skip</button>
+      <button
+        onClick={() => {
+          skipPan();
+          navigate('/');
+        }}
+      >
+        Skip
+      </button>
     </div>
   );
 };
@@ -74,7 +81,13 @@ describe('ProtectedRoute', () => {
     server.use(
       http.post('/api/v1/auth/refresh', () => HttpResponse.json({ accessToken: 'token' })),
       http.get('/api/v1/users/me', () =>
-        HttpResponse.json({ id: '1', username: 'u', email: 'e@e.com', hasPan: false, panMasked: null }),
+        HttpResponse.json({
+          id: '1',
+          username: 'u',
+          email: 'e@e.com',
+          hasPan: false,
+          panMasked: null,
+        }),
       ),
     );
     renderRoute('/');
@@ -85,7 +98,13 @@ describe('ProtectedRoute', () => {
     server.use(
       http.post('/api/v1/auth/refresh', () => HttpResponse.json({ accessToken: 'token' })),
       http.get('/api/v1/users/me', () =>
-        HttpResponse.json({ id: '1', username: 'u', email: 'e@e.com', hasPan: true, panMasked: 'ABCDE####F' }),
+        HttpResponse.json({
+          id: '1',
+          username: 'u',
+          email: 'e@e.com',
+          hasPan: true,
+          panMasked: 'ABCDE####F',
+        }),
       ),
     );
     renderRoute('/credit-cards');
@@ -96,7 +115,13 @@ describe('ProtectedRoute', () => {
     server.use(
       http.post('/api/v1/auth/refresh', () => HttpResponse.json({ accessToken: 'token' })),
       http.get('/api/v1/users/me', () =>
-        HttpResponse.json({ id: '1', username: 'u', email: 'e@e.com', hasPan: false, panMasked: null }),
+        HttpResponse.json({
+          id: '1',
+          username: 'u',
+          email: 'e@e.com',
+          hasPan: false,
+          panMasked: null,
+        }),
       ),
     );
     renderRoute('/pan-register');
@@ -109,7 +134,13 @@ describe('ProtectedRoute', () => {
     server.use(
       http.post('/api/v1/auth/refresh', () => HttpResponse.json({ accessToken: 'token' })),
       http.get('/api/v1/users/me', () =>
-        HttpResponse.json({ id: '1', username: 'u', email: 'e@e.com', hasPan: false, panMasked: null }),
+        HttpResponse.json({
+          id: '1',
+          username: 'u',
+          email: 'e@e.com',
+          hasPan: false,
+          panMasked: null,
+        }),
       ),
     );
     renderRoute('/pan-register');

@@ -1,7 +1,9 @@
 import { Router } from 'express';
-import { requireAuth } from '../middleware/auth.middleware';
+import { getAuthUser, requireAuth } from '../middleware/auth.middleware';
 import type { AppDeps } from '../app';
 import type { Request, Response, NextFunction } from 'express';
+import { AppError } from '../middleware/error.middleware';
+import { i18next } from '../i18n';
 
 export const usersRouter = (deps: AppDeps): Router => {
   const router = Router();
@@ -11,7 +13,7 @@ export const usersRouter = (deps: AppDeps): Router => {
     requireAuth,
     async (req: Request, res: Response, next: NextFunction): Promise<void> => {
       try {
-        const userId = req.user!.id;
+        const userId = getAuthUser(req).id;
 
         const { rows } = await deps.db.query<{
           id: string;
@@ -26,12 +28,15 @@ export const usersRouter = (deps: AppDeps): Router => {
           [userId],
         );
 
-        if (rows.length === 0) {
-          res.status(404).json({ error: { code: 'USER_NOT_FOUND', message: 'User not found' } });
-          return;
+        const row = rows[0];
+        if (!row) {
+          throw new AppError(
+            'USER_NOT_FOUND',
+            404,
+            i18next.t('error.user_not_found', { lng: req.language }),
+          );
         }
 
-        const row = rows[0]!;
         res.json({
           id: row.id,
           username: row.username,

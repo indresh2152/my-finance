@@ -10,10 +10,17 @@ import { ProtectedRoute } from './routes/ProtectedRoute';
 import { AppLayout } from './components/AppLayout';
 import { FullPageSpinner } from './components/FullPageSpinner';
 
-const LoginPage = lazy(() => import('./pages/LoginPage').then(m => ({ default: m.LoginPage })));
-const HomePage = lazy(() => import('./pages/HomePage').then(m => ({ default: m.HomePage })));
-const CreditCardsPage = lazy(() => import('./pages/CreditCardsPage').then(m => ({ default: m.CreditCardsPage })));
-const PanRegisterPage = lazy(() => import('./pages/PanRegisterPage').then(m => ({ default: m.PanRegisterPage })));
+const LoginPage = lazy(() => import('./pages/LoginPage').then((m) => ({ default: m.LoginPage })));
+const HomePage = lazy(() => import('./pages/HomePage').then((m) => ({ default: m.HomePage })));
+const CreditCardsPage = lazy(() =>
+  import('./pages/CreditCardsPage').then((m) => ({ default: m.CreditCardsPage })),
+);
+const PanRegisterPage = lazy(() =>
+  import('./pages/PanRegisterPage').then((m) => ({ default: m.PanRegisterPage })),
+);
+const ApiDocsPage = lazy(() =>
+  import('./pages/ApiDocsPage').then((m) => ({ default: m.ApiDocsPage })),
+);
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 30_000 } },
@@ -35,6 +42,7 @@ const router = createBrowserRouter([
       { index: true, element: <HomePage /> },
       { path: 'credit-cards', element: <CreditCardsPage /> },
       { path: 'pan-register', element: <PanRegisterPage /> },
+      { path: 'api-docs', element: <ApiDocsPage /> },
     ],
   },
   {
