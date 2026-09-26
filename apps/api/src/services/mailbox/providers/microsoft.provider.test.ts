@@ -1,5 +1,10 @@
 import { MicrosoftMailProvider } from './microsoft.provider';
-import { ProviderRequestError, ReauthRequiredError, type MessageRef } from './mail-provider';
+import {
+  ProviderNotFoundError,
+  ProviderRequestError,
+  ReauthRequiredError,
+  type MessageRef,
+} from './mail-provider';
 import { jsonResponse, initAt, urlAt, spyOnFetch } from '../../../test/fetch-mock';
 
 const provider = new MicrosoftMailProvider('client-id', 'client-secret');
@@ -103,6 +108,28 @@ describe('MicrosoftMailProvider.revoke', () => {
 });
 
 describe('MicrosoftMailProvider.search', () => {
+  it('should stop paginating when @odata.nextLink repeats the previous link', async () => {
+    const nextLink = 'https://graph.microsoft.com/v1.0/me/messages?page=2';
+    const fetchSpy = spyOnFetch()
+      .mockResolvedValueOnce(
+        jsonResponse({
+          value: [{ id: 'm1', from: { emailAddress: { address: 'x@hdfcbank.net' } } }],
+          '@odata.nextLink': nextLink,
+        }),
+      )
+      .mockResolvedValueOnce(
+        jsonResponse({
+          value: [{ id: 'm2', from: { emailAddress: { address: 'x@hdfcbank.net' } } }],
+          '@odata.nextLink': nextLink,
+        }),
+      )
+      .mockRejectedValue(new Error('fetched past repeated link'));
+    const since = new Date('2026-09-01T00:00:00.000Z');
+    const ids = await collect(provider.search('at', { senders: ['@hdfcbank.net'], since }));
+    expect(ids).toEqual(['m1', 'm2']);
+    expect(fetchSpy).toHaveBeenCalledTimes(2);
+  });
+
   it('should filter by date on the server, by sender locally, and follow nextLink', async () => {
     const fetchSpy = spyOnFetch()
       .mockResolvedValueOnce(
@@ -177,5 +204,12 @@ describe('MicrosoftMailProvider.getAttachment', () => {
       jsonResponse({ contentBytes: Buffer.from('%PDF').toString('base64') }),
     );
     await expect(provider.getAttachment('at', 'm1', 'a1')).resolves.toEqual(Buffer.from('%PDF'));
+  });
+
+  it('should throw ProviderNotFoundError when contentBytes is missing', async () => {
+    spyOnFetch().mockResolvedValueOnce(jsonResponse({}));
+    await expect(provider.getAttachment('at', 'm1', 'a1')).rejects.toBeInstanceOf(
+      ProviderNotFoundError,
+    );
   });
 });

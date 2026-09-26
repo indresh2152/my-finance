@@ -21,16 +21,16 @@ const CACHE_TTL_MS = 60 * 60 * 1000;
 const UNSUPPORTED: Resolution = { supported: false };
 const TRAILING_DOT = /\.$/;
 
-const DOMAIN_PROVIDERS: Readonly<Record<string, ProviderKey>> = {
-  'gmail.com': 'GOOGLE',
-  'googlemail.com': 'GOOGLE',
-  'outlook.com': 'MICROSOFT',
-  'outlook.in': 'MICROSOFT',
-  'hotmail.com': 'MICROSOFT',
-  'live.com': 'MICROSOFT',
-  'live.in': 'MICROSOFT',
-  'msn.com': 'MICROSOFT',
-};
+const DOMAIN_PROVIDERS: ReadonlyMap<string, ProviderKey> = new Map<string, ProviderKey>([
+  ['gmail.com', 'GOOGLE'],
+  ['googlemail.com', 'GOOGLE'],
+  ['outlook.com', 'MICROSOFT'],
+  ['outlook.in', 'MICROSOFT'],
+  ['hotmail.com', 'MICROSOFT'],
+  ['live.com', 'MICROSOFT'],
+  ['live.in', 'MICROSOFT'],
+  ['msn.com', 'MICROSOFT'],
+]);
 
 const KNOWN_UNSUPPORTED_DOMAINS: ReadonlySet<string> = new Set([
   'yahoo.com',
@@ -83,7 +83,7 @@ export class ProviderResolver {
 
   async resolve(email: string): Promise<Resolution> {
     const domain = emailDomain(email);
-    const mapped = DOMAIN_PROVIDERS[domain];
+    const mapped = DOMAIN_PROVIDERS.get(domain);
     if (mapped) {
       return { supported: true, provider: mapped };
     }

@@ -1,9 +1,17 @@
 const mockLogger = { error: jest.fn() };
-jest.mock('pino', () => jest.fn(() => mockLogger));
+const mockPino = jest.fn((..._args: unknown[]) => mockLogger);
+jest.mock('pino', () => mockPino);
 
-import { Writable } from 'stream';
 import { writeAuditLog } from './audit-log.writer';
 import { errorLoggerOptions } from '../middleware/error.middleware';
+
+// The writer's module-level `pino(...)` call happens once, at import time above (alongside an
+// unrelated `pino(errorLoggerOptions)` call inside error.middleware.ts, which audit-log.writer.ts
+// itself imports) — find it by its logger `name` now, before any `clearAllMocks()` in `afterEach`
+// wipes `mockPino`'s call history.
+const loggerConstructorArgs: unknown = mockPino.mock.calls.find(
+  (call) => (call[0] as { name?: unknown } | undefined)?.name === 'audit-writer',
+)?.[0];
 
 afterEach(() => jest.clearAllMocks());
 
@@ -49,27 +57,13 @@ describe('writeAuditLog', () => {
     expect(mockLogger.error).toHaveBeenCalled();
   });
 
-  it('should redact pg error detail/where when logging a failed insert (same rules as error.middleware)', () => {
-    const realPino = jest.requireActual<typeof import('pino')>('pino');
-    const lines: string[] = [];
-    const sink = new Writable({
-      write(chunk: Buffer, _encoding, callback): void {
-        lines.push(chunk.toString());
-        callback();
-      },
+  it('should construct its logger with the shared redaction rules and its own name', () => {
+    // Proves the writer actually passes `errorLoggerOptions` (which error.middleware.test.ts
+    // proves redacts err.detail/where/internalQuery) into its own pino instance: deleting the
+    // `...errorLoggerOptions` spread from audit-log.writer.ts fails this assertion.
+    expect(loggerConstructorArgs).toMatchObject({
+      name: 'audit-writer',
+      redact: errorLoggerOptions.redact,
     });
-    const auditWriterLogger = realPino({ ...errorLoggerOptions, name: 'audit-writer' }, sink);
-    const pgError = Object.assign(new Error('duplicate key'), {
-      code: '23505',
-      detail: 'Key (pan_hash)=(secret-hash) already exists.',
-      where: 'SQL statement',
-    });
-
-    auditWriterLogger.error({ err: pgError, action: 'MAILBOX_SYNC' }, 'audit write failed');
-
-    const logged = lines.join('');
-    expect(logged).not.toContain('secret-hash');
-    expect(logged).toContain('[redacted]');
-    expect(logged).toContain('"name":"audit-writer"');
   });
 });

@@ -90,4 +90,13 @@ describe('ProviderResolver', () => {
       supported: false,
     });
   });
+
+  it('should not resolve Object.prototype property names as domains', async () => {
+    // A plain-object lookup table would return Object.prototype.constructor for this domain
+    // instead of falling through to MX resolution. It must go through the (fake) MX lookup.
+    const lookup = jest.fn().mockResolvedValue(mx('some.random.host.com'));
+    const resolver = new ProviderResolver(lookup);
+    await expect(resolver.resolve('a@constructor')).resolves.toEqual({ supported: false });
+    expect(lookup).toHaveBeenCalledWith('constructor');
+  });
 });

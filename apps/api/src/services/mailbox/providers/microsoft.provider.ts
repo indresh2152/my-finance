@@ -2,6 +2,7 @@ import { htmlToText } from '../../../utils/html-to-text';
 import { matchesSender } from '../../../parsers/sender-match';
 import { getJson, postTokenForm } from './provider-http';
 import {
+  ProviderNotFoundError,
   ProviderRequestError,
   type AccessGrant,
   type AuthUrlParams,
@@ -134,12 +135,21 @@ export class MicrosoftMailProvider implements MailProvider {
     let url: string | undefined =
       `${GRAPH}/me/messages?$filter=${filter}&$select=id,from,receivedDateTime&$top=${PAGE_SIZE}`;
     while (url) {
-      const page: GraphListResponse = await getJson<GraphListResponse>(this.key, url, accessToken);
+      const requestedUrl = url;
+      const page: GraphListResponse = await getJson<GraphListResponse>(
+        this.key,
+        requestedUrl,
+        accessToken,
+      );
       for (const message of page.value) {
         const address = message.from?.emailAddress?.address;
         if (address && matchesSender(address, senders)) {
           yield { id: message.id };
         }
+      }
+      // Guard against a buggy API response repeating the same link forever.
+      if (page['@odata.nextLink'] && page['@odata.nextLink'] === requestedUrl) {
+        break;
       }
       url = page['@odata.nextLink'];
     }
@@ -164,11 +174,14 @@ export class MicrosoftMailProvider implements MailProvider {
   }
 
   async getAttachment(accessToken: string, messageId: string, locator: string): Promise<Buffer> {
-    const attachment = await getJson<{ contentBytes: string }>(
+    const attachment = await getJson<{ contentBytes?: string }>(
       this.key,
       `${GRAPH}/me/messages/${encodeURIComponent(messageId)}/attachments/${encodeURIComponent(locator)}`,
       accessToken,
     );
+    if (!attachment.contentBytes) {
+      throw new ProviderNotFoundError(this.key);
+    }
     return Buffer.from(attachment.contentBytes, 'base64');
   }
 }
