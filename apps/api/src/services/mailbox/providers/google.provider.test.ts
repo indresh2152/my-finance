@@ -5,30 +5,10 @@ import {
   ReauthRequiredError,
   type MessageRef,
 } from './mail-provider';
+import { jsonResponse, initAt, urlAt, spyOnFetch } from '../../../test/fetch-mock';
 
-type FetchSpy = jest.SpyInstance<Promise<Response>, Parameters<typeof fetch>>;
-
-const jsonResponse = (body: unknown, status = 200): Response =>
-  new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 const b64 = (text: string): string => Buffer.from(text, 'utf8').toString('base64url');
 const provider = new GoogleMailProvider('client-id', 'client-secret');
-
-/** Returns the recorded fetch call at `index`, throwing (rather than asserting with `!`) when missing. */
-const callAt = (spy: FetchSpy, index: number): Parameters<typeof fetch> => {
-  const call = spy.mock.calls[index];
-  if (!call) throw new Error(`fetch call ${index} was not recorded`);
-  return call;
-};
-
-const initAt = (spy: FetchSpy, index: number): RequestInit => {
-  const init = callAt(spy, index)[1];
-  if (!init) throw new Error(`fetch call ${index} had no init`);
-  return init;
-};
-
-const urlAt = (spy: FetchSpy, index: number): string => String(callAt(spy, index)[0]);
-
-const spyOnFetch = (): FetchSpy => jest.spyOn(global, 'fetch');
 
 const collect = async (iterable: AsyncIterable<MessageRef>): Promise<string[]> => {
   const ids: string[] = [];

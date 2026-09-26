@@ -28,6 +28,7 @@ export const hashEmail = (email: string, secret: string): string =>
 export const maskEmail = (email: string): string => {
   const normalised = normaliseEmail(email);
   const atIndex = normalised.lastIndexOf('@');
+  if (atIndex === -1) return MASK;
   const local = normalised.slice(0, atIndex);
   return `${local.slice(0, VISIBLE_LOCAL_CHARS)}${MASK}@${normalised.slice(atIndex + 1)}`;
 };

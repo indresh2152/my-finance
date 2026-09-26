@@ -1,7 +1,9 @@
 const mockLogger = { error: jest.fn() };
 jest.mock('pino', () => jest.fn(() => mockLogger));
 
+import { Writable } from 'stream';
 import { writeAuditLog } from './audit-log.writer';
+import { errorLoggerOptions } from '../middleware/error.middleware';
 
 afterEach(() => jest.clearAllMocks());
 
@@ -45,5 +47,29 @@ describe('writeAuditLog', () => {
       writeAuditLog(db, { userId: 'u', action: 'MAILBOX_UNLINK' }),
     ).resolves.toBeUndefined();
     expect(mockLogger.error).toHaveBeenCalled();
+  });
+
+  it('should redact pg error detail/where when logging a failed insert (same rules as error.middleware)', () => {
+    const realPino = jest.requireActual<typeof import('pino')>('pino');
+    const lines: string[] = [];
+    const sink = new Writable({
+      write(chunk: Buffer, _encoding, callback): void {
+        lines.push(chunk.toString());
+        callback();
+      },
+    });
+    const auditWriterLogger = realPino({ ...errorLoggerOptions, name: 'audit-writer' }, sink);
+    const pgError = Object.assign(new Error('duplicate key'), {
+      code: '23505',
+      detail: 'Key (pan_hash)=(secret-hash) already exists.',
+      where: 'SQL statement',
+    });
+
+    auditWriterLogger.error({ err: pgError, action: 'MAILBOX_SYNC' }, 'audit write failed');
+
+    const logged = lines.join('');
+    expect(logged).not.toContain('secret-hash');
+    expect(logged).toContain('[redacted]');
+    expect(logged).toContain('"name":"audit-writer"');
   });
 });

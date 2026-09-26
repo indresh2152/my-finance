@@ -30,6 +30,10 @@ describe('email utils', () => {
     expect(maskEmail('a@x.com')).toBe('a****@x.com');
   });
 
+  it('should fully mask input with no @ instead of leaking or duplicating it', () => {
+    expect(maskEmail('not-an-email')).toBe('****');
+  });
+
   it('should treat googlemail.com as gmail.com when comparing accounts', () => {
     expect(canonicaliseEmail(' User@GoogleMail.com ')).toBe('user@gmail.com');
     expect(canonicaliseEmail('user@company.in')).toBe('user@company.in');

@@ -1,7 +1,8 @@
 import type { Pool } from 'pg';
 import pino from 'pino';
+import { errorLoggerOptions } from '../middleware/error.middleware';
 
-const logger = pino({ name: 'audit-writer' });
+const logger = pino({ ...errorLoggerOptions, name: 'audit-writer' });
 
 export type Queryable = Pick<Pool, 'query'>;
 
