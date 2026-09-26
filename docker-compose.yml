@@ -30,6 +30,8 @@ services:
       CORS_ORIGIN: http://localhost:5173
       API_DOCS_ENABLED: 'true'
       PORT: 4000
+      MAILBOX_ENABLED: 'false'
+      APP_BASE_URL: http://localhost:5173
     ports:
       - '4000:4000'
     volumes:

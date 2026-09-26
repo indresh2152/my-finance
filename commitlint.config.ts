@@ -22,6 +22,7 @@ const config: UserConfig = {
         'docker',
         'deps',
         'i18n',
+        'mailbox',
       ],
     ],
     'subject-case': [2, 'always', 'lower-case'],

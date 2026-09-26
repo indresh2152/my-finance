@@ -228,7 +228,7 @@ ci(coverage): enforce 100% threshold in pipeline
 | `revert` | Reverts a previous commit |
 
 **Allowed scopes** (optional, use when relevant):
-`pan`, `auth`, `cards`, `accounts`, `loans`, `investments`, `insurance`, `overview`, `db`, `migration`, `web`, `api`, `docker`, `deps`, `i18n`
+`pan`, `auth`, `cards`, `accounts`, `loans`, `investments`, `insurance`, `overview`, `db`, `migration`, `web`, `api`, `docker`, `deps`, `i18n`, `mailbox`
 
 **Rules:**
 - Description is lowercase, imperative mood, no trailing period
@@ -252,7 +252,7 @@ const config: UserConfig = {
       2,
       'always',
       ['pan','auth','cards','accounts','loans','investments',
-       'insurance','overview','db','migration','web','api','docker','deps','i18n'],
+       'insurance','overview','db','migration','web','api','docker','deps','i18n','mailbox'],
     ],
     'subject-case': [2, 'always', 'lower-case'],
     'subject-max-length': [2, 'always', 100],

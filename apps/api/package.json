@@ -24,6 +24,7 @@
     "i18next-fs-backend": "^2.3.1",
     "jsonwebtoken": "^9.0.2",
     "pg": "^8.11.5",
+    "pg-boss": "^10.4.2",
     "pino": "^9.1.0",
     "pino-http": "^10.1.0",
     "swagger-ui-express": "^5.0.1",
