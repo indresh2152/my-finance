@@ -1,23 +1,29 @@
-import type { OAuthClientConfig } from '../../../config/mailbox.config';
+import type { MailboxConfig } from '../../../config/mailbox.config';
 import { GoogleMailProvider } from './google.provider';
 import { MicrosoftMailProvider } from './microsoft.provider';
 import type { MailProvider, ProviderKey } from './mail-provider';
 
 export type ProviderRegistry = ReadonlyMap<ProviderKey, MailProvider>;
 
-export interface ProviderClients {
-  google: OAuthClientConfig;
-  microsoft: OAuthClientConfig;
-}
+export type ProviderClients = Pick<MailboxConfig, 'google' | 'microsoft'>;
 
-export const createProviderRegistry = (clients: ProviderClients): ProviderRegistry =>
-  new Map<ProviderKey, MailProvider>([
-    ['GOOGLE', new GoogleMailProvider(clients.google.clientId, clients.google.clientSecret)],
-    [
+/** Registers only the providers whose OAuth client is configured. */
+export const createProviderRegistry = ({
+  google,
+  microsoft,
+}: ProviderClients): ProviderRegistry => {
+  const registry = new Map<ProviderKey, MailProvider>();
+  if (google) {
+    registry.set('GOOGLE', new GoogleMailProvider(google.clientId, google.clientSecret));
+  }
+  if (microsoft) {
+    registry.set(
       'MICROSOFT',
-      new MicrosoftMailProvider(clients.microsoft.clientId, clients.microsoft.clientSecret),
-    ],
-  ]);
+      new MicrosoftMailProvider(microsoft.clientId, microsoft.clientSecret),
+    );
+  }
+  return registry;
+};
 
 export const getProvider = (registry: ProviderRegistry, key: ProviderKey): MailProvider => {
   const provider = registry.get(key);

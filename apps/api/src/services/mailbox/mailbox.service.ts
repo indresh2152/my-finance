@@ -70,7 +70,8 @@ export class MailboxService {
   async resolve(ctx: RequestContext, email: string): Promise<ResolveResult> {
     await requirePanProfileId(this.deps.db, ctx.userId, ctx.lng);
     const resolution = await this.deps.resolver.resolve(email);
-    if (!resolution.supported) {
+    // A provider without a configured OAuth client cannot be linked on this deployment.
+    if (!resolution.supported || !this.deps.providers.has(resolution.provider)) {
       return { supported: false, reason: 'PROVIDER_NOT_SUPPORTED' };
     }
     await this.ensureNotActivelyLinked(ctx, email);

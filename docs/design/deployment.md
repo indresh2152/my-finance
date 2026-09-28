@@ -149,10 +149,10 @@ All configuration is injected at runtime via environment variables (12-factor). 
 |----------------------------------------|-----------------------------------|------------------------------|----------------------------------------------------------------|
 | `MAILBOX_ENABLED`                     | `true`                            | No (default `false`)         | Mounts `/api/v1/mailboxes` and starts the pg-boss worker      |
 | `APP_BASE_URL`                        | `http://localhost:5173`           | When `MAILBOX_ENABLED=true`  | Public origin; builds `redirect_uri`. In local dev, set to the Vite origin so the OAuth callback goes through the Vite proxy |
-| `GOOGLE_CLIENT_ID`                    | `123-abc.apps.googleusercontent.com` | When `MAILBOX_ENABLED=true` | Google OAuth client (Web); use K8s Secret in prod              |
-| `GOOGLE_CLIENT_SECRET`                | (secret)                          | When `MAILBOX_ENABLED=true`  | Use K8s Secret in prod; never commit to git                    |
-| `MICROSOFT_CLIENT_ID`                 | (app registration ID)             | When `MAILBOX_ENABLED=true`  | Entra ID app registration; use K8s Secret in prod               |
-| `MICROSOFT_CLIENT_SECRET`             | (secret)                          | When `MAILBOX_ENABLED=true`  | Use K8s Secret in prod; never commit to git                    |
+| `GOOGLE_CLIENT_ID`                    | `123-abc.apps.googleusercontent.com` | Pair per provider; at least one provider | Google OAuth client (Web); use K8s Secret in prod              |
+| `GOOGLE_CLIENT_SECRET`                | (secret)                          | Pair per provider; at least one provider | Use K8s Secret in prod; never commit to git                    |
+| `MICROSOFT_CLIENT_ID`                 | (app registration ID)             | Pair per provider; at least one provider | Entra ID app registration; use K8s Secret in prod               |
+| `MICROSOFT_CLIENT_SECRET`             | (secret)                          | Pair per provider; at least one provider | Use K8s Secret in prod; never commit to git                    |
 | `MAIL_CREDENTIAL_ENC_KEYS`            | `1:<hex32>,2:<hex32>`             | When `MAILBOX_ENABLED=true`  | Comma-separated `version:hexkey` pairs (32 bytes each, `openssl rand -hex 32`); use K8s Secret in prod |
 | `MAIL_CREDENTIAL_ENC_ACTIVE_VERSION`  | `1`                                | When `MAILBOX_ENABLED=true`  | Key version used to encrypt new credentials                    |
 | `EMAIL_HMAC_SECRET`                   | (random 32-byte hex)              | When `MAILBOX_ENABLED=true`  | Use K8s Secret in prod; never commit to git                    |

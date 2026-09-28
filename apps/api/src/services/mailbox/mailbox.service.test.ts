@@ -46,6 +46,16 @@ describe('MailboxService.resolve', () => {
     });
   });
 
+  it('should report a provider without a configured OAuth client as unsupported', async () => {
+    const { service } = build(makeDb([PAN]), {
+      resolution: { supported: true, provider: 'MICROSOFT' },
+    });
+    await expect(service.resolve(CTX, 'a@outlook.com')).resolves.toEqual({
+      supported: false,
+      reason: 'PROVIDER_NOT_SUPPORTED',
+    });
+  });
+
   it('should reject a mailbox that is already actively linked', async () => {
     const { service } = build(makeDb([PAN, ['email_hash = $2', [{ status: 'ACTIVE' }]]]));
     expect(await errorOf(service.resolve(CTX, 'user@gmail.com'))).toMatchObject({

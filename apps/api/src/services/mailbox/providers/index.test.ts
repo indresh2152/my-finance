@@ -14,6 +14,12 @@ describe('provider registry', () => {
     expect(getProvider(registry, 'MICROSOFT')).toBeInstanceOf(MicrosoftMailProvider);
   });
 
+  it('should register only the configured providers', () => {
+    const registry = createProviderRegistry({ ...clients, microsoft: null });
+    expect(getProvider(registry, 'GOOGLE')).toBeInstanceOf(GoogleMailProvider);
+    expect(registry.has('MICROSOFT')).toBe(false);
+  });
+
   it('should throw for an unregistered provider', () => {
     expect(() => getProvider(new Map(), 'GOOGLE')).toThrow(
       'No mail provider registered for GOOGLE',

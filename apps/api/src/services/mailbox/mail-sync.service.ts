@@ -44,6 +44,8 @@ const MARK_REAUTH_SQL = `UPDATE mail_connections
        updated_at = NOW()
    WHERE id = $1`;
 
+const PROVIDER_NOT_CONFIGURED = 'PROVIDER_NOT_CONFIGURED';
+
 const MARK_FAILED_SQL = `UPDATE mail_connections SET last_sync_status = 'FAILED', last_sync_error_code = $2, updated_at = NOW()
    WHERE id = $1`;
 
@@ -118,6 +120,11 @@ export class MailSyncService {
     const { rows } = await this.deps.db.query<SyncRow>(LOAD_CONNECTION_SQL, [mailboxId]);
     const row = rows[0];
     if (!row || row.status !== 'ACTIVE') {
+      return null;
+    }
+    // The provider's OAuth client was removed from config: record a visible failure instead of retrying.
+    if (!this.deps.providers.has(row.provider)) {
+      await this.deps.db.query(MARK_FAILED_SQL, [row.id, PROVIDER_NOT_CONFIGURED]);
       return null;
     }
 

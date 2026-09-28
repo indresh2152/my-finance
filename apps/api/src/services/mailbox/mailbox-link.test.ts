@@ -1,4 +1,5 @@
 import { MailboxLinkError, type CallbackInput } from './mailbox.service';
+import { revokeQuietly } from './mailbox-link';
 import type { PendingOAuth } from './oauth-state.service';
 import { decrypt } from '../../utils/crypto.utils';
 import { hashEmail } from '../../utils/email.utils';
@@ -145,6 +146,18 @@ describe('MailboxService.completeConnect', () => {
     });
   });
 
+  it('should fail with MAILBOX_LINK_FAILED when the provider is no longer configured', async () => {
+    const { service, provider } = build(makeDb([]), {
+      pending: { ...PENDING, provider: 'MICROSOFT' },
+    });
+    expect(
+      await errorOf(service.completeConnect({ ...CALLBACK, provider: 'MICROSOFT' })),
+    ).toMatchObject({
+      code: 'MAILBOX_LINK_FAILED',
+    });
+    expect(provider.exchangeCode).not.toHaveBeenCalled();
+  });
+
   it('should fail with MAILBOX_LINK_FAILED when the exchange rejects with a non-Error', async () => {
     const provider = makeProvider({ exchangeCode: jest.fn().mockRejectedValue('nope') });
     const { service } = build(makeDb([]), { provider });
@@ -189,5 +202,13 @@ describe('MailboxService.completeConnect', () => {
     db.query.mockRejectedValueOnce(new Error('db down'));
     const { service } = build(db, { provider });
     await expect(service.completeConnect(CALLBACK)).rejects.toThrow('db down');
+  });
+});
+
+describe('revokeQuietly', () => {
+  it('should skip revocation without reading the token when the provider is not configured', async () => {
+    const readToken = jest.fn().mockReturnValue('rt');
+    await expect(revokeQuietly(new Map(), 'MICROSOFT', readToken)).resolves.toBeUndefined();
+    expect(readToken).not.toHaveBeenCalled();
   });
 });

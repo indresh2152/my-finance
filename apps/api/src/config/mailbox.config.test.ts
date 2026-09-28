@@ -37,8 +37,32 @@ describe('loadMailboxConfig', () => {
 
   it('should fail fast when a required variable is missing', () => {
     const env = validEnv();
+    delete env['EMAIL_HMAC_SECRET'];
+    expect(() => loadMailboxConfig(env)).toThrow(/EMAIL_HMAC_SECRET/);
+  });
+
+  it('should allow a single provider and leave the other unset', () => {
+    const env = { ...validEnv(), MICROSOFT_CLIENT_ID: '', MICROSOFT_CLIENT_SECRET: ' ' };
+    const config = loadMailboxConfig(env);
+    expect(config?.google).toEqual({ clientId: 'g-id', clientSecret: 'g-secret' });
+    expect(config?.microsoft).toBeNull();
+  });
+
+  it('should fail fast when only half of a provider client is set', () => {
+    const env = validEnv();
     delete env['GOOGLE_CLIENT_SECRET'];
-    expect(() => loadMailboxConfig(env)).toThrow(/GOOGLE_CLIENT_SECRET/);
+    expect(() => loadMailboxConfig(env)).toThrow(
+      'GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET must be set together',
+    );
+  });
+
+  it('should fail fast when no provider is configured', () => {
+    const env = validEnv();
+    delete env['GOOGLE_CLIENT_ID'];
+    delete env['GOOGLE_CLIENT_SECRET'];
+    delete env['MICROSOFT_CLIENT_ID'];
+    delete env['MICROSOFT_CLIENT_SECRET'];
+    expect(() => loadMailboxConfig(env)).toThrow(/Google or Microsoft/);
   });
 
   it('should fail fast on a short HMAC secret', () => {

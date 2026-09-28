@@ -42,6 +42,17 @@ describe('MailSyncService.syncMailbox', () => {
     expect(provider.getAccessToken).not.toHaveBeenCalled();
   });
 
+  it('should mark a mailbox FAILED without syncing when its provider is no longer configured', async () => {
+    const provider = makeProvider();
+    const db = makeDb(connectionRow({ provider: 'MICROSOFT' }));
+    await expect(build(db, provider).service.syncMailbox('mb-1')).resolves.toBeNull();
+    expect(db.query).toHaveBeenLastCalledWith(expect.stringContaining(FAILED), [
+      'mb-1',
+      'PROVIDER_NOT_CONFIGURED',
+    ]);
+    expect(provider.getAccessToken).not.toHaveBeenCalled();
+  });
+
   it('should search 180 days back on the first sync and upsert parsed results', async () => {
     const provider = makeProvider({ search: jest.fn(refs('m1', 'm2')) });
     const db = makeDb(connectionRow());

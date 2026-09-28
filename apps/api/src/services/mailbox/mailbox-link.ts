@@ -48,6 +48,10 @@ export const revokeQuietly = async (
   provider: ProviderKey,
   readToken: () => string,
 ): Promise<void> => {
+  if (!registry.has(provider)) {
+    logger.warn({ provider }, 'provider not configured; grant not revoked, user must revoke it');
+    return;
+  }
   try {
     await getProvider(registry, provider).revoke(readToken());
   } catch (err) {
@@ -167,6 +171,10 @@ export const completeMailboxLink = async (
   input: CallbackInput,
 ): Promise<LinkedMailbox> => {
   const { pending, code } = await consumeCallback(deps, input);
+  // Config may have dropped the provider between startConnect and this callback.
+  if (!deps.providers.has(pending.provider)) {
+    throw new MailboxLinkError('MAILBOX_LINK_FAILED');
+  }
   const provider = getProvider(deps.providers, pending.provider);
   const exchange = await exchangeCode(deps, provider, pending, code);
   await ensureAccountMatches(deps, pending, exchange);
