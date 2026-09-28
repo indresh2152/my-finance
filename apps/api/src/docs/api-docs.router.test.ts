@@ -11,6 +11,8 @@ const deps: AppDeps = {
   refreshTokenSecret: 'test-refresh-secret-32-chars-min!!',
   panHmacSecret: 'test-pan-hmac-secret-32-chars-min!',
   panVerifier: { verify: jest.fn() } as never,
+  // Mounts the feature-flagged mailbox routes so the drift test sees them; no handler runs.
+  mailbox: { service: {} as never, appBaseUrl: 'https://app.example' },
 };
 
 /** Cookie-authenticated routes are intentionally not exposed: the docs are bearer-only. */
@@ -152,8 +154,13 @@ describe('OpenAPI document', () => {
     expect(() => listApiRoutes(app)).toThrow('Cannot read router mount path');
   });
 
-  it('should require the bearer token on every route except login and register', () => {
-    const publicRoutes = ['post /api/v1/auth/login', 'post /api/v1/auth/register'];
+  it('should require the bearer token on every route except the public ones', () => {
+    const publicRoutes = [
+      'post /api/v1/auth/login',
+      'post /api/v1/auth/register',
+      // Browser redirect from the mail provider; bound to the user by server-side state + cookie.
+      'get /api/v1/mailboxes/oauth/callback/{provider}',
+    ];
 
     for (const [path, item] of Object.entries(document.paths)) {
       for (const [method, operation] of Object.entries(
@@ -177,6 +184,26 @@ describe('OpenAPI document', () => {
     expect(panBody.content['application/json']?.schema.properties['pan']?.pattern).toBe(
       '^[A-Z]{5}[0-9]{4}[A-Z]$',
     );
+  });
+
+  it('should reuse the mailbox route schemas for bodies and path params', () => {
+    const resolveBody = document.paths['/api/v1/mailboxes/resolve']?.post?.requestBody as {
+      content: Record<string, { schema: { properties: Record<string, { maxLength?: number }> } }>;
+    };
+    expect(resolveBody.content['application/json']?.schema.properties['email']?.maxLength).toBe(
+      254,
+    );
+
+    const syncParams = document.paths['/api/v1/mailboxes/{mailboxId}/sync']?.post?.parameters as
+      | Array<{ name: string; in: string; schema: { format?: string } }>
+      | undefined;
+    expect(syncParams).toEqual([
+      expect.objectContaining({
+        name: 'mailboxId',
+        in: 'path',
+        schema: expect.objectContaining({ format: 'uuid' }),
+      }),
+    ]);
   });
 
   it('should cache the document per language', () => {

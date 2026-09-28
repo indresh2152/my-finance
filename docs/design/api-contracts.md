@@ -590,6 +590,27 @@ Writes `AUDIT_LOG_VIEW` to `audit_logs` when this endpoint is called.
 
 ---
 
+## Mailboxes
+
+Routes exist only when `MAILBOX_ENABLED=true`. All under `/api/v1/mailboxes`.
+
+| Method | Path | Auth | Success | Errors |
+|---|---|---|---|---|
+| POST | /api/v1/mailboxes/resolve | JWT + PAN | 200 `{ supported, provider?, authType?, reason? }` | 403 PAN_NOT_REGISTERED, 409 MAILBOX_ALREADY_LINKED, 422 VALIDATION_ERROR, 429 |
+| POST | /api/v1/mailboxes/connect | JWT + PAN | 200 `{ authUrl }` | 403, 409, 422 PROVIDER_NOT_SUPPORTED, 429 |
+| GET | /api/v1/mailboxes/oauth/callback/{google\|microsoft} | none (state) | 302 → `/linked-email?linked=1` | 302 → `/linked-email?error=MAILBOX_LINK_FAILED\|MAILBOX_ACCESS_DENIED\|MAILBOX_EMAIL_MISMATCH\|MAILBOX_ADMIN_CONSENT_REQUIRED` |
+| GET | /api/v1/mailboxes | JWT + PAN | 200 `{ mailboxes: Mailbox[] }` | 403 |
+| POST | /api/v1/mailboxes/{mailboxId}/sync | JWT + PAN | 202 `{ queued: true }` | 404 MAILBOX_NOT_FOUND, 409 MAILBOX_REAUTH_REQUIRED, 429 SYNC_TOO_FREQUENT |
+| DELETE | /api/v1/mailboxes/{mailboxId} | JWT + PAN | 204 | 404 MAILBOX_NOT_FOUND |
+
+`Mailbox` = `{ id, provider: 'GOOGLE'|'MICROSOFT', emailMasked, status: 'ACTIVE'|'REAUTH_REQUIRED',
+lastSyncStatus: 'NEVER'|'RUNNING'|'SUCCEEDED'|'FAILED', lastSyncErrorCode, lastSyncedAt, createdAt }`.
+Routes exist only when `MAILBOX_ENABLED=true`. Phase 2/3 add `GET /mailboxes/credit-cards`,
+`GET /mailboxes/statements/{id}/download` and `GET /mailboxes/accounts`
+(see docs/superpowers/specs/2026-09-26-mailbox-integration-design.md §7).
+
+---
+
 ## Error Shape
 
 All errors follow:

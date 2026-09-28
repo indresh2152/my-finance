@@ -32,7 +32,8 @@
     "email_invalid": "Enter a valid email address",
     "password_required": "Password is required",
     "password_min": "Password must be at least 8 characters",
-    "password_complexity": "Password must contain at least one uppercase letter, one digit, and one special character"
+    "password_complexity": "Password must contain at least one uppercase letter, one digit, and one special character",
+    "mailbox_id_invalid": "Mailbox ID must be a valid UUID"
   },
   "apiDocs": {
     "title": "my-finance API",
@@ -44,7 +45,8 @@
       "auth": "Auth",
       "users": "Users",
       "pan": "PAN",
-      "creditCards": "Credit cards"
+      "creditCards": "Credit cards",
+      "mailboxes": "Linked email"
     },
     "operations": {
       "register": "Create an account",
@@ -54,12 +56,21 @@
       "getMe": "Get the signed-in user's profile",
       "registerPan": "Link and verify your PAN",
       "getPan": "Get your linked PAN profile (masked)",
-      "listCreditCards": "List credit cards linked to your PAN"
+      "listCreditCards": "List credit cards linked to your PAN",
+      "resolveMailbox": "Check whether an email address can be linked",
+      "connectMailbox": "Start linking a mailbox",
+      "connectMailboxDescription": "Returns the provider consent URL to open in the browser. Also sets a short-lived HttpOnly cookie that the OAuth callback must receive from the same browser.",
+      "mailboxOAuthCallback": "OAuth redirect target for mailbox linking",
+      "mailboxOAuthCallbackDescription": "Called by Google or Microsoft after consent, not by API clients. Always clears the linking cookie and redirects to /linked-email with linked=1 on success or error=<code> on failure.",
+      "listMailboxes": "List your linked mailboxes",
+      "syncMailbox": "Queue a sync of a linked mailbox",
+      "unlinkMailbox": "Unlink a mailbox and revoke its access"
     },
     "schemas": {
       "accessToken": "Bearer token for the Authorization header.",
       "panMasked": "PAN with the four digits hidden, e.g. ABCDE####F.",
-      "inrAmount": "Amount in INR (₹)."
+      "inrAmount": "Amount in INR (₹).",
+      "emailMasked": "Mailbox address with most of the local part hidden."
     },
     "responses": {
       "ok": "Success",
@@ -72,7 +83,14 @@
       "conflict": "Already exists",
       "validation": "Request body failed validation",
       "rateLimited": "Too many requests",
-      "panNotRegistered": "No PAN is linked to this account"
+      "panNotRegistered": "No PAN is linked to this account",
+      "mailboxAlreadyLinked": "This mailbox is already linked",
+      "mailboxNotLinkable": "Request body failed validation, or the mailbox provider is not supported",
+      "mailboxReauthRequired": "The mailbox must be linked again before it can sync",
+      "syncTooFrequent": "A sync is already running or ran a few minutes ago",
+      "syncQueued": "Sync queued",
+      "mailboxUnlinked": "Mailbox unlinked",
+      "oauthRedirect": "Redirect to the Linked email page"
     }
   }
 }

@@ -18,21 +18,23 @@ export interface KeyRing {
 export const parseKeyRing = (keysSpec: string, activeVersion: number): KeyRing => {
   const keys = new Map<number, Buffer>();
 
-  for (const entry of keysSpec
+  const entries = keysSpec
     .split(',')
     .map((part) => part.trim())
-    .filter(Boolean)) {
+    .filter(Boolean);
+  entries.forEach((entry, index) => {
     const [versionText = '', hex = ''] = entry.split(':');
     const version = Number(versionText);
+    // The entry text is never echoed: a mis-formatted spec (e.g. a bare hex key) would leak the key.
     if (!Number.isInteger(version) || version < MIN_VERSION || version > MAX_VERSION) {
-      throw new Error(`Invalid key version: ${versionText}`);
+      throw new Error(`Invalid key version in entry ${index + 1}`);
     }
     const key = Buffer.from(hex, 'hex');
     if (key.length !== KEY_LENGTH) {
       throw new Error(`Key ${version} must be 32 bytes of hex`);
     }
     keys.set(version, key);
-  }
+  });
 
   if (!keys.has(activeVersion)) {
     throw new Error(`Active key version ${activeVersion} not found`);

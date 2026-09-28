@@ -319,6 +319,26 @@ ASVS L2 is a superset of the OWASP Top 10. This table maps each Top 10 category 
 
 ---
 
+## 11. Mailbox data
+
+### Why it applies
+The mailbox integration (linking Google/Microsoft mailboxes to read bank emails) reads a subset of the user's
+inbox via OAuth-granted, provider-hosted mail APIs. This brings the app under Google's and Microsoft's own
+platform data-use policies, in addition to the DPDP obligations above.
+
+- Scopes: Google `gmail.readonly` (restricted — requires Google verification + annual CASA assessment before
+  public launch); Microsoft `Mail.Read` (publisher verification recommended; some tenants require admin consent).
+- Google API Services User Data Policy — Limited Use applies: data is used only to show the user their own
+  cards/accounts; no ads, no transfer, no human reading, no model training.
+- Only bank-sender emails are read; bodies, subjects and attachments are never stored or logged.
+  Stored: parsed fields, provider message ids, attachment locators, encrypted refresh token, masked + hashed email.
+- Unlink deletes the credential and derived EMAIL rows (and revokes at Google). Account erasure must revoke each
+  connection before deleting the user.
+- Audit actions: MAILBOX_LINK, MAILBOX_UNLINK, MAILBOX_SYNC (+ Phase 2/3: EMAIL_CARD_LIST, EMAIL_ACCOUNT_LIST,
+  STATEMENT_DOWNLOAD).
+
+---
+
 ## Compliance Additions to the Data Model
 
 The following columns / tables need to be added to support DPDP and audit requirements:

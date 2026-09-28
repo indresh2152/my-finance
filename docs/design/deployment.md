@@ -143,6 +143,30 @@ All configuration is injected at runtime via environment variables (12-factor). 
 | `NODE_ENV`           | `production`                                     | Yes      | Controls Express error verbosity               |
 | `CORS_ORIGIN`        | `http://localhost:5173`                          | Dev only | Omit in production (same-origin, no CORS needed)|
 
+### Mailbox integration variables
+
+| Variable                              | Example value                     | Required                    | Notes                                                        |
+|----------------------------------------|-----------------------------------|------------------------------|----------------------------------------------------------------|
+| `MAILBOX_ENABLED`                     | `true`                            | No (default `false`)         | Mounts `/api/v1/mailboxes` and starts the pg-boss worker      |
+| `APP_BASE_URL`                        | `http://localhost:5173`           | When `MAILBOX_ENABLED=true`  | Public origin; builds `redirect_uri`. In local dev, set to the Vite origin so the OAuth callback goes through the Vite proxy |
+| `GOOGLE_CLIENT_ID`                    | `123-abc.apps.googleusercontent.com` | When `MAILBOX_ENABLED=true` | Google OAuth client (Web); use K8s Secret in prod              |
+| `GOOGLE_CLIENT_SECRET`                | (secret)                          | When `MAILBOX_ENABLED=true`  | Use K8s Secret in prod; never commit to git                    |
+| `MICROSOFT_CLIENT_ID`                 | (app registration ID)             | When `MAILBOX_ENABLED=true`  | Entra ID app registration; use K8s Secret in prod               |
+| `MICROSOFT_CLIENT_SECRET`             | (secret)                          | When `MAILBOX_ENABLED=true`  | Use K8s Secret in prod; never commit to git                    |
+| `MAIL_CREDENTIAL_ENC_KEYS`            | `1:<hex32>,2:<hex32>`             | When `MAILBOX_ENABLED=true`  | Comma-separated `version:hexkey` pairs (32 bytes each, `openssl rand -hex 32`); use K8s Secret in prod |
+| `MAIL_CREDENTIAL_ENC_ACTIVE_VERSION`  | `1`                                | When `MAILBOX_ENABLED=true`  | Key version used to encrypt new credentials                    |
+| `EMAIL_HMAC_SECRET`                   | (random 32-byte hex)              | When `MAILBOX_ENABLED=true`  | Use K8s Secret in prod; never commit to git                    |
+| `MAIL_SYNC_CRON`                      | `0 */6 * * *`                     | No (default `0 */6 * * *`)   | Background sync schedule for `mail-sync-all`                    |
+
+### OAuth app setup
+- **Google:** Cloud console → APIs & Services → enable Gmail API → OAuth consent screen (External, scope
+  `gmail.readonly`; stays in Testing with ≤100 test users until verified) → Credentials → OAuth client (Web).
+  Authorised redirect URI: `${APP_BASE_URL}/api/v1/mailboxes/oauth/callback/google`.
+- **Microsoft:** Entra ID → App registrations → New (Accounts in any org directory and personal Microsoft
+  accounts) → Redirect URI (Web): `${APP_BASE_URL}/api/v1/mailboxes/oauth/callback/microsoft` → Certificates &
+  secrets → new client secret → API permissions: Microsoft Graph delegated `Mail.Read`, `User.Read`, `offline_access`.
+- In local dev set `APP_BASE_URL=http://localhost:5173` so the callback goes through the Vite proxy.
+
 ---
 
 ## docker-compose.yml — Local Development

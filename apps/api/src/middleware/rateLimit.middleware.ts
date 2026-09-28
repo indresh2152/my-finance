@@ -2,7 +2,10 @@ import rateLimit, { type RateLimitRequestHandler } from 'express-rate-limit';
 import type { Request, Response } from 'express';
 import { i18next } from '../i18n';
 
-const HOUR_MS = 60 * 60 * 1000;
+const MINUTE_MS = 60 * 1000;
+const HOUR_MS = 60 * MINUTE_MS;
+/** OAuth redirects per client IP per minute; a real user needs one per link attempt. */
+export const MAILBOX_CALLBACK_MAX_PER_MINUTE = 30;
 const TOO_MANY_REQUESTS = 429;
 
 const makeRateLimiter = (windowMs: number, max: number, message: string): RateLimitRequestHandler =>
@@ -52,3 +55,9 @@ export const makeUserRateLimiter = (windowMs: number, max: number): RateLimitReq
 
 export const mailboxResolveRateLimiter = makeUserRateLimiter(HOUR_MS, 30);
 export const mailboxConnectRateLimiter = makeUserRateLimiter(HOUR_MS, 10);
+
+/** Unauthenticated OAuth redirect target: no req.user, so the key is the client IP. */
+export const mailboxCallbackRateLimiter = makeUserRateLimiter(
+  MINUTE_MS,
+  MAILBOX_CALLBACK_MAX_PER_MINUTE,
+);

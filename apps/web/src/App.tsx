@@ -15,6 +15,9 @@ const HomePage = lazy(() => import('./pages/HomePage').then((m) => ({ default: m
 const CreditCardsPage = lazy(() =>
   import('./pages/CreditCardsPage').then((m) => ({ default: m.CreditCardsPage })),
 );
+const LinkedEmailPage = lazy(() =>
+  import('./pages/LinkedEmailPage').then((m) => ({ default: m.LinkedEmailPage })),
+);
 const PanRegisterPage = lazy(() =>
   import('./pages/PanRegisterPage').then((m) => ({ default: m.PanRegisterPage })),
 );
@@ -41,6 +44,7 @@ const router = createBrowserRouter([
     children: [
       { index: true, element: <HomePage /> },
       { path: 'credit-cards', element: <CreditCardsPage /> },
+      { path: 'linked-email', element: <LinkedEmailPage /> },
       { path: 'pan-register', element: <PanRegisterPage /> },
       { path: 'api-docs', element: <ApiDocsPage /> },
     ],

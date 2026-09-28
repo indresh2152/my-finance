@@ -120,3 +120,4 @@ All design artifacts live in `docs/design/`:
 | ORM/Query    | Drizzle ORM (with raw `pg` for complex queries if needed) |
 | Container    | Docker (single image, multi-stage build)  |
 | Orchestration| Docker Compose (dev/prod-local); K8s-ready|
+| Background jobs | pg-boss 10 (in-process, Postgres-backed) |

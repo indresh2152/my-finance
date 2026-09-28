@@ -14,8 +14,23 @@ describe('parseKeyRing', () => {
     expect(() => parseKeyRing('1:abcd', 1)).toThrow('Key 1 must be 32 bytes of hex');
   });
 
-  it('should reject an invalid version number', () => {
-    expect(() => parseKeyRing(`x:${KEY_1}`, 1)).toThrow('Invalid key version: x');
+  it('should reject an invalid version number and report the entry index', () => {
+    expect(() => parseKeyRing(`1:${KEY_1},x:${KEY_2}`, 1)).toThrow(
+      'Invalid key version in entry 2',
+    );
+  });
+
+  it('should not echo a bare hex key in the error message', () => {
+    const error = ((): unknown => {
+      try {
+        return parseKeyRing(KEY_1, 1);
+      } catch (err) {
+        return err;
+      }
+    })();
+    expect(error).toBeInstanceOf(Error);
+    expect((error as Error).message).toBe('Invalid key version in entry 1');
+    expect((error as Error).message).not.toContain(KEY_1);
   });
 
   it('should reject an active version that has no key', () => {

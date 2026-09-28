@@ -25,6 +25,14 @@ describe('email utils', () => {
     expect(hashEmail('a@b.com', 'secret')).toMatch(/^[0-9a-f]{64}$/);
   });
 
+  it('should hash googlemail.com and gmail.com addresses identically', () => {
+    expect(hashEmail('User@GoogleMail.com', 'secret')).toBe(hashEmail('user@gmail.com', 'secret'));
+  });
+
+  it('should mask the address as typed, without canonicalising the domain', () => {
+    expect(maskEmail('user@googlemail.com')).toBe('us****@googlemail.com');
+  });
+
   it('should mask all but the first two characters of the local part', () => {
     expect(maskEmail('indresh@gmail.com')).toBe('in****@gmail.com');
     expect(maskEmail('a@x.com')).toBe('a****@x.com');

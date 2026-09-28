@@ -260,6 +260,23 @@ Incoming HTTP request
 
 ---
 
+## Mailbox integration
+
+Users link Google or Microsoft mailboxes (OAuth + PKCE; provider chosen from the email domain or its MX records).
+Refresh tokens are AES-256-GCM encrypted in `mail_connections`. An in-process pg-boss worker (tables in the
+`pgboss` schema of the app database) runs `mail-sync-mailbox` jobs — one per mailbox (`stately` policy) — every
+6 hours (`mail-sync-all`) and on demand. Each job reads only emails from known bank senders since the last sync
+(first sync: 180 days), passes them through the parser registry, and upserts `credit_cards`/`card_statements`
+and `bank_accounts`/`account_balance_snapshots` rows with `source = 'EMAIL'`. Email bodies are never stored.
+Code: `apps/api/src/services/mailbox/`, `apps/api/src/parsers/`, `apps/api/src/jobs/`.
+
+The whole feature (routes + worker) is off unless `MAILBOX_ENABLED=true`. See `docs/design/database-schema.md`
+for the `mail_connections` / `oauth_states` / `card_statements` / `account_balance_snapshots` schema,
+`docs/design/api-contracts.md` for the `/mailboxes/*` endpoints, and `docs/design/compliance.md` for the
+mail-data handling rules.
+
+---
+
 ## Compliance Scope
 
 For full detail on each framework see `docs/design/compliance.md`.

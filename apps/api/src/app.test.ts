@@ -56,3 +56,10 @@ describe('unmatched /api paths in production', () => {
       })(),
   );
 });
+
+describe('mailbox routes', () => {
+  it('should not be mounted when mailbox deps are absent', async () => {
+    const res = await request(app).get('/api/v1/mailboxes/oauth/callback/google');
+    expect(res.status).toBe(404);
+  });
+});

@@ -63,6 +63,16 @@ describe('AppLayout', () => {
     );
   });
 
+  it('should render the From Email nav link', async () => {
+    renderLayout();
+    await waitFor(() =>
+      expect(screen.getByRole('link', { name: 'From Email' })).toHaveAttribute(
+        'href',
+        '/linked-email',
+      ),
+    );
+  });
+
   it('should navigate to login after logout', async () => {
     renderLayout();
     await waitFor(() => screen.getByLabelText('Logout'));

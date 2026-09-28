@@ -21,8 +21,9 @@ export const emailDomain = (email: string): string => {
   return atIndex === -1 ? '' : normalised.slice(atIndex + 1);
 };
 
+/** Hashes the canonical form, so aliases of one mailbox (googlemail.com / gmail.com) collide. */
 export const hashEmail = (email: string, secret: string): string =>
-  crypto.createHmac('sha256', secret).update(normaliseEmail(email)).digest('hex');
+  crypto.createHmac('sha256', secret).update(canonicaliseEmail(email)).digest('hex');
 
 /** 'indresh@gmail.com' → 'in****@gmail.com' (fixed-length mask hides the local-part length). */
 export const maskEmail = (email: string): string => {

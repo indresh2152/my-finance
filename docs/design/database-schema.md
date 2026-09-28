@@ -123,66 +123,192 @@ CREATE INDEX idx_pan_profiles_pan_hash ON pan_profiles (pan_hash);
 
 ### `credit_cards`
 
-All credit cards linked to a PAN.
+All credit cards linked to a PAN — both user-added and email-derived rows share this table.
 
 ```sql
-CREATE TYPE card_status  AS ENUM ('ACTIVE', 'BLOCKED', 'EXPIRED', 'CLOSED');
-CREATE TYPE card_network AS ENUM ('VISA', 'MASTERCARD', 'AMEX', 'RUPAY', 'DINERS', 'OTHER');
-CREATE TYPE card_variant AS ENUM ('CLASSIC', 'GOLD', 'PLATINUM', 'INFINITE', 'SIGNATURE', 'OTHER');
+CREATE TYPE card_status   AS ENUM ('ACTIVE', 'BLOCKED', 'EXPIRED', 'CLOSED');
+CREATE TYPE card_network  AS ENUM ('VISA', 'MASTERCARD', 'AMEX', 'RUPAY', 'DINERS', 'OTHER');
+CREATE TYPE card_variant  AS ENUM ('CLASSIC', 'GOLD', 'PLATINUM', 'INFINITE', 'SIGNATURE', 'OTHER');
+CREATE TYPE record_source AS ENUM ('USER', 'EMAIL');
 
 CREATE TABLE credit_cards (
-  id               UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
-  pan_profile_id   UUID         NOT NULL REFERENCES pan_profiles(id) ON DELETE CASCADE,
-  card_number_hash TEXT         NOT NULL UNIQUE,  -- HMAC of full 16-digit card number
-  card_number_last4 CHAR(4)     NOT NULL,
-  card_network     card_network NOT NULL,
-  issuing_bank     VARCHAR(100) NOT NULL,
-  card_variant     card_variant NOT NULL DEFAULT 'CLASSIC',
-  expiry_month     SMALLINT     NOT NULL CHECK (expiry_month BETWEEN 1 AND 12),
-  expiry_year      SMALLINT     NOT NULL CHECK (expiry_year >= 2020),
-  name_on_card     VARCHAR(100) NOT NULL,
-  status           card_status  NOT NULL DEFAULT 'ACTIVE',
-  credit_limit     NUMERIC(15,2),
-  available_credit NUMERIC(15,2),
-  current_balance  NUMERIC(15,2),
-  billing_cycle_day SMALLINT    CHECK (billing_cycle_day BETWEEN 1 AND 31),
-  created_at       TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
-  updated_at       TIMESTAMPTZ  NOT NULL DEFAULT NOW()
+  id                UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+  pan_profile_id    UUID          NOT NULL REFERENCES pan_profiles(id) ON DELETE CASCADE,
+  source            record_source NOT NULL DEFAULT 'USER',
+  card_number_hash  TEXT,                        -- HMAC of full 16-digit card number; NULL for EMAIL rows
+  card_number_last4 CHAR(4)       NOT NULL,
+  card_network      card_network,
+  issuing_bank      VARCHAR(100)  NOT NULL,
+  card_variant      card_variant  NOT NULL DEFAULT 'CLASSIC',
+  expiry_month      SMALLINT      CHECK (expiry_month BETWEEN 1 AND 12),
+  expiry_year       SMALLINT      CHECK (expiry_year >= 2020),
+  name_on_card      VARCHAR(100),
+  status            card_status   NOT NULL DEFAULT 'ACTIVE',
+  credit_limit      NUMERIC(15,2),
+  available_credit  NUMERIC(15,2),
+  current_balance   NUMERIC(15,2),
+  billing_cycle_day SMALLINT      CHECK (billing_cycle_day BETWEEN 1 AND 31),
+  created_at        TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  updated_at        TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  CONSTRAINT credit_cards_user_fields_required CHECK (
+    source <> 'USER' OR (
+      card_number_hash IS NOT NULL AND card_network IS NOT NULL
+      AND expiry_month IS NOT NULL AND expiry_year IS NOT NULL AND name_on_card IS NOT NULL
+    )
+  )
 );
 
 CREATE INDEX idx_credit_cards_pan_profile_id ON credit_cards (pan_profile_id);
 CREATE INDEX idx_credit_cards_status         ON credit_cards (status);
+CREATE UNIQUE INDEX uq_credit_cards_card_number_hash
+  ON credit_cards (card_number_hash) WHERE card_number_hash IS NOT NULL;
+CREATE UNIQUE INDEX uq_credit_cards_email
+  ON credit_cards (pan_profile_id, issuing_bank, card_number_last4) WHERE source = 'EMAIL';
 ```
+
+`source` distinguishes user-added (`USER`) from email-derived (`EMAIL`) cards. EMAIL rows carry only bank + last4; the `credit_cards_user_fields_required` CHECK keeps USER rows unchanged. EMAIL rows are unique per `(pan_profile_id, issuing_bank, card_number_last4)`.
 
 ---
 
 ### `bank_accounts`
 
-Savings, current, NRE/NRO, and fixed/recurring deposit accounts.
+Savings, current, NRE/NRO, and fixed/recurring deposit accounts — both user-added and email-derived rows share this table.
 
 ```sql
 CREATE TYPE bank_account_type   AS ENUM ('SAVINGS', 'CURRENT', 'FD', 'RD', 'NRE', 'NRO', 'OTHER');
 CREATE TYPE bank_account_status AS ENUM ('ACTIVE', 'DORMANT', 'CLOSED', 'FROZEN');
 
 CREATE TABLE bank_accounts (
-  id                  UUID               PRIMARY KEY DEFAULT gen_random_uuid(),
-  pan_profile_id      UUID               NOT NULL REFERENCES pan_profiles(id) ON DELETE CASCADE,
-  account_number_hash TEXT               NOT NULL UNIQUE,  -- HMAC of full account number
-  account_number_last4 CHAR(4)           NOT NULL,
-  account_type        bank_account_type  NOT NULL DEFAULT 'SAVINGS',
-  bank_name           VARCHAR(100)       NOT NULL,
-  branch_name         VARCHAR(100),
-  ifsc_prefix         CHAR(4),           -- first 4 chars of IFSC, e.g. 'HDFC'
-  balance             NUMERIC(15,2),
-  interest_rate       NUMERIC(5,2),      -- for FD/RD, annual rate e.g. 7.25
-  maturity_date       DATE,              -- for FD/RD
-  status              bank_account_status NOT NULL DEFAULT 'ACTIVE',
-  created_at          TIMESTAMPTZ        NOT NULL DEFAULT NOW(),
-  updated_at          TIMESTAMPTZ        NOT NULL DEFAULT NOW()
+  id                   UUID                PRIMARY KEY DEFAULT gen_random_uuid(),
+  pan_profile_id       UUID                NOT NULL REFERENCES pan_profiles(id) ON DELETE CASCADE,
+  source               record_source       NOT NULL DEFAULT 'USER',
+  account_number_hash  TEXT,                          -- HMAC of full account number; NULL for EMAIL rows
+  account_number_last4 CHAR(4)             NOT NULL,
+  account_type         bank_account_type   NOT NULL DEFAULT 'OTHER',
+  bank_name            VARCHAR(100)        NOT NULL,
+  branch_name          VARCHAR(100),
+  ifsc_prefix          CHAR(4),            -- first 4 chars of IFSC, e.g. 'HDFC'
+  interest_rate        NUMERIC(5,2),       -- for FD/RD, annual rate e.g. 7.25
+  maturity_date        DATE,               -- for FD/RD
+  status               bank_account_status NOT NULL DEFAULT 'ACTIVE',
+  created_at           TIMESTAMPTZ         NOT NULL DEFAULT NOW(),
+  updated_at           TIMESTAMPTZ         NOT NULL DEFAULT NOW(),
+  CONSTRAINT bank_accounts_user_fields_required CHECK (source <> 'USER' OR account_number_hash IS NOT NULL)
 );
 
 CREATE INDEX idx_bank_accounts_pan_profile_id ON bank_accounts (pan_profile_id);
+CREATE UNIQUE INDEX uq_bank_accounts_hash
+  ON bank_accounts (account_number_hash) WHERE account_number_hash IS NOT NULL;
+CREATE UNIQUE INDEX uq_bank_accounts_email
+  ON bank_accounts (pan_profile_id, bank_name, account_number_last4) WHERE source = 'EMAIL';
 ```
+
+**Note:** the standalone `balance` column has been removed — a user-added account has no email-derived counterpart to reconcile against, but keeping one model for both meant moving balances out to `account_balance_snapshots` below (one row per mailbox that has seen a balance for the account). This is a real behaviour change versus the `GET /bank-accounts` `balance` field and the `/overview` `totalBankBalance` rule described elsewhere in these docs — reconciling those is out of scope for this change; see the report for this task.
+
+---
+
+### `mail_connections`
+
+One row per linked mailbox (Google or Microsoft), many per user. `credential_enc` is the refresh token, AES-256-GCM encrypted.
+
+```sql
+CREATE TYPE mail_provider          AS ENUM ('GOOGLE', 'MICROSOFT');
+CREATE TYPE mail_auth_type         AS ENUM ('OAUTH');           -- 'APP_PASSWORD' added with IMAP later
+CREATE TYPE mail_connection_status AS ENUM ('ACTIVE', 'REAUTH_REQUIRED');
+CREATE TYPE mail_sync_status       AS ENUM ('NEVER', 'RUNNING', 'SUCCEEDED', 'FAILED');
+
+CREATE TABLE mail_connections (
+  id                     UUID                   PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id                UUID                   NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  provider               mail_provider          NOT NULL,
+  auth_type              mail_auth_type         NOT NULL DEFAULT 'OAUTH',
+  email_hash             TEXT                   NOT NULL,   -- HMAC-SHA256(lower(email)) for uniqueness
+  email_masked           VARCHAR(255)           NOT NULL,   -- e.g. 'in****@gmail.com'
+  credential_enc         BYTEA                  NOT NULL,   -- AES-256-GCM(refresh token)
+  credential_key_version SMALLINT               NOT NULL,
+  scopes                 TEXT                   NOT NULL,
+  status                 mail_connection_status NOT NULL DEFAULT 'ACTIVE',
+  last_sync_status       mail_sync_status       NOT NULL DEFAULT 'NEVER',
+  last_sync_error_code   VARCHAR(50),
+  last_synced_at         TIMESTAMPTZ,
+  synced_senders_hash    TEXT,                  -- sha256 of sorted parser senders at last successful sync
+  created_at             TIMESTAMPTZ            NOT NULL DEFAULT NOW(),
+  updated_at             TIMESTAMPTZ            NOT NULL DEFAULT NOW(),
+  CONSTRAINT uq_mail_connections_user_email UNIQUE (user_id, email_hash)
+);
+```
+
+`email_hash` uses the existing HMAC secret family: env var `EMAIL_HMAC_SECRET`.
+
+---
+
+### `oauth_states`
+
+Short-lived OAuth state (10 min), deleted on use; expired rows are purged by a daily pg-boss job.
+
+```sql
+CREATE TABLE oauth_states (
+  state_hash        TEXT          PRIMARY KEY,   -- SHA-256 of the random state
+  user_id           UUID          NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  provider          mail_provider NOT NULL,
+  login_hint_enc    BYTEA         NOT NULL,       -- entered email, encrypted (verifies the returned account)
+  code_verifier_enc BYTEA         NOT NULL,       -- PKCE verifier, encrypted
+  expires_at        TIMESTAMPTZ   NOT NULL
+);
+
+CREATE INDEX idx_oauth_states_expires_at ON oauth_states (expires_at);
+```
+
+---
+
+### `card_statements`
+
+One row per card statement email seen by a mailbox (Phase 2 — filled by the card-statement parsers).
+
+```sql
+CREATE TABLE card_statements (
+  id                  UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+  credit_card_id      UUID          NOT NULL REFERENCES credit_cards(id) ON DELETE CASCADE,
+  mail_connection_id  UUID          NOT NULL REFERENCES mail_connections(id) ON DELETE CASCADE,
+  statement_date      DATE          NOT NULL,
+  due_date            DATE          NOT NULL,
+  total_amount_due    NUMERIC(15,2) NOT NULL,
+  minimum_amount_due  NUMERIC(15,2),
+  password_hint       TEXT,                       -- bank's wording, verbatim-ish; never the password
+  source_message_id   TEXT          NOT NULL,      -- provider message id
+  attachment_locator  TEXT,                        -- Gmail MIME partId | Graph attachment id; NULL = no PDF
+  attachment_filename VARCHAR(255),
+  created_at          TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  CONSTRAINT uq_card_statements_card_mailbox_date UNIQUE (credit_card_id, mail_connection_id, statement_date)
+);
+
+CREATE INDEX idx_card_statements_mail_connection_id ON card_statements (mail_connection_id);
+```
+
+"Latest statement" for a card = highest `statement_date` across all its rows (any mailbox); tie → latest `created_at`.
+
+---
+
+### `account_balance_snapshots`
+
+Latest balance each mailbox has seen for an account (Phase 3 — filled by the balance/account-statement parsers).
+
+```sql
+CREATE TABLE account_balance_snapshots (
+  id                 UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+  bank_account_id    UUID          NOT NULL REFERENCES bank_accounts(id) ON DELETE CASCADE,
+  mail_connection_id UUID          NOT NULL REFERENCES mail_connections(id) ON DELETE CASCADE,
+  available_balance  NUMERIC(15,2) NOT NULL,
+  balance_as_of      TIMESTAMPTZ   NOT NULL,       -- email's date (or date stated in email body)
+  source_message_id  TEXT          NOT NULL,
+  updated_at         TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  CONSTRAINT uq_balance_snapshots_account_mailbox UNIQUE (bank_account_id, mail_connection_id)
+);
+
+CREATE INDEX idx_balance_snapshots_mail_connection_id ON account_balance_snapshots (mail_connection_id);
+```
+
+Upsert only replaces when the incoming `balance_as_of` is newer. Displayed balance = snapshot with the greatest `balance_as_of` across mailboxes.
 
 ---
 
@@ -339,7 +465,14 @@ CREATE TYPE audit_action AS ENUM (
   'INVESTMENT_LIST',    -- GET /investments
   'INSURANCE_LIST',     -- GET /insurance
   -- Audit
-  'AUDIT_LOG_VIEW'      -- GET /audit-logs (self-service)
+  'AUDIT_LOG_VIEW',     -- GET /audit-logs (self-service)
+  -- Mailbox integration — written explicitly by mailbox services, not via ROUTE_ACTION_MAP
+  'MAILBOX_LINK',        -- successful OAuth link (GET /mailboxes/oauth/callback/:provider)
+  'MAILBOX_UNLINK',      -- DELETE /mailboxes/:mailboxId
+  'MAILBOX_SYNC',        -- mail-sync-mailbox job completion (scheduled or manual)
+  'EMAIL_CARD_LIST',     -- GET /mailboxes/credit-cards (Phase 2)
+  'EMAIL_ACCOUNT_LIST',  -- GET /mailboxes/accounts (Phase 3)
+  'STATEMENT_DOWNLOAD'   -- GET /mailboxes/statements/:id/download (Phase 2)
 );
 
 CREATE TABLE audit_logs (

@@ -151,3 +151,38 @@ describe('ProtectedRoute', () => {
     await waitFor(() => expect(screen.getByText(/PAN Register Page/)).toBeInTheDocument());
   });
 });
+
+describe('ProtectedRoute — linked email page', () => {
+  it('should redirect a user without a PAN to PAN registration', async () => {
+    server.use(
+      http.post('/api/v1/auth/refresh', () => HttpResponse.json({ accessToken: 'token' })),
+      http.get('/api/v1/users/me', () =>
+        HttpResponse.json({
+          id: '1',
+          username: 'u',
+          email: 'e@e.com',
+          hasPan: false,
+          panMasked: null,
+        }),
+      ),
+    );
+    renderWithProviders(
+      <AuthProvider>
+        <Routes>
+          <Route path="/pan-register" element={<div>PAN Register Page</div>} />
+          <Route
+            path="/linked-email"
+            element={
+              <ProtectedRoute>
+                <div>Linked Email Content</div>
+              </ProtectedRoute>
+            }
+          />
+        </Routes>
+      </AuthProvider>,
+      { initialEntries: ['/linked-email'] },
+    );
+    await waitFor(() => expect(screen.getByText('PAN Register Page')).toBeInTheDocument());
+    expect(screen.queryByText('Linked Email Content')).not.toBeInTheDocument();
+  });
+});

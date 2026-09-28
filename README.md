@@ -401,7 +401,7 @@ git commit -m "fix(auth): handle expired refresh token on concurrent requests"
 git commit -m "test(pan): add coverage for duplicate registration path"
 ```
 
-Scopes: `pan`, `auth`, `cards`, `accounts`, `loans`, `investments`, `insurance`, `overview`, `db`, `migration`, `web`, `api`, `docker`, `deps`, `i18n`
+Scopes: `pan`, `auth`, `cards`, `accounts`, `loans`, `investments`, `insurance`, `overview`, `db`, `migration`, `web`, `api`, `docker`, `deps`, `i18n`, `mailbox`
 
 ### Project layout for contributors
 

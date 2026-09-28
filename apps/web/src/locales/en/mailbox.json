@@ -1,0 +1,53 @@
+{
+  "pageTitle": "From Email",
+  "pageSubtitle": "Link your mailbox and we'll find your credit cards and bank accounts from bank emails.",
+  "provider": {
+    "GOOGLE": "Google",
+    "MICROSOFT": "Microsoft"
+  },
+  "mailboxes": {
+    "title": "Linked mailboxes",
+    "empty": "No mailbox linked yet. Link one below to get started.",
+    "lastSynced": "Last synced {{when}}",
+    "neverSynced": "Not synced yet",
+    "syncing": "Syncing…",
+    "syncFailed": "Last sync failed",
+    "reauthRequired": "Access expired. Reconnect to keep syncing.",
+    "refresh": "Refresh",
+    "unlink": "Unlink",
+    "reconnect": "Reconnect",
+    "loadFailed": "Failed to load your linked mailboxes. Please try again."
+  },
+  "add": {
+    "title": "Link a mailbox",
+    "emailLabel": "Email address",
+    "check": "Continue",
+    "continueWith": "Continue with {{provider}}",
+    "invalidEmail": "Enter a valid email address",
+    "unsupported": "This email provider isn't supported yet. We support Gmail, Google Workspace, Outlook, Hotmail and Microsoft 365.",
+    "explainer": "We only read emails from your banks, with read-only access. We never store your emails — only the card and account details we find in them."
+  },
+  "unlinkDialog": {
+    "title": "Unlink {{email}}?",
+    "body": "Cards and accounts found only in this mailbox will be removed from MyFinance.",
+    "microsoftNote": "To fully remove access, also remove MyFinance from the app permissions in your Microsoft account.",
+    "confirm": "Unlink",
+    "cancel": "Cancel"
+  },
+  "notices": {
+    "linked": "Mailbox linked. We're reading your bank emails now."
+  },
+  "errors": {
+    "MAILBOX_LINK_FAILED": "We couldn't link your mailbox. Please try again.",
+    "MAILBOX_ACCESS_DENIED": "Access wasn't granted, so the mailbox wasn't linked.",
+    "MAILBOX_EMAIL_MISMATCH": "You signed in with a different account from the email you entered. Please try again with the same account.",
+    "MAILBOX_ADMIN_CONSENT_REQUIRED": "Your organisation's administrator must approve MyFinance before you can link this mailbox.",
+    "MAILBOX_ALREADY_LINKED": "This mailbox is already linked.",
+    "PROVIDER_NOT_SUPPORTED": "This email provider isn't supported yet.",
+    "SYNC_TOO_FREQUENT": "This mailbox was synced recently. Try again in a few minutes.",
+    "MAILBOX_NOT_FOUND": "This mailbox is no longer linked.",
+    "MAILBOX_REAUTH_REQUIRED": "Access to this mailbox has expired. Reconnect it first.",
+    "RATE_LIMIT_EXCEEDED": "Too many attempts. Please wait a while and try again.",
+    "generic": "Something went wrong. Please try again."
+  }
+}

@@ -9,6 +9,7 @@ import { z } from 'zod';
 import { i18next } from '../i18n';
 import { buildLoginSchema, buildRegisterSchema } from '../routes/auth.routes';
 import { buildPanSchema } from '../routes/pan.routes';
+import { registerMailboxPaths } from './mailbox.openapi';
 
 extendZodWithOpenApi(z);
 
@@ -191,6 +192,8 @@ const buildOpenApiDocument = (lng: string): OpenAPIObject => {
       403: error('panNotRegistered'),
     },
   });
+
+  registerMailboxPaths(registry, { t, json, error, body, bearer }, lng);
 
   return new OpenApiGeneratorV3(registry.definitions).generateDocument({
     openapi: '3.0.3',

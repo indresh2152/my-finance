@@ -60,6 +60,33 @@ When you fix one, delete its entry.
   - Add `npx tsc --noEmit -p apps/web`, a type check rather than a build, to the hook.
   - Or set up CI that runs both builds.
 
+## 6. A mailbox sync can outlive its pg-boss job
+
+- **Where:** the `mail-sync-mailbox` queue in `apps/api/src/jobs/mail-sync.jobs.ts`
+  (`expireInSeconds` = 30 minutes) and `MailSyncService.syncMailbox`.
+- **Problem:** pg-boss expires the job after 30 minutes, but it cannot cancel the running handler.
+  `syncMailbox` keeps scanning while pg-boss treats the job as failed and may start a retry.
+- **Failure:** two runs for the same mailbox can overlap. The upserts are idempotent, so no data is
+  wrong. The only cost is duplicate provider calls and database work, and the run that finishes
+  last sets `last_synced_at`.
+- **Fix direction:**
+  - Pass an `AbortSignal` into `syncMailbox` and stop between messages once the job deadline passes.
+  - Or cap the messages per run so a run always finishes well inside the expiry.
+
+## 7. With more than one replica, a stately promotion conflict can stall a replica's queue
+
+- **Where:** the `stately` policy on the `mail-sync-mailbox` queue, with the pg-boss worker running
+  in-process in every API replica.
+- **Problem:** a stately queue allows one queued and one active job per `singletonKey`. With N > 1
+  replicas, one replica can try to promote the queued job for a mailbox while another replica still
+  holds the active one. pg-boss rejects the promotion with a unique-constraint conflict.
+- **Failure:** that replica's fetch for the queue keeps failing, so its worker makes no progress on
+  that queue until the active job for the mailbox finishes. Other mailboxes queued behind it wait
+  too. With a single replica this cannot happen.
+- **Fix direction:**
+  - Run the mailbox worker in one dedicated replica (or a separate worker deployment).
+  - Or move to the `singleton` policy / a per-mailbox advisory lock inside `syncMailbox`.
+
 ## Minor (also deferred)
 
 - **A legacy-path cookie is never revoked at logout.** A client holding only the pre-change cookie
