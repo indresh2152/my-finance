@@ -1,13 +1,11 @@
 {
-  "pageTitle": "From Email",
-  "pageSubtitle": "Link your mailbox and we'll find your credit cards and bank accounts from bank emails.",
   "provider": {
     "GOOGLE": "Google",
     "MICROSOFT": "Microsoft"
   },
   "mailboxes": {
     "title": "Linked mailboxes",
-    "empty": "No mailbox linked yet. Link one below to get started.",
+    "empty": "No mailbox linked yet.",
     "lastSynced": "Last synced {{when}}",
     "neverSynced": "Not synced yet",
     "syncing": "Syncing…",
@@ -25,7 +23,8 @@
     "continueWith": "Continue with {{provider}}",
     "invalidEmail": "Enter a valid email address",
     "unsupported": "This email provider isn't supported yet. We support Gmail, Google Workspace, Outlook, Hotmail and Microsoft 365.",
-    "explainer": "We only read emails from your banks, with read-only access. We never store your emails — only the card and account details we find in them."
+    "explainer": "We only read emails from your banks, with read-only access. We never store your emails — only the card and account details we find in them.",
+    "close": "Close"
   },
   "unlinkDialog": {
     "title": "Unlink {{email}}?",
@@ -39,7 +38,7 @@
   },
   "progress": {
     "title": "Gathering your card and account details…",
-    "body": "This can take a few minutes. Cards we find will appear under Credit Cards."
+    "body": "This can take a few minutes. Cards we find will appear here."
   },
   "errors": {
     "MAILBOX_LINK_FAILED": "We couldn't link your mailbox. Please try again.",

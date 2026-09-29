@@ -63,14 +63,10 @@ describe('AppLayout', () => {
     );
   });
 
-  it('should render the From Email nav link', async () => {
+  it('should not render a separate From Email nav link', async () => {
     renderLayout();
-    await waitFor(() =>
-      expect(screen.getByRole('link', { name: 'From Email' })).toHaveAttribute(
-        'href',
-        '/linked-email',
-      ),
-    );
+    await waitFor(() => expect(screen.getByRole('link', { name: 'Credit Cards' })).toBeVisible());
+    expect(screen.queryByRole('link', { name: 'From Email' })).not.toBeInTheDocument();
   });
 
   it('should navigate to login after logout', async () => {

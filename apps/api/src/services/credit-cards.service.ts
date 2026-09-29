@@ -5,12 +5,12 @@ import { i18next } from '../i18n';
 interface CreditCardRow {
   id: string;
   card_number_last4: string;
-  card_network: string;
+  card_network: string | null;
   issuing_bank: string;
   card_variant: string;
-  expiry_month: number;
-  expiry_year: number;
-  name_on_card: string;
+  expiry_month: number | null;
+  expiry_year: number | null;
+  name_on_card: string | null;
   status: string;
   credit_limit: string | null;
   available_credit: string | null;
@@ -21,12 +21,12 @@ interface CreditCardRow {
 export interface CreditCard {
   id: string;
   cardNumberLast4: string;
-  cardNetwork: string;
+  cardNetwork: string | null;
   issuingBank: string;
   cardVariant: string;
-  expiryMonth: number;
-  expiryYear: number;
-  nameOnCard: string;
+  expiryMonth: number | null;
+  expiryYear: number | null;
+  nameOnCard: string | null;
   status: string;
   creditLimit: number | null;
   availableCredit: number | null;
@@ -73,7 +73,7 @@ export class CreditCardsService {
               expiry_month, expiry_year, name_on_card, status,
               credit_limit, available_credit, current_balance, billing_cycle_day
        FROM credit_cards
-       WHERE pan_profile_id = $1 AND source = 'USER'
+       WHERE pan_profile_id = $1
        ORDER BY created_at DESC`,
       [panProfileId],
     );

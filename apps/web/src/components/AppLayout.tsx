@@ -17,7 +17,6 @@ import { useAuth } from '../context/AuthContext';
 
 const NAV_LINKS = [
   { to: '/credit-cards', labelKey: 'nav.creditCards' },
-  { to: '/linked-email', labelKey: 'nav.linkedEmail' },
   { to: '/api-docs', labelKey: 'nav.apiDocs' },
 ] as const;
 

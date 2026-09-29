@@ -1,15 +1,14 @@
 {
   "pageTitle": "Credit Cards",
-  "pageSubtitle": "All credit cards linked to your PAN",
+  "pageSubtitle": "Credit cards we found in your bank emails.",
+  "linkEmail": "Link email",
   "creditLimit": "Credit Limit",
   "availableCredit": "Available Credit",
   "currentBalance": "Current Balance",
-  "billingCycleDay": "Billing Date",
   "expiresOn": "Expires",
-  "nameOnCard": "Name on Card",
-  "cardNetwork": "Network",
-  "emptyState": "No credit cards linked to this PAN yet.",
-  "emptyStateHint": "Credit cards associated with your PAN will appear here.",
+  "emptyState": "No credit cards yet.",
+  "emptyStateHint": "Link your email and we'll find your credit cards from your bank statements.",
+  "emptyStateMailboxLinked": "We haven't found any credit cards in your linked email yet. New cards will show up here after the next sync.",
   "errors": {
     "loadFailed": "Failed to load credit cards. Please try again."
   }

@@ -73,16 +73,32 @@ describe('CreditCardsService.listByUserId', () => {
     ]);
   });
 
-  it('should only list cards added by the user, not email-derived cards', async () => {
+  it('should list email-derived cards, whose identity fields are unknown', async () => {
     const db = makeDb();
-    db.query
-      .mockResolvedValueOnce({ rows: [{ id: PAN_PROFILE_ID }] })
-      .mockResolvedValueOnce({ rows: [] });
+    db.query.mockResolvedValueOnce({ rows: [{ id: PAN_PROFILE_ID }] }).mockResolvedValueOnce({
+      rows: [
+        {
+          ...mockCardRow,
+          card_network: null,
+          expiry_month: null,
+          expiry_year: null,
+          name_on_card: null,
+        },
+      ],
+    });
     const service = new CreditCardsService(db as never);
 
-    await service.listByUserId(USER_ID, LNG);
+    const result = await service.listByUserId(USER_ID, LNG);
 
     const cardsSql = db.query.mock.calls[1]?.[0] as string;
-    expect(cardsSql).toContain("source = 'USER'");
+    expect(cardsSql).not.toContain('source');
+    expect(result).toEqual([
+      expect.objectContaining({
+        cardNetwork: null,
+        expiryMonth: null,
+        expiryYear: null,
+        nameOnCard: null,
+      }),
+    ]);
   });
 });

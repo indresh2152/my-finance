@@ -9,14 +9,12 @@ import { AuthProvider } from './context/AuthContext';
 import { ProtectedRoute } from './routes/ProtectedRoute';
 import { AppLayout } from './components/AppLayout';
 import { FullPageSpinner } from './components/FullPageSpinner';
+import { LinkedEmailRedirect } from './routes/LinkedEmailRedirect';
 
 const LoginPage = lazy(() => import('./pages/LoginPage').then((m) => ({ default: m.LoginPage })));
 const HomePage = lazy(() => import('./pages/HomePage').then((m) => ({ default: m.HomePage })));
 const CreditCardsPage = lazy(() =>
   import('./pages/CreditCardsPage').then((m) => ({ default: m.CreditCardsPage })),
-);
-const LinkedEmailPage = lazy(() =>
-  import('./pages/LinkedEmailPage').then((m) => ({ default: m.LinkedEmailPage })),
 );
 const PanRegisterPage = lazy(() =>
   import('./pages/PanRegisterPage').then((m) => ({ default: m.PanRegisterPage })),
@@ -44,7 +42,7 @@ const router = createBrowserRouter([
     children: [
       { index: true, element: <HomePage /> },
       { path: 'credit-cards', element: <CreditCardsPage /> },
-      { path: 'linked-email', element: <LinkedEmailPage /> },
+      { path: 'linked-email', element: <LinkedEmailRedirect /> },
       { path: 'pan-register', element: <PanRegisterPage /> },
       { path: 'api-docs', element: <ApiDocsPage /> },
     ],

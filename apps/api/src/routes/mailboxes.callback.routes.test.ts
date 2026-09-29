@@ -14,7 +14,7 @@ const app = createApp({
 });
 
 const CALLBACK = '/api/v1/mailboxes/oauth/callback';
-const PAGE = 'https://app.example/linked-email';
+const PAGE = 'https://app.example/credit-cards';
 const CLEARED_COOKIE = /^mf_mailbox_oauth=;.*Path=\/api\/v1\/mailboxes\/oauth/;
 
 const firstCookie = (headers: Record<string, unknown>): string => {

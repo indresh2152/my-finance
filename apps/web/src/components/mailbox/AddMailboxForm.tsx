@@ -9,7 +9,7 @@ import {
 } from '../../services/mailbox.api';
 import { redirectTo } from '../../services/navigation';
 
-export const MAILBOX_EMAIL_INPUT_ID = 'mailbox-email';
+const EMAIL_INPUT_ID = 'mailbox-email';
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const GENERIC_ERROR = 'generic';
@@ -73,12 +73,10 @@ export const AddMailboxForm: React.FC = () => {
       }}
       noValidate
     >
-      <Typography variant="h6" gutterBottom>
-        {t('add.title')}
-      </Typography>
       <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} alignItems="flex-start">
         <TextField
-          id={MAILBOX_EMAIL_INPUT_ID}
+          id={EMAIL_INPUT_ID}
+          autoFocus
           label={t('add.emailLabel')}
           type="email"
           size="small"

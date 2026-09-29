@@ -62,7 +62,7 @@
       "connectMailbox": "Start linking a mailbox",
       "connectMailboxDescription": "Returns the provider consent URL to open in the browser. Also sets a short-lived HttpOnly cookie that the OAuth callback must receive from the same browser.",
       "mailboxOAuthCallback": "OAuth redirect target for mailbox linking",
-      "mailboxOAuthCallbackDescription": "Called by Google or Microsoft after consent, not by API clients. Always clears the linking cookie and redirects to /linked-email with linked=1 on success or error=<code> on failure.",
+      "mailboxOAuthCallbackDescription": "Called by Google or Microsoft after consent, not by API clients. Always clears the linking cookie and redirects to /credit-cards with linked=1 on success or error=<code> on failure.",
       "listMailboxes": "List your linked mailboxes",
       "syncMailbox": "Queue a sync of a linked mailbox",
       "unlinkMailbox": "Unlink a mailbox and revoke its access"

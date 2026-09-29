@@ -31,7 +31,7 @@ const MAX_EMAIL_LENGTH = 254;
 const HTTP_ACCEPTED = 202;
 const HTTP_NO_CONTENT = 204;
 const HTTP_FOUND = 302;
-const LINKED_EMAIL_PAGE = '/linked-email';
+const CREDIT_CARDS_PAGE = '/credit-cards';
 const LINK_FAILED: MailboxLinkErrorCode = 'MAILBOX_LINK_FAILED';
 const LINKED_FLAG = '1';
 const MS_PER_MINUTE = 60 * 1000;
@@ -121,7 +121,7 @@ const linkErrorCode = (err: unknown): MailboxLinkErrorCode => {
 const callbackHandler = (mailbox: MailboxModule): RequestHandler => {
   const redirectToPage = (res: Response, params: Record<string, string>): void => {
     const query = new URLSearchParams(params).toString();
-    res.redirect(HTTP_FOUND, `${mailbox.appBaseUrl}${LINKED_EMAIL_PAGE}?${query}`);
+    res.redirect(HTTP_FOUND, `${mailbox.appBaseUrl}${CREDIT_CARDS_PAGE}?${query}`);
   };
 
   return async (req: Request, res: Response): Promise<void> => {

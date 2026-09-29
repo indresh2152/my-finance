@@ -7,7 +7,6 @@ const HOME_ROUTE = '/';
 const FINANCIAL_ROUTES = new Set([
   '/',
   '/credit-cards',
-  '/linked-email',
   '/bank-accounts',
   '/loans',
   '/investments',
