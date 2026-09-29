@@ -131,14 +131,13 @@ describe('CreditCardsPage — cards', () => {
     expect(screen.queryByText(/null|—/)).not.toBeInTheDocument();
   });
 
-  it('should show the empty state with a link to link an email', async () => {
+  it('should show the empty state without a second Link email link', async () => {
     cards = [];
     mailboxes = [];
     renderPage();
     expect(await screen.findByText('No credit cards yet.')).toBeInTheDocument();
-    const emptyState = screen.getByRole('alert');
-    await userEvent.click(within(emptyState).getByRole('button', { name: 'Link email' }));
-    expect(await screen.findByRole('dialog', { name: 'Link a mailbox' })).toBeInTheDocument();
+    expect(within(screen.getByRole('alert')).queryByRole('button')).not.toBeInTheDocument();
+    expect(await screen.findAllByRole('button', { name: 'Link email' })).toHaveLength(1);
   });
 
   it('should not ask to link an email again when a mailbox is already linked', async () => {

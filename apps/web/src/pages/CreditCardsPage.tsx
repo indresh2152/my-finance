@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import {
   Alert,
-  Box,
   Card,
   CardContent,
   Container,
@@ -89,13 +88,11 @@ const MailboxAlerts: React.FC<MailboxAlertsProps> = ({
 };
 
 interface CardGridProps {
-  /** Absent when mailbox linking is turned off on the server. */
-  readonly onLinkEmail?: () => void;
   /** With a mailbox already linked, the empty state reports that nothing was found rather than asking to link one. */
   readonly hasMailbox: boolean;
 }
 
-const CardGrid: React.FC<CardGridProps> = ({ onLinkEmail, hasMailbox }) => {
+const CardGrid: React.FC<CardGridProps> = ({ hasMailbox }) => {
   const { t } = useTranslation('cards');
   const { user } = useAuth();
 
@@ -127,12 +124,9 @@ const CardGrid: React.FC<CardGridProps> = ({ onLinkEmail, hasMailbox }) => {
     return (
       <Alert severity="info">
         {t('emptyState')}
-        <Box mt={0.5}>
-          <Typography variant="caption" color="text.secondary" display="block">
-            {hasMailbox ? t('emptyStateMailboxLinked') : t('emptyStateHint')}
-          </Typography>
-          {onLinkEmail && !hasMailbox && <LinkEmailLink onClick={onLinkEmail} />}
-        </Box>
+        <Typography variant="caption" color="text.secondary" display="block" mt={0.5}>
+          {hasMailbox ? t('emptyStateMailboxLinked') : t('emptyStateHint')}
+        </Typography>
       </Alert>
     );
   }
@@ -180,10 +174,7 @@ export const CreditCardsPage: React.FC = () => {
         />
         {mailbox.gatheringIds.size > 0 && <SyncProgressBanner />}
 
-        <CardGrid
-          onLinkEmail={mailbox.isAvailable ? openLinkDialog : undefined}
-          hasMailbox={(mailbox.mailboxes?.length ?? 0) > 0}
-        />
+        <CardGrid hasMailbox={(mailbox.mailboxes?.length ?? 0) > 0} />
 
         {mailbox.isAvailable && (
           <MailboxesPanel
