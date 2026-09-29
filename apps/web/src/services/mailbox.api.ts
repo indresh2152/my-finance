@@ -46,11 +46,42 @@ export const apiErrorCode = (err: unknown): string | null => {
   return data?.error?.code ?? null;
 };
 
+/** When (epoch ms) the user asked each mailbox to sync, keyed by mailbox id. */
+export type SyncRequests = Readonly<Record<string, number>>;
+
+/** The sync asked for at `requestedAt` has not finished: none has started since (the worker stamps its start time). */
+const hasPendingRequest = (mailbox: Mailbox, requestedAt: number): boolean =>
+  mailbox.lastSyncStatus !== 'FAILED' &&
+  (mailbox.lastSyncedAt === null || Date.parse(mailbox.lastSyncedAt) < requestedAt);
+
+/** True while card and account details are still being gathered from this mailbox. */
+export const isGathering = (mailbox: Mailbox, requestedAt?: number): boolean => {
+  if (mailbox.status !== 'ACTIVE') return false;
+  if (mailbox.lastSyncStatus === 'NEVER' || mailbox.lastSyncStatus === 'RUNNING') return true;
+  return requestedAt !== undefined && hasPendingRequest(mailbox, requestedAt);
+};
+
+/** Refresh requests count only inside the poll window, so a drifted client clock cannot pin a mailbox as gathering. */
+export const gatheringMailboxIds = (
+  mailboxes: readonly Mailbox[] | undefined,
+  requests: SyncRequests,
+  pollUntil: number,
+  now: number,
+): ReadonlySet<string> => {
+  const windowOpen = now < pollUntil;
+  return new Set(
+    (mailboxes ?? [])
+      .filter((mailbox) => isGathering(mailbox, windowOpen ? requests[mailbox.id] : undefined))
+      .map((mailbox) => mailbox.id),
+  );
+};
+
+/** Refresh requests need no check here: they only count inside the window, which polls anyway. */
 export const mailboxPollInterval = (
   mailboxes: Mailbox[] | undefined,
   pollUntil: number,
   now: number,
 ): number | false => {
-  const anyRunning = mailboxes?.some((mailbox) => mailbox.lastSyncStatus === 'RUNNING') ?? false;
-  return anyRunning || now < pollUntil ? SYNC_POLL_INTERVAL_MS : false;
+  const anyGathering = mailboxes?.some((mailbox) => isGathering(mailbox)) ?? false;
+  return anyGathering || now < pollUntil ? SYNC_POLL_INTERVAL_MS : false;
 };
