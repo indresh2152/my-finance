@@ -9,6 +9,8 @@ import { renderWithProviders } from '../test/renderWithProviders';
 import { LinkedEmailPage } from './LinkedEmailPage';
 import type { Mailbox } from '../services/mailbox.api';
 
+const GATHERING = 'Gathering your card and account details…';
+
 vi.mock('../services/navigation', () => ({ redirectTo: vi.fn() }));
 
 const mailbox = (overrides: Partial<Mailbox> = {}): Mailbox => ({
@@ -62,6 +64,46 @@ describe('LinkedEmailPage', () => {
     expect(await screen.findByText('us****@gmail.com')).toBeInTheDocument();
     expect(screen.getByText('Google')).toBeInTheDocument();
     expect(screen.getByText(/Last synced/)).toBeInTheDocument();
+    expect(screen.queryByText(GATHERING)).not.toBeInTheDocument();
+  });
+
+  it('should show the progress banner while a mailbox has not finished its first sync', async () => {
+    mailboxes = [mailbox({ lastSyncStatus: 'NEVER', lastSyncedAt: null })];
+    renderPage();
+    expect(await screen.findByText(GATHERING)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Refresh' })).toBeDisabled();
+  });
+
+  it('should not show the progress banner for a mailbox whose access expired', async () => {
+    mailboxes = [mailbox({ status: 'REAUTH_REQUIRED', lastSyncStatus: 'NEVER' })];
+    renderPage();
+    expect(await screen.findByText('us****@gmail.com')).toBeInTheDocument();
+    expect(screen.queryByText(GATHERING)).not.toBeInTheDocument();
+  });
+
+  it('should show the progress banner after Refresh until the requested sync has run', async () => {
+    mailboxes = [mailbox({ lastSyncedAt: '2020-01-01T00:00:00Z' })];
+    renderPage();
+    await userEvent.click(await screen.findByRole('button', { name: 'Refresh' }));
+    expect(await screen.findByText(GATHERING)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Refresh' })).toBeDisabled();
+
+    mailboxes = [mailbox({ lastSyncedAt: new Date(Date.now() + 60_000).toISOString() })];
+    await waitFor(() => expect(screen.queryByText(GATHERING)).not.toBeInTheDocument(), {
+      timeout: 5000,
+    });
+  }, 10_000);
+
+  it('should not show the progress banner when the refresh request is rejected', async () => {
+    server.use(
+      http.post('/api/v1/mailboxes/:id/sync', () =>
+        HttpResponse.json({ error: { code: 'SYNC_TOO_FREQUENT', message: 'x' } }, { status: 429 }),
+      ),
+    );
+    renderPage();
+    await userEvent.click(await screen.findByRole('button', { name: 'Refresh' }));
+    expect(await screen.findByText(/synced recently/)).toBeInTheDocument();
+    expect(screen.queryByText(GATHERING)).not.toBeInTheDocument();
   });
 
   it('should show syncing, failed and never-synced states', async () => {

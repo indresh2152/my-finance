@@ -12,15 +12,18 @@ import {
   MAILBOXES_QUERY_KEY,
   POST_ACTION_POLL_MS,
   apiErrorCode,
+  gatheringMailboxIds,
   listMailboxes,
   mailboxPollInterval,
   syncMailbox,
   unlinkMailbox,
   type Mailbox,
+  type SyncRequests,
 } from '../services/mailbox.api';
 import { UnlinkMailboxDialog } from '../components/mailbox/UnlinkMailboxDialog';
 import { AddMailboxForm, MAILBOX_EMAIL_INPUT_ID } from '../components/mailbox/AddMailboxForm';
 import { MailboxesPanel } from '../components/mailbox/MailboxesPanel';
+import { SyncProgressBanner } from '../components/mailbox/SyncProgressBanner';
 
 const GENERIC_ERROR = 'generic';
 
@@ -65,6 +68,17 @@ const useLinkNotice = (): NoticeState => {
   };
 };
 
+/** Re-renders once `time` passes, so state derived from Date.now() (the poll window) updates after polling stops. */
+const useRerenderAt = (time: number): void => {
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const remaining = time - Date.now();
+    if (remaining <= 0) return undefined;
+    const timer = setTimeout(() => setTick((tick) => tick + 1), remaining);
+    return () => clearTimeout(timer);
+  }, [time]);
+};
+
 interface MailboxActions {
   syncMutation: UseMutationResult<void, unknown, string>;
   unlinkMutation: UseMutationResult<void, unknown, string>;
@@ -72,7 +86,7 @@ interface MailboxActions {
 
 /** Wraps the sync and unlink mutations so the page reports a single action error and refreshes the list. */
 const useMailboxActions = (
-  onSynced: () => void,
+  onSynced: (mailboxId: string) => void,
   reportError: (code: string | null) => void,
   onUnlinkSettled: () => void,
 ): MailboxActions => {
@@ -84,8 +98,8 @@ const useMailboxActions = (
   const syncMutation = useMutation({
     mutationFn: syncMailbox,
     onMutate: () => reportError(null),
-    onSuccess: () => {
-      onSynced();
+    onSuccess: (_data, mailboxId) => {
+      onSynced(mailboxId);
       refreshList();
     },
     onError: (err) => reportError(apiErrorCode(err) ?? GENERIC_ERROR),
@@ -112,6 +126,7 @@ export const LinkedEmailPage: React.FC = () => {
   const { notice, clearNotice, pollUntil, extendPoll } = useLinkNotice();
   const [actionError, setActionError] = useState<string | null>(null);
   const [unlinkTarget, setUnlinkTarget] = useState<Mailbox | null>(null);
+  const [syncRequests, setSyncRequests] = useState<SyncRequests>({});
 
   const {
     data: mailboxes,
@@ -123,9 +138,16 @@ export const LinkedEmailPage: React.FC = () => {
     refetchInterval: (query) => mailboxPollInterval(query.state.data, pollUntil, Date.now()),
   });
 
-  const { syncMutation, unlinkMutation } = useMailboxActions(extendPoll, setActionError, () =>
-    setUnlinkTarget(null),
+  const { syncMutation, unlinkMutation } = useMailboxActions(
+    (mailboxId) => {
+      setSyncRequests((requests) => ({ ...requests, [mailboxId]: Date.now() }));
+      extendPoll();
+    },
+    setActionError,
+    () => setUnlinkTarget(null),
   );
+  useRerenderAt(pollUntil);
+  const gatheringIds = gatheringMailboxIds(mailboxes, syncRequests, pollUntil, Date.now());
 
   const translateError = (code: string): string =>
     t(`errors.${code}`, { defaultValue: t('errors.generic') });
@@ -151,8 +173,11 @@ export const LinkedEmailPage: React.FC = () => {
           </Alert>
         )}
 
+        {gatheringIds.size > 0 && <SyncProgressBanner />}
+
         <MailboxesPanel
           mailboxes={mailboxes}
+          gatheringIds={gatheringIds}
           isLoading={isLoading}
           isError={isError}
           isBusy={syncMutation.isPending || unlinkMutation.isPending}

@@ -8,6 +8,7 @@ const SKELETON_ROWS = 2;
 
 interface MailboxesPanelProps {
   readonly mailboxes: readonly Mailbox[] | undefined;
+  readonly gatheringIds: ReadonlySet<string>;
   readonly isLoading: boolean;
   readonly isError: boolean;
   readonly isBusy: boolean;
@@ -18,6 +19,7 @@ interface MailboxesPanelProps {
 
 export const MailboxesPanel: React.FC<MailboxesPanelProps> = ({
   mailboxes,
+  gatheringIds,
   isLoading,
   isError,
   isBusy,
@@ -45,6 +47,7 @@ export const MailboxesPanel: React.FC<MailboxesPanelProps> = ({
       {mailboxes && mailboxes.length > 0 && (
         <MailboxList
           mailboxes={mailboxes}
+          gatheringIds={gatheringIds}
           isBusy={isBusy}
           onRefresh={onRefresh}
           onUnlink={onUnlink}
