@@ -67,6 +67,7 @@ describe('MailSyncService.syncMailbox', () => {
     expect(provider.getAccessToken).toHaveBeenCalledWith('rt');
     expect(provider.search).toHaveBeenCalledWith('at', {
       senders: ['@hdfcbank.net'],
+      subjectKeywords: [],
       since: INITIAL_SINCE,
     });
     expect(upserts.apply).toHaveBeenCalledWith('pan-1', 'mb-1', RESULT, 'm1');
@@ -92,6 +93,7 @@ describe('MailSyncService.syncMailbox', () => {
     await build(makeDb(row), provider).service.syncMailbox('mb-1');
     expect(provider.search).toHaveBeenCalledWith('at', {
       senders: ['@hdfcbank.net'],
+      subjectKeywords: [],
       since: new Date(lastSynced.getTime() - DAY_MS),
     });
   });
@@ -105,8 +107,22 @@ describe('MailSyncService.syncMailbox', () => {
     await build(makeDb(row), provider).service.syncMailbox('mb-1');
     expect(provider.search).toHaveBeenCalledWith('at', {
       senders: ['@hdfcbank.net'],
+      subjectKeywords: [],
       since: INITIAL_SINCE,
     });
+  });
+
+  it('should filter the search by subject keywords and include them in the hash', async () => {
+    const provider = makeProvider();
+    const db = makeDb(connectionRow());
+    const parser: EmailParser = { ...makeParser(), subjectKeywords: ['statement'] };
+    await build(db, provider, [parser]).service.syncMailbox('mb-1');
+    expect(provider.search).toHaveBeenCalledWith('at', {
+      senders: ['@hdfcbank.net'],
+      subjectKeywords: ['statement'],
+      since: INITIAL_SINCE,
+    });
+    expect(paramsWhere(db.query, SUCCEEDED)[2]).toBe(sha256Hex('@hdfcbank.net,subject:statement'));
   });
 
   it('should hash the senders in sorted order', async () => {
@@ -116,6 +132,7 @@ describe('MailSyncService.syncMailbox', () => {
     await build(db, provider, [makeParser(), second]).service.syncMailbox('mb-1');
     expect(provider.search).toHaveBeenCalledWith('at', {
       senders: ['@axisbank.com', '@hdfcbank.net'],
+      subjectKeywords: [],
       since: INITIAL_SINCE,
     });
     expect(paramsWhere(db.query, SUCCEEDED)[2]).toBe(sha256Hex('@axisbank.com,@hdfcbank.net'));

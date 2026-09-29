@@ -108,6 +108,27 @@ describe('MicrosoftMailProvider.revoke', () => {
 });
 
 describe('MicrosoftMailProvider.search', () => {
+  it('should skip messages whose subject has none of the keywords', async () => {
+    const from = { emailAddress: { address: 'x@hdfcbank.net' } };
+    spyOnFetch().mockResolvedValueOnce(
+      jsonResponse({
+        value: [
+          { id: 'm1', from, subject: 'Your Credit Card STATEMENT' },
+          { id: 'm2', from, subject: 'OTP for your transaction' },
+          { id: 'm3', from },
+        ],
+      }),
+    );
+    const ids = await collect(
+      provider.search('at', {
+        senders: ['@hdfcbank.net'],
+        subjectKeywords: ['statement'],
+        since: new Date(0),
+      }),
+    );
+    expect(ids).toEqual(['m1']);
+  });
+
   it('should stop paginating when @odata.nextLink repeats the previous link', async () => {
     const nextLink = 'https://graph.microsoft.com/v1.0/me/messages?page=2';
     const fetchSpy = spyOnFetch()
@@ -125,7 +146,9 @@ describe('MicrosoftMailProvider.search', () => {
       )
       .mockRejectedValue(new Error('fetched past repeated link'));
     const since = new Date('2026-09-01T00:00:00.000Z');
-    const ids = await collect(provider.search('at', { senders: ['@hdfcbank.net'], since }));
+    const ids = await collect(
+      provider.search('at', { senders: ['@hdfcbank.net'], subjectKeywords: [], since }),
+    );
     expect(ids).toEqual(['m1', 'm2']);
     expect(fetchSpy).toHaveBeenCalledTimes(2);
   });
@@ -148,11 +171,13 @@ describe('MicrosoftMailProvider.search', () => {
         }),
       );
     const since = new Date('2026-09-01T00:00:00.000Z');
-    const ids = await collect(provider.search('at', { senders: ['@hdfcbank.net'], since }));
+    const ids = await collect(
+      provider.search('at', { senders: ['@hdfcbank.net'], subjectKeywords: [], since }),
+    );
     expect(ids).toEqual(['m1', 'm4']);
     const firstUrl = decodeURIComponent(urlAt(fetchSpy, 0));
     expect(firstUrl).toContain('$filter=receivedDateTime ge 2026-09-01T00:00:00.000Z');
-    expect(firstUrl).toContain('$select=id,from,receivedDateTime');
+    expect(firstUrl).toContain('$select=id,from,subject,receivedDateTime');
     expect(urlAt(fetchSpy, 1)).toBe('https://graph.microsoft.com/v1.0/me/messages?page=2');
   });
 });

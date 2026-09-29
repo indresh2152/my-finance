@@ -1,4 +1,4 @@
-import { RecordUpsertService } from './record-upsert.service';
+import { RecordUpsertService, fitFilename } from './record-upsert.service';
 import type { CardStatementResult, AccountBalanceResult } from '../../parsers/email-parser';
 
 interface MockClient {
@@ -154,5 +154,17 @@ describe('RecordUpsertService.apply', () => {
       new RecordUpsertService(pool as never).apply('pan-1', 'mb-1', statement, 'msg-1'),
     ).rejects.toThrow('boom');
     expect(client.release).toHaveBeenCalled();
+  });
+});
+
+describe('fitFilename', () => {
+  it('should keep a name that fits', () => {
+    expect(fitFilename('statement.pdf')).toBe('statement.pdf');
+  });
+
+  it('should shorten an overlong name to 255 characters, keeping the extension', () => {
+    const fitted = fitFilename(`${'s'.repeat(300)}.pdf`);
+    expect(fitted).toHaveLength(255);
+    expect(fitted.endsWith('.pdf')).toBe(true);
   });
 });

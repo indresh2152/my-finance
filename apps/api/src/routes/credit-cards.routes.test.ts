@@ -64,6 +64,7 @@ describe('GET /api/v1/credit-cards', () => {
           available_credit: '350000.00',
           current_balance: '150000.00',
           billing_cycle_day: 15,
+          latest_statement: null,
         },
       ],
     });
@@ -74,5 +75,6 @@ describe('GET /api/v1/credit-cards', () => {
     expect(res.body.cards).toHaveLength(1);
     expect(res.body.cards[0].cardNumberLast4).toBe('4242');
     expect(res.body.cards[0].creditLimit).toBe(500000);
+    expect(res.body.cards[0].latestStatement).toBeNull();
   });
 });

@@ -141,13 +141,18 @@ export class GoogleMailProvider implements MailProvider {
     }
   }
 
-  async *search(accessToken: string, { senders, since }: SearchQuery): AsyncIterable<MessageRef> {
+  async *search(
+    accessToken: string,
+    { senders, subjectKeywords, since }: SearchQuery,
+  ): AsyncIterable<MessageRef> {
     const afterSeconds = Math.floor(since.getTime() / MS_PER_SECOND);
+    const subjectTerm =
+      subjectKeywords.length > 0 ? ` subject:(${subjectKeywords.join(' OR ')})` : '';
     for (let start = 0; start < senders.length; start += SENDERS_PER_QUERY) {
       const terms = senders
         .slice(start, start + SENDERS_PER_QUERY)
         .map((sender) => (sender.startsWith(DOMAIN_PREFIX) ? sender.slice(1) : sender));
-      const query = `from:(${terms.join(' OR ')}) after:${afterSeconds}`;
+      const query = `from:(${terms.join(' OR ')})${subjectTerm} after:${afterSeconds}`;
       yield* this.searchPages(accessToken, query);
     }
   }

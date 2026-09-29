@@ -24,6 +24,25 @@ describe('ParserRegistry', () => {
     expect(registry.allSenders()).toEqual(['@hdfcbank.net', 'x@axisbank.com']);
   });
 
+  it('should collect subject keywords, or none when any parser has no keywords', () => {
+    const withKeywords = (key: string, keywords: string[]): EmailParser => ({
+      ...makeParser(key, ['@x.com'], 's'),
+      subjectKeywords: keywords,
+    });
+    expect(
+      new ParserRegistry([
+        withKeywords('a', ['Statement']),
+        withKeywords('b', ['statement', 'balance']),
+      ]).allSubjectKeywords(),
+    ).toEqual(['statement', 'balance']);
+    expect(
+      new ParserRegistry([
+        withKeywords('a', ['statement']),
+        makeParser('b', ['@y.com'], 's'),
+      ]).allSubjectKeywords(),
+    ).toEqual([]);
+  });
+
   it('should find the parser whose sender and subject match', () => {
     const statement = makeParser('hdfc.cc-statement', ['@hdfcbank.net'], 'Statement');
     const registry = new ParserRegistry([statement]);
@@ -34,7 +53,12 @@ describe('ParserRegistry', () => {
     expect(registry.find({ from: 'x@other.com', subject: 'Statement' })).toBeNull();
   });
 
-  it('should ship with no bank parsers in phase 1', () => {
-    expect(new ParserRegistry(BANK_PARSERS).allSenders()).toEqual([]);
+  it('should ship the card statement parsers with unique keys', () => {
+    expect(new ParserRegistry(BANK_PARSERS).allSenders()).toContain('@hdfcbank.net');
+    expect(BANK_PARSERS).toHaveLength(5);
+    expect(new ParserRegistry(BANK_PARSERS).allSubjectKeywords()).toEqual([
+      'statement',
+      'estatement',
+    ]);
   });
 });

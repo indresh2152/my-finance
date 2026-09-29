@@ -1,0 +1,165 @@
+import {
+  labelledAmount,
+  labelledDate,
+  extractLast4,
+  extractPasswordHint,
+  findPdfAttachment,
+  istDate,
+  parseIndianDate,
+  parseInrAmount,
+} from './fields';
+
+describe('parseInrAmount', () => {
+  it.each([
+    ['Rs. 12,345.67', 12345.67],
+    ['Rs 1,00,000', 100000],
+    ['INR 620.00', 620],
+    ['₹ 9,99,999.5', 999999.5],
+    ['12,345', 12345],
+    ['Rs. 1,234.00 Cr', -1234],
+    ['Rs. 1,234.00 Dr', 1234],
+    ['Rs. 0.00 Cr', 0],
+  ])('should parse %s', (raw, expected) => {
+    expect(parseInrAmount(raw)).toBe(expected);
+  });
+
+  it.each(['', 'Rs.', 'NIL', 'abc 12'])('should reject %p', (raw) => {
+    expect(parseInrAmount(raw)).toBeNull();
+  });
+});
+
+describe('parseIndianDate', () => {
+  it.each([
+    ['05-09-2026', '2026-09-05'],
+    ['05/09/2026', '2026-09-05'],
+    ['5.9.2026', '2026-09-05'],
+    ['05/09/26', '2026-09-05'],
+    ['05 Sep 2026', '2026-09-05'],
+    ['05-Sep-2026', '2026-09-05'],
+    ['5 September, 2026', '2026-09-05'],
+    ['25 Sept 2026', '2026-09-25'],
+    ['September 25, 2026', '2026-09-25'],
+    ['Sep 25 2026', '2026-09-25'],
+  ])('should parse %s', (raw, expected) => {
+    expect(parseIndianDate(raw)).toBe(expected);
+  });
+
+  it.each(['31/02/2026', '05 Foo 2026', 'Foo 05, 2026', '2026', 'soon'])(
+    'should reject %p',
+    (raw) => {
+      expect(parseIndianDate(raw)).toBeNull();
+    },
+  );
+});
+
+describe('labelledAmount / labelledDate', () => {
+  const text = [
+    'Please pay the Total Amount Due before the due date.',
+    'Total Amount Due: Rs. 12,345.67',
+    'Minimum Amount Due - INR 620.00',
+    'Payment Due Date\n25/09/2026',
+  ].join('\n');
+
+  it('should read the value right after a label, skipping mentions without a value', () => {
+    expect(labelledAmount(/total\s+amount\s+due/)(text)).toBe(12345.67);
+    expect(labelledAmount(/minimum\s+amount\s+due/)(text)).toBe(620);
+    expect(labelledDate(/payment\s+due\s+date/)(text)).toBe('2026-09-25');
+  });
+
+  it('should read past a currency in brackets or a wide table gap', () => {
+    expect(labelledAmount(/total\s+amount\s+due/)('Total Amount Due (Rs.) 1,200.00')).toBe(1200);
+    expect(labelledAmount(/total\s+amount\s+due/)(`Total Amount Due${' '.repeat(30)}₹99`)).toBe(99);
+  });
+
+  it('should return null when the label is absent', () => {
+    expect(labelledAmount(/reward\s+points/)(text)).toBeNull();
+    expect(labelledDate(/statement\s+date/)(text)).toBeNull();
+  });
+});
+
+describe('extractLast4', () => {
+  it.each([
+    ['Card No: XXXX XXXX XXXX 1234', '1234'],
+    ['Card 4375 XXXX XXXX 5678 statement', '5678'],
+    ['Credit Card XX9012', '9012'],
+    ['card number **** 3456', '3456'],
+    ['your card ending 7890', '7890'],
+    ['card ending with 2468', '2468'],
+    ['mobile XXXXXX5678, card ending 1234', '1234'],
+  ])('should find the last 4 digits in %p', (text, expected) => {
+    expect(extractLast4(text)).toBe(expected);
+  });
+
+  it('should return null without a masked number', () => {
+    expect(extractLast4('Your statement is ready')).toBeNull();
+  });
+});
+
+describe('hostile input', () => {
+  const FAST_MS = 250;
+  const timed = (work: () => unknown): number => {
+    const start = Date.now();
+    work();
+    return Date.now() - start;
+  };
+
+  it('should reject a long run of mask characters quickly', () => {
+    expect(timed(() => extractLast4(`${'X'.repeat(50_000)}!`))).toBeLessThan(FAST_MS);
+    expect(timed(() => extractLast4(`${'X X '.repeat(20_000)}!`))).toBeLessThan(FAST_MS);
+  });
+
+  it('should reject a label followed by a long gap quickly', () => {
+    const text = `Total Amount Due${' '.repeat(20_000)}x`;
+    expect(timed(() => labelledAmount(/total\s+amount\s+due/)(text))).toBeLessThan(FAST_MS);
+  });
+});
+
+describe('extractPasswordHint', () => {
+  it('should return the password sentences about opening the statement', () => {
+    const text =
+      'Dear customer, your statement is attached. The attachment is password protected. ' +
+      'The password is the first 4 letters of your name in capitals followed by DDMM of birth. ' +
+      'Never share your OTP or PIN with anyone.';
+    expect(extractPasswordHint(text)).toBe(
+      'The attachment is password protected. The password is the first 4 letters of your name in capitals followed by DDMM of birth.',
+    );
+  });
+
+  it('should keep an e.g. example inside the hint', () => {
+    expect(
+      extractPasswordHint(
+        'The statement is password protected. The password is your name and DDMM, e.g. RAHU0101. Thanks.',
+      ),
+    ).toBe(
+      'The statement is password protected. The password is your name and DDMM, e.g. RAHU0101.',
+    );
+  });
+
+  it('should ignore a password warning unrelated to the statement', () => {
+    expect(extractPasswordHint('Never share your password with anyone.')).toBeNull();
+  });
+
+  it('should cap the hint at 300 characters', () => {
+    const hint = extractPasswordHint(
+      `To open the statement use this password format: ${'x'.repeat(400)}.`,
+    );
+    expect(hint).toHaveLength(300);
+  });
+});
+
+describe('findPdfAttachment', () => {
+  it('should pick the PDF by MIME type or extension', () => {
+    const logo = { locator: '1', filename: 'logo.png', mimeType: 'image/png' };
+    const pdf = { locator: '2', filename: 'Statement.PDF', mimeType: 'application/octet-stream' };
+    expect(findPdfAttachment([logo, pdf])).toBe(pdf);
+    expect(findPdfAttachment([{ ...logo, mimeType: 'application/pdf' }])?.locator).toBe('1');
+    expect(findPdfAttachment([logo])).toBeNull();
+  });
+});
+
+describe('istDate', () => {
+  it('should give the calendar date in India', () => {
+    expect(istDate(new Date('2026-09-04T20:00:00Z'))).toBe('2026-09-05');
+    expect(istDate(new Date('2026-09-05T10:00:00Z'))).toBe('2026-09-05');
+  });
+});

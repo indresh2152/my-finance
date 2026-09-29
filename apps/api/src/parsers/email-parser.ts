@@ -34,6 +34,11 @@ export interface EmailParser {
   readonly key: string;
   /** Exact addresses or '@domain' entries. */
   readonly senders: readonly string[];
+  /**
+   * Words every matching subject contains, used to narrow the provider search so unrelated mail
+   * (OTPs, alerts) is never downloaded. Omit only when no such word exists; it disables the filter.
+   */
+  readonly subjectKeywords?: readonly string[];
   matches(meta: EmailMeta): boolean;
   /** Pure: no I/O. Returns null when the email is not a usable statement/alert. */
   parse(email: ParsedEmail): ParsedResult | null;

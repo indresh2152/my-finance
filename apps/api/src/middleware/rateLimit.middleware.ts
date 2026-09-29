@@ -55,6 +55,8 @@ export const makeUserRateLimiter = (windowMs: number, max: number): RateLimitReq
 
 export const mailboxResolveRateLimiter = makeUserRateLimiter(HOUR_MS, 30);
 export const mailboxConnectRateLimiter = makeUserRateLimiter(HOUR_MS, 10);
+/** Each download pulls a file from the user's mail provider. */
+export const statementDownloadRateLimiter = makeUserRateLimiter(HOUR_MS, 20);
 
 /** Unauthenticated OAuth redirect target: no req.user, so the key is the client IP. */
 export const mailboxCallbackRateLimiter = makeUserRateLimiter(

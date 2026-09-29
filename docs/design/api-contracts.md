@@ -253,8 +253,10 @@ Returns a summary of all financial instruments linked to the user's PAN — one 
 
 Returns all credit cards linked to the user's PAN, whatever their source — in practice the cards
 found in the user's linked mailboxes. Email-derived cards only carry the bank and last 4 digits, so
-`cardNetwork`, `nameOnCard`, `expiryMonth`, `expiryYear` and the amount fields may be `null`
-(statement figures live in `card_statements` and are not returned here yet).
+`cardNetwork`, `nameOnCard`, `expiryMonth`, `expiryYear` and the amount fields may be `null`.
+Each card carries its `latestStatement` — the newest billing cycle (latest due date) across all
+linked mailboxes, preferring the email that had the PDF — or `null`. Statement dates are `YYYY-MM-DD`; amounts are INR numbers (the UI
+masks them). `passwordHint` is the bank's description of the PDF password format, never the password.
 
 **Response 200**
 ```json
@@ -273,7 +275,16 @@ found in the user's linked mailboxes. Email-derived cards only carry the bank an
       "creditLimit": 500000.00,
       "availableCredit": 423000.00,
       "currentBalance": 77000.00,
-      "billingCycleDay": 15
+      "billingCycleDay": 15,
+      "latestStatement": {
+        "id": "uuid",
+        "statementDate": "2026-09-05",
+        "dueDate": "2026-09-25",
+        "totalAmountDue": 12345.67,
+        "minimumAmountDue": 620.00,
+        "passwordHint": "First 4 letters of your name in capitals + DDMM of birth",
+        "downloadAvailable": true
+      }
     }
   ],
   "meta": { "total": 3 }
@@ -611,12 +622,13 @@ Routes exist only when `MAILBOX_ENABLED=true`. All under `/api/v1/mailboxes`.
 | GET | /api/v1/mailboxes | JWT + PAN | 200 `{ mailboxes: Mailbox[] }` | 403 |
 | POST | /api/v1/mailboxes/{mailboxId}/sync | JWT + PAN | 202 `{ queued: true }` | 404 MAILBOX_NOT_FOUND, 409 MAILBOX_REAUTH_REQUIRED, 429 SYNC_TOO_FREQUENT |
 | DELETE | /api/v1/mailboxes/{mailboxId} | JWT + PAN | 204 | 404 MAILBOX_NOT_FOUND |
+| GET | /api/v1/mailboxes/statements/{statementId}/download | JWT + PAN | 200 file (`Content-Disposition: attachment`, `Cache-Control: no-store`; `application/pdf` only when the bytes are a PDF) | 404 STATEMENT_NOT_FOUND\|STATEMENT_UNAVAILABLE, 409 MAILBOX_REAUTH_REQUIRED, 422, 429 (20/h per user) |
 
 `Mailbox` = `{ id, provider: 'GOOGLE'|'MICROSOFT', emailMasked, status: 'ACTIVE'|'REAUTH_REQUIRED',
 lastSyncStatus: 'NEVER'|'RUNNING'|'SUCCEEDED'|'FAILED', lastSyncErrorCode, lastSyncedAt, createdAt }`.
-Routes exist only when `MAILBOX_ENABLED=true`. Phase 2/3 add `GET /mailboxes/credit-cards`,
-`GET /mailboxes/statements/{id}/download` and `GET /mailboxes/accounts`
-(see docs/superpowers/specs/2026-09-26-mailbox-integration-design.md §7).
+The download fetches the statement file live from the mailbox that received it; nothing is stored.
+Card statements themselves are returned by `GET /credit-cards` (`latestStatement`). Phase 3 adds
+`GET /mailboxes/accounts` (see docs/superpowers/specs/2026-09-26-mailbox-integration-design.md §7).
 
 ---
 

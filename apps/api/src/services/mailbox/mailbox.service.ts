@@ -7,6 +7,7 @@ import { requirePanProfileId } from '../pan-profile.lookup';
 import { decrypt } from '../../utils/crypto.utils';
 import { hashEmail, normaliseEmail } from '../../utils/email.utils';
 import { getProvider } from './providers';
+import { mailboxReauthRequired } from './mailbox-access';
 import type { ProviderKey } from './providers/mail-provider';
 import {
   MAILBOX_RESOURCE_TYPE,
@@ -118,11 +119,7 @@ export class MailboxService {
     const mailbox = await this.findOwned(ctx, mailboxId);
 
     if (mailbox.status === 'REAUTH_REQUIRED') {
-      throw new AppError(
-        'MAILBOX_REAUTH_REQUIRED',
-        HTTP_CONFLICT,
-        i18next.t('error.mailbox_reauth_required', { lng: ctx.lng }),
-      );
+      throw mailboxReauthRequired(ctx.lng);
     }
     if (this.isActivelyRunning(mailbox) || this.syncedRecently(mailbox)) {
       throw new AppError(

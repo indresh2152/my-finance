@@ -11,6 +11,16 @@ import type {
 const logger = pino({ ...errorLoggerOptions, name: 'record-upsert' });
 
 const DEFAULT_ACCOUNT_TYPE = 'OTHER';
+/** card_statements.attachment_filename is VARCHAR(255). */
+const MAX_FILENAME_LENGTH = 255;
+const EXTENSION = /\.[A-Za-z0-9]{1,5}$/;
+
+/** Shortens an overlong email-supplied name to fit the column, keeping its extension. */
+export const fitFilename = (filename: string): string => {
+  if (filename.length <= MAX_FILENAME_LENGTH) return filename;
+  const extension = EXTENSION.exec(filename)?.[0] ?? '';
+  return filename.slice(0, MAX_FILENAME_LENGTH - extension.length) + extension;
+};
 
 const UPSERT_CARD_SQL = `INSERT INTO credit_cards (pan_profile_id, source, card_number_last4, issuing_bank, card_variant)
    VALUES ($1, 'EMAIL', $2, $3, 'OTHER')
@@ -116,7 +126,7 @@ export class RecordUpsertService {
       statement.passwordHint ?? null,
       messageId,
       statement.attachment?.locator ?? null,
-      statement.attachment?.filename ?? null,
+      statement.attachment ? fitFilename(statement.attachment.filename) : null,
     ]);
   }
 

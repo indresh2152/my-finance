@@ -8,11 +8,12 @@ export const extractAddress = (fromHeader: string): string => {
   return address.trim().toLowerCase();
 };
 
-/** A sender entry is either an exact address or '@domain' (matches only that exact domain). */
+/** A sender entry is an exact address or '@domain', which matches that domain and its subdomains. */
 export const matchesSender = (address: string, senders: readonly string[]): boolean => {
   const normalised = address.trim().toLowerCase();
   return senders.some((sender) => {
     const entry = sender.toLowerCase();
-    return entry.startsWith(DOMAIN_PREFIX) ? normalised.endsWith(entry) : normalised === entry;
+    if (!entry.startsWith(DOMAIN_PREFIX)) return normalised === entry;
+    return normalised.endsWith(entry) || normalised.endsWith(`.${entry.slice(1)}`);
   });
 };

@@ -32,7 +32,14 @@ interface GraphAddress {
 interface GraphMessageMeta {
   id: string;
   from?: GraphAddress;
+  subject?: string;
 }
+
+const hasKeyword = (subject: string | undefined, keywords: readonly string[]): boolean => {
+  if (keywords.length === 0) return true;
+  const lower = (subject ?? '').toLowerCase();
+  return keywords.some((keyword) => lower.includes(keyword));
+};
 
 interface GraphListResponse {
   value: GraphMessageMeta[];
@@ -129,11 +136,14 @@ export class MicrosoftMailProvider implements MailProvider {
     return Promise.resolve();
   }
 
-  async *search(accessToken: string, { senders, since }: SearchQuery): AsyncIterable<MessageRef> {
-    // Graph rejects combined from/date filters as inefficient, so senders are matched locally.
+  async *search(
+    accessToken: string,
+    { senders, subjectKeywords, since }: SearchQuery,
+  ): AsyncIterable<MessageRef> {
+    // Graph rejects combined from/date filters as inefficient, so senders and subjects are matched locally.
     const filter = encodeURIComponent(`receivedDateTime ge ${since.toISOString()}`);
     let url: string | undefined =
-      `${GRAPH}/me/messages?$filter=${filter}&$select=id,from,receivedDateTime&$top=${PAGE_SIZE}`;
+      `${GRAPH}/me/messages?$filter=${filter}&$select=id,from,subject,receivedDateTime&$top=${PAGE_SIZE}`;
     while (url) {
       const requestedUrl = url;
       const page: GraphListResponse = await getJson<GraphListResponse>(
@@ -143,7 +153,11 @@ export class MicrosoftMailProvider implements MailProvider {
       );
       for (const message of page.value) {
         const address = message.from?.emailAddress?.address;
-        if (address && matchesSender(address, senders)) {
+        if (
+          address &&
+          matchesSender(address, senders) &&
+          hasKeyword(message.subject, subjectKeywords)
+        ) {
           yield { id: message.id };
         }
       }

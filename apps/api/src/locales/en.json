@@ -21,7 +21,9 @@
     "mailbox_already_linked": "This mailbox is already linked to your account.",
     "mailbox_not_found": "Mailbox not found.",
     "mailbox_reauth_required": "Access to this mailbox has expired. Reconnect it to continue syncing.",
-    "mailbox_sync_too_frequent": "This mailbox was synced recently. Try again in a few minutes."
+    "mailbox_sync_too_frequent": "This mailbox was synced recently. Try again in a few minutes.",
+    "statement_not_found": "Statement not found.",
+    "statement_unavailable": "This statement is no longer available in your mailbox."
   },
   "validation": {
     "pan_required": "PAN is required",
@@ -33,7 +35,8 @@
     "password_required": "Password is required",
     "password_min": "Password must be at least 8 characters",
     "password_complexity": "Password must contain at least one uppercase letter, one digit, and one special character",
-    "mailbox_id_invalid": "Mailbox ID must be a valid UUID"
+    "mailbox_id_invalid": "Mailbox ID must be a valid UUID",
+    "statement_id_invalid": "Statement ID must be a valid UUID"
   },
   "apiDocs": {
     "title": "my-finance API",
@@ -65,13 +68,17 @@
       "mailboxOAuthCallbackDescription": "Called by Google or Microsoft after consent, not by API clients. Always clears the linking cookie and redirects to /credit-cards with linked=1 on success or error=<code> on failure.",
       "listMailboxes": "List your linked mailboxes",
       "syncMailbox": "Queue a sync of a linked mailbox",
-      "unlinkMailbox": "Unlink a mailbox and revoke its access"
+      "unlinkMailbox": "Unlink a mailbox and revoke its access",
+      "downloadStatement": "Download a card statement PDF",
+      "downloadStatementDescription": "Fetches the statement attachment live from the linked mailbox that received it; nothing is stored. Rate limited to 20 per hour."
     },
     "schemas": {
       "accessToken": "Bearer token for the Authorization header.",
       "panMasked": "PAN with the four digits hidden, e.g. ABCDE####F.",
       "inrAmount": "Amount in INR (₹).",
-      "emailMasked": "Mailbox address with most of the local part hidden."
+      "emailMasked": "Mailbox address with most of the local part hidden.",
+      "passwordHint": "The bank's description of the statement password format, taken from the email. Never the password itself.",
+      "downloadAvailable": "Whether the statement email had a PDF that can be downloaded."
     },
     "responses": {
       "ok": "Success",
@@ -91,7 +98,9 @@
       "syncTooFrequent": "A sync is already running or ran a few minutes ago",
       "syncQueued": "Sync queued",
       "mailboxUnlinked": "Mailbox unlinked",
-      "oauthRedirect": "Redirect to the Linked email page"
+      "oauthRedirect": "Redirect to the Credit Cards page",
+      "statementFile": "The statement file as an attachment",
+      "statementUnavailable": "Statement not found, or its email or attachment is no longer in the mailbox"
     }
   }
 }

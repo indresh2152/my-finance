@@ -1,4 +1,5 @@
 import { createMailboxModule } from './mailbox.module';
+import { StatementDownloadService } from './statement-download.service';
 import { MailboxService } from './mailbox.service';
 import { MAIL_SYNC_ALL_QUEUE, MAIL_SYNC_MAILBOX_QUEUE } from '../../jobs/mail-sync.jobs';
 import { parseKeyRing } from '../../utils/crypto.utils';
@@ -44,6 +45,7 @@ describe('createMailboxModule', () => {
 
     expect(module.appBaseUrl).toBe('https://app.example');
     expect(module.service).toBeInstanceOf(MailboxService);
+    expect(module.statements).toBeInstanceOf(StatementDownloadService);
     expect(boss.work).toHaveBeenCalledTimes(3);
     expect(boss.schedule).toHaveBeenCalledWith(MAIL_SYNC_ALL_QUEUE, '0 */6 * * *');
   });

@@ -12,7 +12,7 @@ const deps: AppDeps = {
   panHmacSecret: 'test-pan-hmac-secret-32-chars-min!',
   panVerifier: { verify: jest.fn() } as never,
   // Mounts the feature-flagged mailbox routes so the drift test sees them; no handler runs.
-  mailbox: { service: {} as never, appBaseUrl: 'https://app.example' },
+  mailbox: { service: {} as never, statements: {} as never, appBaseUrl: 'https://app.example' },
 };
 
 /** Cookie-authenticated routes are intentionally not exposed: the docs are bearer-only. */

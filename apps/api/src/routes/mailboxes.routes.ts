@@ -12,6 +12,7 @@ import {
   mailboxCallbackRateLimiter,
   mailboxConnectRateLimiter,
   mailboxResolveRateLimiter,
+  statementDownloadRateLimiter,
 } from '../middleware/rateLimit.middleware';
 import { errorLoggerOptions } from '../middleware/error.middleware';
 import { i18next } from '../i18n';
@@ -24,6 +25,7 @@ import {
 } from '../services/mailbox/mailbox.service';
 import { errorName } from '../services/mailbox/mailbox-link';
 import type { ProviderKey } from '../services/mailbox/providers/mail-provider';
+import type { StatementDownloadService } from '../services/mailbox/statement-download.service';
 
 const logger = pino({ ...errorLoggerOptions, name: 'mailboxes-routes' });
 
@@ -50,6 +52,7 @@ export interface MailboxModule {
     MailboxService,
     'resolve' | 'startConnect' | 'completeConnect' | 'list' | 'requestSync' | 'unlink'
   >;
+  statements: Pick<StatementDownloadService, 'download'>;
   appBaseUrl: string;
 }
 
@@ -69,6 +72,11 @@ export const buildEmailSchema = (lng: string): z.ZodObject<{ email: z.ZodString 
 export const buildMailboxIdSchema = (lng: string): z.ZodObject<{ mailboxId: z.ZodString }> =>
   z.object({
     mailboxId: z.string().uuid(i18next.t('validation.mailbox_id_invalid', { lng })),
+  });
+
+export const buildStatementIdSchema = (lng: string): z.ZodObject<{ statementId: z.ZodString }> =>
+  z.object({
+    statementId: z.string().uuid(i18next.t('validation.statement_id_invalid', { lng })),
   });
 
 /**
@@ -205,6 +213,25 @@ const unlinkHandler =
   };
 
 /**
+ * res.attachment() encodes the untrusted, email-supplied filename safely (basename only, RFC 5987
+ * for non-ASCII); the Content-Type comes from the service's byte check, not the file extension.
+ */
+const downloadHandler =
+  (statements: MailboxModule['statements']): RequestHandler =>
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { statementId } = buildStatementIdSchema(req.language).parse(req.params);
+      const file = await statements.download(contextOf(req), statementId);
+      res.set({ 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
+      res.attachment(file.filename);
+      res.type(file.contentType);
+      res.send(file.content);
+    } catch (err) {
+      next(err);
+    }
+  };
+
+/**
  * Rate limiters run after requireAuth because they are keyed by the authenticated user.
  * The callback has no JWT, so its limiter falls back to the client IP.
  */
@@ -216,6 +243,12 @@ export const mailboxesRouter = (mailbox: MailboxModule): Router => {
   router.post('/resolve', requireAuth, mailboxResolveRateLimiter, resolveHandler(service));
   router.post('/connect', requireAuth, mailboxConnectRateLimiter, connectHandler(service));
   router.get('/', requireAuth, listHandler(service));
+  router.get(
+    '/statements/:statementId/download',
+    requireAuth,
+    statementDownloadRateLimiter,
+    downloadHandler(mailbox.statements),
+  );
   router.post('/:mailboxId/sync', requireAuth, syncHandler(service));
   router.delete('/:mailboxId', requireAuth, unlinkHandler(service));
 

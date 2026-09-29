@@ -115,7 +115,11 @@ describe('GoogleMailProvider.search', () => {
       .mockResolvedValueOnce(jsonResponse({ messages: [{ id: 'm2' }] }));
     const since = new Date('2026-09-01T00:00:00Z');
     const ids = await collect(
-      provider.search('at', { senders: ['@hdfcbank.net', 'x@axisbank.com'], since }),
+      provider.search('at', {
+        senders: ['@hdfcbank.net', 'x@axisbank.com'],
+        subjectKeywords: [],
+        since,
+      }),
     );
     expect(ids).toEqual(['m1', 'm2']);
     const firstUrl = new URL(urlAt(fetchSpy, 0));
@@ -125,12 +129,29 @@ describe('GoogleMailProvider.search', () => {
     expect(new URL(urlAt(fetchSpy, 1)).searchParams.get('pageToken')).toBe('p2');
   });
 
+  it('should narrow the query to subjects containing any keyword', async () => {
+    const fetchSpy = spyOnFetch().mockResolvedValueOnce(jsonResponse({ messages: [] }));
+    const since = new Date('2026-09-01T00:00:00Z');
+    await collect(
+      provider.search('at', {
+        senders: ['@hdfcbank.net'],
+        subjectKeywords: ['statement', 'balance'],
+        since,
+      }),
+    );
+    expect(new URL(urlAt(fetchSpy, 0)).searchParams.get('q')).toBe(
+      `from:(hdfcbank.net) subject:(statement OR balance) after:${since.getTime() / 1000}`,
+    );
+  });
+
   it('should split long sender lists into chunks of 20', async () => {
     const fetchSpy = spyOnFetch()
       .mockResolvedValueOnce(jsonResponse({}))
       .mockResolvedValueOnce(jsonResponse({ messages: [{ id: 'm9' }] }));
     const senders = Array.from({ length: 21 }, (_v, i) => `s${i}@bank.com`);
-    const ids = await collect(provider.search('at', { senders, since: new Date(0) }));
+    const ids = await collect(
+      provider.search('at', { senders, subjectKeywords: [], since: new Date(0) }),
+    );
     expect(ids).toEqual(['m9']);
     expect(fetchSpy).toHaveBeenCalledTimes(2);
   });
@@ -141,7 +162,11 @@ describe('GoogleMailProvider.search', () => {
       .mockResolvedValueOnce(jsonResponse({ messages: [{ id: 'm2' }], nextPageToken: 'p1' }))
       .mockRejectedValue(new Error('fetched past repeated token'));
     const ids = await collect(
-      provider.search('at', { senders: ['x@axisbank.com'], since: new Date(0) }),
+      provider.search('at', {
+        senders: ['x@axisbank.com'],
+        subjectKeywords: [],
+        since: new Date(0),
+      }),
     );
     expect(ids).toEqual(['m1', 'm2']);
     expect(fetchSpy).toHaveBeenCalledTimes(2);

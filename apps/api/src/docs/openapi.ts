@@ -63,6 +63,19 @@ const buildOpenApiDocument = (lng: string): OpenAPIObject => {
     }),
   );
 
+  const cardStatementSchema = registry.register(
+    'CardStatement',
+    z.object({
+      id: z.string().uuid(),
+      statementDate: z.string().date(),
+      dueDate: z.string().date(),
+      totalAmountDue: z.number().describe(t('schemas.inrAmount')),
+      minimumAmountDue: z.number().nullable().describe(t('schemas.inrAmount')),
+      passwordHint: z.string().nullable().describe(t('schemas.passwordHint')),
+      downloadAvailable: z.boolean().describe(t('schemas.downloadAvailable')),
+    }),
+  );
+
   const creditCardSchema = registry.register(
     'CreditCard',
     z.object({
@@ -79,6 +92,7 @@ const buildOpenApiDocument = (lng: string): OpenAPIObject => {
       availableCredit: z.number().nullable().describe(t('schemas.inrAmount')),
       currentBalance: z.number().nullable().describe(t('schemas.inrAmount')),
       billingCycleDay: z.number().int().nullable(),
+      latestStatement: cardStatementSchema.nullable(),
     }),
   );
 

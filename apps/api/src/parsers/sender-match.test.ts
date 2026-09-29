@@ -21,6 +21,14 @@ describe('matchesSender', () => {
     expect(matchesSender('emailstatements.cards@hdfcbank.net', senders)).toBe(true);
   });
 
+  it('should match a subdomain of a listed domain', () => {
+    expect(matchesSender('alerts@mailers.hdfcbank.net', senders)).toBe(true);
+  });
+
+  it('should not match a subdomain of a look-alike domain', () => {
+    expect(matchesSender('x@mailers.fakehdfcbank.net', senders)).toBe(false);
+  });
+
   it('should not match a look-alike domain', () => {
     expect(matchesSender('x@fakehdfcbank.net', senders)).toBe(false);
   });

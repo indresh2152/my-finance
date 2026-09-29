@@ -20,6 +20,7 @@ const mockCardRow = {
   available_credit: '350000.00',
   current_balance: '150000.00',
   billing_cycle_day: 15,
+  latest_statement: null,
 };
 
 describe('CreditCardsService.listByUserId', () => {
@@ -100,5 +101,52 @@ describe('CreditCardsService.listByUserId', () => {
         nameOnCard: null,
       }),
     ]);
+  });
+
+  it('should attach the latest statement', async () => {
+    const db = makeDb();
+    db.query.mockResolvedValueOnce({ rows: [{ id: PAN_PROFILE_ID }] }).mockResolvedValueOnce({
+      rows: [
+        {
+          ...mockCardRow,
+          latest_statement: {
+            id: 'stmt-1',
+            statementDate: '2026-09-05',
+            dueDate: '2026-09-25',
+            totalAmountDue: 12345.67,
+            minimumAmountDue: null,
+            passwordHint: 'First 4 letters of name + DDMM',
+            downloadAvailable: true,
+          },
+        },
+      ],
+    });
+    const service = new CreditCardsService(db as never);
+
+    const [card] = await service.listByUserId(USER_ID, LNG);
+
+    const cardsSql = db.query.mock.calls[1]?.[0] as string;
+    expect(cardsSql).toContain(
+      'ORDER BY due_date DESC, (attachment_locator IS NOT NULL) DESC, statement_date DESC',
+    );
+    expect(card?.latestStatement).toEqual({
+      id: 'stmt-1',
+      statementDate: '2026-09-05',
+      dueDate: '2026-09-25',
+      totalAmountDue: 12345.67,
+      minimumAmountDue: null,
+      passwordHint: 'First 4 letters of name + DDMM',
+      downloadAvailable: true,
+    });
+  });
+
+  it('should report no statement for a card that has none', async () => {
+    const db = makeDb();
+    db.query
+      .mockResolvedValueOnce({ rows: [{ id: PAN_PROFILE_ID }] })
+      .mockResolvedValueOnce({ rows: [mockCardRow] });
+    const service = new CreditCardsService(db as never);
+    const [card] = await service.listByUserId(USER_ID, LNG);
+    expect(card?.latestStatement).toBeNull();
   });
 });

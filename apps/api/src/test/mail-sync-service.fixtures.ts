@@ -102,6 +102,7 @@ export const build = (
   const upserts = { apply: jest.fn().mockResolvedValue(undefined) };
   const registry = {
     allSenders: (): string[] => parsers.flatMap((p) => [...p.senders]),
+    allSubjectKeywords: (): string[] => parsers.flatMap((p) => [...(p.subjectKeywords ?? [])]),
     find: (meta: { from: string; subject: string }): EmailParser | null =>
       parsers.find((p) => p.matches(meta)) ?? null,
   };

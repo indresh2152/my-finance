@@ -46,6 +46,8 @@ export interface ExchangeCodeResult {
 
 export interface SearchQuery {
   senders: readonly string[];
+  /** Lower-case words, any of which the subject must contain; empty means no subject filter. */
+  subjectKeywords: readonly string[];
   since: Date;
 }
 

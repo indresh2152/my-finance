@@ -4,6 +4,7 @@ import {
   CALLBACK_PROVIDERS,
   buildEmailSchema,
   buildMailboxIdSchema,
+  buildStatementIdSchema,
   callbackQuerySchema,
 } from '../routes/mailboxes.routes';
 
@@ -170,6 +171,32 @@ const registerUnlinkPath = ({ registry, h, lng, tags }: DocContext): void => {
   });
 };
 
+/** Streams the file itself; the Content-Type is PDF only when the bytes are a PDF. */
+const registerDownloadPath = ({ registry, h, lng, tags }: DocContext): void => {
+  const file = { schema: z.string().openapi({ format: 'binary' }) };
+  registry.registerPath({
+    method: 'get',
+    path: `${MAILBOXES_PATH}/statements/{statementId}/download`,
+    tags,
+    summary: h.t('operations.downloadStatement'),
+    description: h.t('operations.downloadStatementDescription'),
+    security: h.bearer,
+    request: { params: buildStatementIdSchema(lng) },
+    responses: {
+      200: {
+        description: h.t('responses.statementFile'),
+        content: { 'application/pdf': file, 'application/octet-stream': file },
+      },
+      401: h.error('unauthorized'),
+      403: h.error('panNotRegistered'),
+      404: h.error('statementUnavailable'),
+      409: h.error('mailboxReauthRequired'),
+      422: h.error('validation'),
+      429: h.error('rateLimited'),
+    },
+  });
+};
+
 export const registerMailboxPaths = (
   registry: OpenAPIRegistry,
   helpers: DocHelpers,
@@ -183,4 +210,5 @@ export const registerMailboxPaths = (
   registerListPath(ctx, summary);
   registerSyncPath(ctx);
   registerUnlinkPath(ctx);
+  registerDownloadPath(ctx);
 };

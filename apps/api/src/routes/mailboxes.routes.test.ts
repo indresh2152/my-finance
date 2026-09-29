@@ -16,13 +16,19 @@ const service = {
   unlink: jest.fn(),
 };
 
+const statements = { download: jest.fn() };
+
 const deps: AppDeps = {
   db: { query: jest.fn().mockResolvedValue({ rows: [] }) } as never,
   jwtSecret: JWT_SECRET,
   refreshTokenSecret: 'test-refresh-secret-32-chars-min!!',
   panHmacSecret: 'test-pan-hmac-at-least-32-chars-min!',
   panVerifier: { verify: jest.fn() } as never,
-  mailbox: { service: service as never, appBaseUrl: 'https://app.example' },
+  mailbox: {
+    service: service as never,
+    statements: statements as never,
+    appBaseUrl: 'https://app.example',
+  },
 };
 
 const app = createApp(deps);
@@ -196,5 +202,59 @@ describe('DELETE /api/v1/mailboxes/:mailboxId', () => {
   it('should pass errors on', async () => {
     service.unlink.mockRejectedValueOnce(new AppError('MAILBOX_NOT_FOUND', 404, 'nf'));
     await request(app).delete(`/api/v1/mailboxes/${MAILBOX_ID}`).set(auth).expect(404);
+  });
+});
+
+describe('GET /api/v1/mailboxes/statements/:statementId/download', () => {
+  const STATEMENT_ID = '0f7c2b4e-9d1a-4c3b-8e2f-5a6b7c8d9e0f';
+  const url = `/api/v1/mailboxes/statements/${STATEMENT_ID}/download`;
+
+  it('should return 401 without a token', async () => {
+    await request(app).get(url).expect(401);
+    expect(statements.download).not.toHaveBeenCalled();
+  });
+
+  it('should send the file as a non-cacheable attachment', async () => {
+    statements.download.mockResolvedValueOnce({
+      content: Buffer.from('%PDF-1.7'),
+      filename: 'HDFC Statement.pdf',
+      contentType: 'application/pdf',
+    });
+    const res = await request(app).get(url).set(auth);
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toBe('application/pdf');
+    expect(res.headers['cache-control']).toBe('no-store');
+    expect(res.headers['x-content-type-options']).toBe('nosniff');
+    expect(res.headers['content-disposition']).toBe('attachment; filename="HDFC Statement.pdf"');
+    expect(statements.download).toHaveBeenCalledWith(
+      expect.objectContaining({ userId: 'user-1' }),
+      STATEMENT_ID,
+    );
+  });
+
+  it('should keep an untrusted filename from breaking out of the header or the download folder', async () => {
+    statements.download.mockResolvedValueOnce({
+      content: Buffer.from('x'),
+      filename: '../../etc/pass"wd\r\nX-Evil: 1',
+      contentType: 'application/octet-stream',
+    });
+    const res = await request(app).get(url).set(auth);
+    expect(res.status).toBe(200);
+    expect(res.headers['x-evil']).toBeUndefined();
+    expect(res.headers['content-disposition']).not.toContain('..');
+    expect(res.headers['content-type']).toBe('application/octet-stream');
+  });
+
+  it('should return 422 for a malformed statement id', async () => {
+    const res = await request(app).get('/api/v1/mailboxes/statements/nope/download').set(auth);
+    expect(res.status).toBe(422);
+    expect(statements.download).not.toHaveBeenCalled();
+  });
+
+  it('should pass service errors to the error middleware', async () => {
+    statements.download.mockRejectedValueOnce(new AppError('STATEMENT_UNAVAILABLE', 404, 'gone'));
+    const res = await request(app).get(url).set(auth);
+    expect(res.status).toBe(404);
+    expect(res.body.error.code).toBe('STATEMENT_UNAVAILABLE');
   });
 });

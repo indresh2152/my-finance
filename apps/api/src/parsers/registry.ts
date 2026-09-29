@@ -1,8 +1,9 @@
 import { matchesSender } from './sender-match';
 import type { EmailMeta, EmailParser } from './email-parser';
+import { CARD_STATEMENT_PARSERS } from './banks/card-statements';
 
-/** Bank parsers are added here in Phase 2 (card statements) and Phase 3 (balances). */
-export const BANK_PARSERS: readonly EmailParser[] = [];
+/** Phase 2: card statements. Phase 3 adds balance parsers here. */
+export const BANK_PARSERS: readonly EmailParser[] = [...CARD_STATEMENT_PARSERS];
 
 export class ParserRegistry {
   constructor(private readonly parsers: readonly EmailParser[]) {
@@ -18,6 +19,18 @@ export class ParserRegistry {
   allSenders(): string[] {
     return [
       ...new Set(this.parsers.flatMap((parser) => parser.senders.map((s) => s.toLowerCase()))),
+    ];
+  }
+
+  /** Empty when any parser has no keywords: then no subject filter can be applied safely. */
+  allSubjectKeywords(): string[] {
+    if (this.parsers.some((parser) => !parser.subjectKeywords?.length)) return [];
+    return [
+      ...new Set(
+        this.parsers.flatMap((parser) =>
+          (parser.subjectKeywords ?? []).map((k) => k.toLowerCase()),
+        ),
+      ),
     ];
   }
 

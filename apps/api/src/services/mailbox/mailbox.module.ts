@@ -9,6 +9,7 @@ import { OAuthStateService } from './oauth-state.service';
 import { RecordUpsertService } from './record-upsert.service';
 import { MailSyncService } from './mail-sync.service';
 import { MailboxService } from './mailbox.service';
+import { StatementDownloadService } from './statement-download.service';
 
 export interface MailboxModuleDeps {
   db: Pool;
@@ -44,5 +45,7 @@ export const createMailboxModule = async ({
     enqueueSync: (mailboxId: string): Promise<void> => enqueueMailboxSync(boss, mailboxId),
   });
 
-  return { service, appBaseUrl: config.appBaseUrl };
+  const statements = new StatementDownloadService({ db, providers, keyRing: config.keyRing });
+
+  return { service, statements, appBaseUrl: config.appBaseUrl };
 };

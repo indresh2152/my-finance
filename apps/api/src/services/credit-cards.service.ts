@@ -16,6 +16,19 @@ interface CreditCardRow {
   available_credit: string | null;
   current_balance: string | null;
   billing_cycle_day: number | null;
+  /** Built in SQL as JSON, so amounts arrive as numbers and dates as YYYY-MM-DD. */
+  latest_statement: CardStatement | null;
+}
+
+export interface CardStatement {
+  id: string;
+  statementDate: string; // YYYY-MM-DD
+  dueDate: string; // YYYY-MM-DD
+  totalAmountDue: number;
+  minimumAmountDue: number | null;
+  passwordHint: string | null;
+  /** False when the email had no PDF, so there is nothing to download. */
+  downloadAvailable: boolean;
 }
 
 export interface CreditCard {
@@ -32,7 +45,36 @@ export interface CreditCard {
   availableCredit: number | null;
   currentBalance: number | null;
   billingCycleDay: number | null;
+  latestStatement: CardStatement | null;
 }
+
+/**
+ * Latest statement per card across all mailboxes: the newest billing cycle (due date), preferring a
+ * row with a PDF, so a reminder email for the same cycle cannot hide the statement.
+ */
+const LIST_CARDS_SQL = `SELECT c.id, c.card_number_last4, c.card_network, c.issuing_bank, c.card_variant,
+          c.expiry_month, c.expiry_year, c.name_on_card, c.status,
+          c.credit_limit, c.available_credit, c.current_balance, c.billing_cycle_day,
+          CASE WHEN s.id IS NULL THEN NULL ELSE json_build_object(
+            'id', s.id,
+            'statementDate', s.statement_date,
+            'dueDate', s.due_date,
+            'totalAmountDue', s.total_amount_due,
+            'minimumAmountDue', s.minimum_amount_due,
+            'passwordHint', s.password_hint,
+            'downloadAvailable', s.attachment_locator IS NOT NULL
+          ) END AS latest_statement
+   FROM credit_cards c
+   LEFT JOIN LATERAL (
+     SELECT id, statement_date, due_date, total_amount_due, minimum_amount_due, password_hint,
+            attachment_locator
+     FROM card_statements
+     WHERE credit_card_id = c.id
+     ORDER BY due_date DESC, (attachment_locator IS NOT NULL) DESC, statement_date DESC, created_at DESC
+     LIMIT 1
+   ) s ON TRUE
+   WHERE c.pan_profile_id = $1
+   ORDER BY c.created_at DESC`;
 
 const toDecimal = (v: string | null): number | null => (v !== null ? parseFloat(v) : null);
 
@@ -50,6 +92,7 @@ const toCard = (row: CreditCardRow): CreditCard => ({
   availableCredit: toDecimal(row.available_credit),
   currentBalance: toDecimal(row.current_balance),
   billingCycleDay: row.billing_cycle_day,
+  latestStatement: row.latest_statement,
 });
 
 export class CreditCardsService {
@@ -68,15 +111,7 @@ export class CreditCardsService {
 
     const panProfileId = panProfile.id;
 
-    const { rows } = await this.db.query<CreditCardRow>(
-      `SELECT id, card_number_last4, card_network, issuing_bank, card_variant,
-              expiry_month, expiry_year, name_on_card, status,
-              credit_limit, available_credit, current_balance, billing_cycle_day
-       FROM credit_cards
-       WHERE pan_profile_id = $1
-       ORDER BY created_at DESC`,
-      [panProfileId],
-    );
+    const { rows } = await this.db.query<CreditCardRow>(LIST_CARDS_SQL, [panProfileId]);
 
     return rows.map(toCard);
   }

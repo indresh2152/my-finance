@@ -2,16 +2,16 @@ import type { Pool } from 'pg';
 import pino from 'pino';
 import { errorLoggerOptions } from '../../middleware/error.middleware';
 import { writeAuditLog } from '../audit-log.writer';
-import { decrypt, encrypt, type KeyRing } from '../../utils/crypto.utils';
+import type { KeyRing } from '../../utils/crypto.utils';
 import { sha256Hex } from '../../utils/pkce.utils';
 import { isBadDataError, pgErrorCode } from '../../utils/db.utils';
 import type { EmailMeta, EmailParser, ParsedResult } from '../../parsers/email-parser';
 import { getProvider, type ProviderRegistry } from './providers';
+import { markReauthRequired, obtainAccess } from './mailbox-access';
 import {
   ProviderNotFoundError,
   ProviderRequestError,
   ReauthRequiredError,
-  type AccessGrant,
   type MailProvider,
   type ParsedEmail,
   type ProviderKey,
@@ -39,17 +39,9 @@ const MARK_SUCCEEDED_SQL = `UPDATE mail_connections
        last_sync_error_code = NULL, updated_at = NOW()
    WHERE id = $1`;
 
-const MARK_REAUTH_SQL = `UPDATE mail_connections
-   SET status = 'REAUTH_REQUIRED', last_sync_status = 'FAILED', last_sync_error_code = 'REAUTH_REQUIRED',
-       updated_at = NOW()
-   WHERE id = $1`;
-
 const PROVIDER_NOT_CONFIGURED = 'PROVIDER_NOT_CONFIGURED';
 
 const MARK_FAILED_SQL = `UPDATE mail_connections SET last_sync_status = 'FAILED', last_sync_error_code = $2, updated_at = NOW()
-   WHERE id = $1`;
-
-const ROTATE_CREDENTIAL_SQL = `UPDATE mail_connections SET credential_enc = $2, credential_key_version = $3, updated_at = NOW()
    WHERE id = $1`;
 
 export interface SyncCounts {
@@ -60,6 +52,7 @@ export interface SyncCounts {
 
 export interface SyncParserRegistry {
   allSenders(): string[];
+  allSubjectKeywords(): string[];
   find(meta: EmailMeta): EmailParser | null;
 }
 
@@ -97,7 +90,8 @@ interface SyncRun {
   readonly row: SyncRow;
   readonly startedAt: Date;
   readonly senders: readonly string[];
-  readonly sendersHash: string;
+  readonly subjectKeywords: readonly string[];
+  readonly searchFilterHash: string;
 }
 
 /** A parser's output together with the key of the parser that produced it (for logging). */
@@ -129,11 +123,16 @@ export class MailSyncService {
     }
 
     const senders = [...this.deps.parsers.allSenders()].sort();
+    const subjectKeywords = [...this.deps.parsers.allSubjectKeywords()].sort();
     const run: SyncRun = {
       row,
       startedAt: this.now(),
       senders,
-      sendersHash: sha256Hex(senders.join(SENDER_SEPARATOR)),
+      subjectKeywords,
+      // Covers the subject filter too: narrowing or widening it needs a fresh full lookback.
+      searchFilterHash: sha256Hex(
+        [...senders, ...subjectKeywords.map((k) => `subject:${k}`)].join(SENDER_SEPARATOR),
+      ),
     };
     await this.deps.db.query(MARK_RUNNING_SQL, [row.id]);
 
@@ -148,7 +147,7 @@ export class MailSyncService {
 
   private async recordSuccess(run: SyncRun, counts: SyncCounts): Promise<void> {
     const { db } = this.deps;
-    await db.query(MARK_SUCCEEDED_SQL, [run.row.id, run.startedAt, run.sendersHash]);
+    await db.query(MARK_SUCCEEDED_SQL, [run.row.id, run.startedAt, run.searchFilterHash]);
     await writeAuditLog(db, {
       userId: run.row.user_id,
       action: 'MAILBOX_SYNC',
@@ -161,7 +160,7 @@ export class MailSyncService {
   /** A revoked grant parks the mailbox (no retry); anything else is recorded and rethrown for pg-boss. */
   private async recordFailure(row: SyncRow, err: unknown): Promise<null> {
     if (err instanceof ReauthRequiredError) {
-      await this.deps.db.query(MARK_REAUTH_SQL, [row.id]);
+      await markReauthRequired(this.deps.db, row.id);
       return null;
     }
     const errorCode = err instanceof ProviderRequestError ? 'PROVIDER_ERROR' : 'SYNC_ERROR';
@@ -171,13 +170,17 @@ export class MailSyncService {
 
   private async scan(run: SyncRun): Promise<SyncCounts> {
     const provider = getProvider(this.deps.providers, run.row.provider);
-    const grant = await this.obtainAccess(provider, run.row);
+    const grant = await obtainAccess(this.deps, provider, run.row);
     const counts = { scanned: 0, parsed: 0, skipped: 0 };
     if (run.senders.length === 0) {
       return counts;
     }
 
-    const query = { senders: run.senders, since: this.windowStart(run) };
+    const query = {
+      senders: run.senders,
+      subjectKeywords: run.subjectKeywords,
+      since: this.windowStart(run),
+    };
     const seen = new Set<string>();
     for await (const ref of provider.search(grant.accessToken, query)) {
       if (seen.has(ref.id)) continue;
@@ -190,25 +193,11 @@ export class MailSyncService {
     return counts;
   }
 
-  /** Exchanges the stored refresh token, persisting a rotated one so the next run can still use it. */
-  private async obtainAccess(provider: MailProvider, row: SyncRow): Promise<AccessGrant> {
-    const { db, keyRing } = this.deps;
-    const grant = await provider.getAccessToken(decrypt(row.credential_enc, keyRing));
-    if (grant.rotatedRefreshToken) {
-      await db.query(ROTATE_CREDENTIAL_SQL, [
-        row.id,
-        encrypt(grant.rotatedRefreshToken, keyRing),
-        keyRing.activeVersion,
-      ]);
-    }
-    return grant;
-  }
-
   /** Incremental from the last sync (minus overlap), unless it never ran or the sender set changed. */
   private windowStart(run: SyncRun): Date {
     const { last_synced_at: lastSyncedAt, synced_senders_hash: previousHash } = run.row;
     // New parsers (new banks, later phases) need the full lookback, not just the incremental window.
-    if (lastSyncedAt === null || previousHash !== run.sendersHash) {
+    if (lastSyncedAt === null || previousHash !== run.searchFilterHash) {
       return new Date(run.startedAt.getTime() - INITIAL_LOOKBACK_MS);
     }
     return new Date(lastSyncedAt.getTime() - OVERLAP_MS);

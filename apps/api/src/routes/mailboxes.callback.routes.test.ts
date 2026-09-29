@@ -10,7 +10,11 @@ const app = createApp({
   refreshTokenSecret: 'test-refresh-secret-32-chars-min!!',
   panHmacSecret: 'test-pan-hmac-at-least-32-chars-min!',
   panVerifier: { verify: jest.fn() } as never,
-  mailbox: { service: { completeConnect } as never, appBaseUrl: 'https://app.example' },
+  mailbox: {
+    service: { completeConnect } as never,
+    statements: {} as never,
+    appBaseUrl: 'https://app.example',
+  },
 });
 
 const CALLBACK = '/api/v1/mailboxes/oauth/callback';
