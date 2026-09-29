@@ -49,19 +49,28 @@ export const apiErrorCode = (err: unknown): string | null => {
 /** When (epoch ms) the user asked each mailbox to sync, keyed by mailbox id. */
 export type SyncRequests = Readonly<Record<string, number>>;
 
-/** The sync asked for at `requestedAt` has not finished: none has started since (the worker stamps its start time). */
-const hasPendingRequest = (mailbox: Mailbox, requestedAt: number): boolean =>
-  mailbox.lastSyncStatus !== 'FAILED' &&
-  (mailbox.lastSyncedAt === null || Date.parse(mailbox.lastSyncedAt) < requestedAt);
+/** Matches the server's stale-RUNNING cutoff: a first sync not started by then is not coming (e.g. worker down). */
+export const FIRST_SYNC_LIMIT_MS = 30 * 60 * 1000;
 
-/** True while card and account details are still being gathered from this mailbox. */
-export const isGathering = (mailbox: Mailbox, requestedAt?: number): boolean => {
+const firstSyncDeadline = (mailbox: Mailbox): number =>
+  Date.parse(mailbox.createdAt) + FIRST_SYNC_LIMIT_MS;
+
+/**
+ * True while card and account details are still being gathered from this mailbox. A refresh at
+ * `requestedAt` is pending until a sync starts after it (the worker stamps its start time in
+ * lastSyncedAt); callers bound it with the poll window, which also covers a sync that fails.
+ */
+export const isGathering = (mailbox: Mailbox, now: number, requestedAt?: number): boolean => {
   if (mailbox.status !== 'ACTIVE') return false;
-  if (mailbox.lastSyncStatus === 'NEVER' || mailbox.lastSyncStatus === 'RUNNING') return true;
-  return requestedAt !== undefined && hasPendingRequest(mailbox, requestedAt);
+  if (mailbox.lastSyncStatus === 'RUNNING') return true;
+  if (mailbox.lastSyncStatus === 'NEVER' && now < firstSyncDeadline(mailbox)) return true;
+  return (
+    requestedAt !== undefined &&
+    (mailbox.lastSyncedAt === null || Date.parse(mailbox.lastSyncedAt) < requestedAt)
+  );
 };
 
-/** Refresh requests count only inside the poll window, so a drifted client clock cannot pin a mailbox as gathering. */
+/** Refresh requests count only inside the poll window, so neither clock drift nor a failed sync can pin a mailbox as gathering. */
 export const gatheringMailboxIds = (
   mailboxes: readonly Mailbox[] | undefined,
   requests: SyncRequests,
@@ -71,9 +80,25 @@ export const gatheringMailboxIds = (
   const windowOpen = now < pollUntil;
   return new Set(
     (mailboxes ?? [])
-      .filter((mailbox) => isGathering(mailbox, windowOpen ? requests[mailbox.id] : undefined))
+      .filter((mailbox) => isGathering(mailbox, now, windowOpen ? requests[mailbox.id] : undefined))
       .map((mailbox) => mailbox.id),
   );
+};
+
+/**
+ * The next moment gathering can end without new data arriving (the poll window closing or a first
+ * sync becoming overdue), so the page can re-render then; null when nothing is pending.
+ */
+export const nextGatheringChangeAt = (
+  mailboxes: readonly Mailbox[] | undefined,
+  pollUntil: number,
+  now: number,
+): number | null => {
+  const firstSyncDeadlines = (mailboxes ?? [])
+    .filter((mailbox) => mailbox.lastSyncStatus === 'NEVER')
+    .map(firstSyncDeadline);
+  const upcoming = [pollUntil, ...firstSyncDeadlines].filter((time) => time > now);
+  return upcoming.length > 0 ? Math.min(...upcoming) : null;
 };
 
 /** Refresh requests need no check here: they only count inside the window, which polls anyway. */
@@ -82,6 +107,6 @@ export const mailboxPollInterval = (
   pollUntil: number,
   now: number,
 ): number | false => {
-  const anyGathering = mailboxes?.some((mailbox) => isGathering(mailbox)) ?? false;
+  const anyGathering = mailboxes?.some((mailbox) => isGathering(mailbox, now)) ?? false;
   return anyGathering || now < pollUntil ? SYNC_POLL_INTERVAL_MS : false;
 };

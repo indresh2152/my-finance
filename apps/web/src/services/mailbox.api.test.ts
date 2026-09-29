@@ -1,12 +1,18 @@
 import { AxiosError, AxiosHeaders } from 'axios';
 import {
   apiErrorCode,
+  FIRST_SYNC_LIMIT_MS,
   gatheringMailboxIds,
   isGathering,
   mailboxPollInterval,
+  nextGatheringChangeAt,
   SYNC_POLL_INTERVAL_MS,
   type Mailbox,
 } from './mailbox.api';
+
+const CREATED_AT = '2026-09-01T00:00:00Z';
+const JUST_CREATED = Date.parse(CREATED_AT) + 1000;
+const FIRST_SYNC_OVERDUE = Date.parse(CREATED_AT) + FIRST_SYNC_LIMIT_MS;
 
 const mailbox = (lastSyncStatus: Mailbox['lastSyncStatus']): Mailbox => ({
   id: 'mb-1',
@@ -16,7 +22,7 @@ const mailbox = (lastSyncStatus: Mailbox['lastSyncStatus']): Mailbox => ({
   lastSyncStatus,
   lastSyncErrorCode: null,
   lastSyncedAt: null,
-  createdAt: '2026-09-01T00:00:00Z',
+  createdAt: CREATED_AT,
 });
 
 const REQUESTED_AT = Date.parse('2026-09-29T10:00:00Z');
@@ -45,31 +51,45 @@ describe('mailboxPollInterval', () => {
     expect(mailboxPollInterval(undefined, 0, 1000)).toBe(false);
   });
 
-  it('should poll while a mailbox has never finished a sync', () => {
-    expect(mailboxPollInterval([mailbox('NEVER')], 0, 1000)).toBe(SYNC_POLL_INTERVAL_MS);
+  it('should poll for a first sync only until it is overdue', () => {
+    expect(mailboxPollInterval([mailbox('NEVER')], 0, JUST_CREATED)).toBe(SYNC_POLL_INTERVAL_MS);
+    expect(mailboxPollInterval([mailbox('NEVER')], 0, FIRST_SYNC_OVERDUE)).toBe(false);
   });
 });
 
 describe('isGathering', () => {
-  it('should be gathering before the first sync finishes and while a sync runs', () => {
-    expect(isGathering(mailbox('NEVER'))).toBe(true);
-    expect(isGathering(mailbox('RUNNING'))).toBe(true);
+  it('should be gathering while a sync runs and until the first sync is overdue', () => {
+    expect(isGathering(mailbox('RUNNING'), REQUESTED_AT)).toBe(true);
+    expect(isGathering(mailbox('NEVER'), JUST_CREATED)).toBe(true);
+    expect(isGathering(mailbox('NEVER'), FIRST_SYNC_OVERDUE)).toBe(false);
   });
 
   it('should not be gathering after a sync with no outstanding request', () => {
-    expect(isGathering(synced())).toBe(false);
+    expect(isGathering(synced(), REQUESTED_AT)).toBe(false);
   });
 
   it('should be gathering until a sync starts after the refresh request', () => {
-    expect(isGathering(synced(), REQUESTED_AT)).toBe(true);
-    expect(isGathering(synced({ lastSyncedAt: null }), REQUESTED_AT)).toBe(true);
-    expect(isGathering(synced({ lastSyncedAt: AFTER_REQUEST }), REQUESTED_AT)).toBe(false);
+    expect(isGathering(synced(), REQUESTED_AT, REQUESTED_AT)).toBe(true);
+    expect(isGathering(synced({ lastSyncedAt: null }), REQUESTED_AT, REQUESTED_AT)).toBe(true);
+    expect(isGathering(synced({ lastSyncedAt: AFTER_REQUEST }), REQUESTED_AT, REQUESTED_AT)).toBe(
+      false,
+    );
   });
 
-  it('should not be gathering when the sync failed or access expired', () => {
-    expect(isGathering(synced({ lastSyncStatus: 'FAILED' }), REQUESTED_AT)).toBe(false);
-    expect(isGathering(synced({ status: 'REAUTH_REQUIRED' }), REQUESTED_AT)).toBe(false);
-    expect(isGathering({ ...mailbox('RUNNING'), status: 'REAUTH_REQUIRED' })).toBe(false);
+  it('should treat a refresh of a failed or overdue mailbox as pending', () => {
+    expect(isGathering(synced({ lastSyncStatus: 'FAILED' }), REQUESTED_AT, REQUESTED_AT)).toBe(
+      true,
+    );
+    expect(isGathering(mailbox('NEVER'), FIRST_SYNC_OVERDUE, FIRST_SYNC_OVERDUE)).toBe(true);
+  });
+
+  it('should not be gathering when access expired', () => {
+    expect(isGathering(synced({ status: 'REAUTH_REQUIRED' }), REQUESTED_AT, REQUESTED_AT)).toBe(
+      false,
+    );
+    expect(isGathering({ ...mailbox('RUNNING'), status: 'REAUTH_REQUIRED' }, REQUESTED_AT)).toBe(
+      false,
+    );
   });
 });
 
@@ -96,6 +116,20 @@ describe('gatheringMailboxIds', () => {
     expect(gatheringMailboxIds(undefined, requests, REQUESTED_AT + 1000, REQUESTED_AT)).toEqual(
       new Set(),
     );
+  });
+});
+
+describe('nextGatheringChangeAt', () => {
+  it('should return the earliest upcoming window close or first-sync deadline', () => {
+    expect(nextGatheringChangeAt([mailbox('NEVER')], JUST_CREATED + 5000, JUST_CREATED)).toBe(
+      JUST_CREATED + 5000,
+    );
+    expect(nextGatheringChangeAt([mailbox('NEVER')], 0, JUST_CREATED)).toBe(FIRST_SYNC_OVERDUE);
+  });
+
+  it('should return null when nothing time-based is pending', () => {
+    expect(nextGatheringChangeAt([synced()], 0, REQUESTED_AT)).toBeNull();
+    expect(nextGatheringChangeAt(undefined, 0, REQUESTED_AT)).toBeNull();
   });
 });
 

@@ -14,6 +14,7 @@ import {
   apiErrorCode,
   gatheringMailboxIds,
   listMailboxes,
+  nextGatheringChangeAt,
   mailboxPollInterval,
   syncMailbox,
   unlinkMailbox,
@@ -42,17 +43,12 @@ const focusEmailInput = (): void => {
 interface NoticeState {
   notice: Notice;
   clearNotice: () => void;
-  pollUntil: number;
-  extendPoll: () => void;
 }
 
-/** Reads the OAuth-callback query params once, strips them from the URL, and derives the post-link poll window. */
+/** Reads the OAuth-callback query params once and strips them from the URL. */
 const useLinkNotice = (): NoticeState => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [notice, setNotice] = useState<Notice>(() => readNotice(searchParams));
-  const [pollUntil, setPollUntil] = useState<number>(() =>
-    notice?.severity === 'success' ? Date.now() + POST_ACTION_POLL_MS : 0,
-  );
 
   useEffect(() => {
     if (searchParams.has('linked') || searchParams.has('error')) {
@@ -60,21 +56,39 @@ const useLinkNotice = (): NoticeState => {
     }
   }, [searchParams, setSearchParams]);
 
+  return { notice, clearNotice: () => setNotice(null) };
+};
+
+interface SyncTracking {
+  pollUntil: number;
+  syncRequests: SyncRequests;
+  markRequested: (mailboxId: string) => void;
+}
+
+/** Owns the post-action poll window (opened by a link or a refresh) and when each refresh was asked for. */
+const useSyncTracking = (justLinked: boolean): SyncTracking => {
+  const [pollUntil, setPollUntil] = useState(() =>
+    justLinked ? Date.now() + POST_ACTION_POLL_MS : 0,
+  );
+  const [syncRequests, setSyncRequests] = useState<SyncRequests>({});
+
   return {
-    notice,
-    clearNotice: () => setNotice(null),
     pollUntil,
-    extendPoll: () => setPollUntil(Date.now() + POST_ACTION_POLL_MS),
+    syncRequests,
+    markRequested: (mailboxId) => {
+      const now = Date.now();
+      setSyncRequests((requests) => ({ ...requests, [mailboxId]: now }));
+      setPollUntil(now + POST_ACTION_POLL_MS);
+    },
   };
 };
 
-/** Re-renders once `time` passes, so state derived from Date.now() (the poll window) updates after polling stops. */
-const useRerenderAt = (time: number): void => {
+/** Re-renders once `time` passes, so state derived from Date.now() updates even when no new data arrives. */
+const useRerenderAt = (time: number | null): void => {
   const [, setTick] = useState(0);
   useEffect(() => {
-    const remaining = time - Date.now();
-    if (remaining <= 0) return undefined;
-    const timer = setTimeout(() => setTick((tick) => tick + 1), remaining);
+    if (time === null) return undefined;
+    const timer = setTimeout(() => setTick((tick) => tick + 1), Math.max(0, time - Date.now()));
     return () => clearTimeout(timer);
   }, [time]);
 };
@@ -123,10 +137,12 @@ const useMailboxActions = (
 
 export const LinkedEmailPage: React.FC = () => {
   const { t } = useTranslation('mailbox');
-  const { notice, clearNotice, pollUntil, extendPoll } = useLinkNotice();
+  const { notice, clearNotice } = useLinkNotice();
+  const { pollUntil, syncRequests, markRequested } = useSyncTracking(
+    notice?.severity === 'success',
+  );
   const [actionError, setActionError] = useState<string | null>(null);
   const [unlinkTarget, setUnlinkTarget] = useState<Mailbox | null>(null);
-  const [syncRequests, setSyncRequests] = useState<SyncRequests>({});
 
   const {
     data: mailboxes,
@@ -138,16 +154,12 @@ export const LinkedEmailPage: React.FC = () => {
     refetchInterval: (query) => mailboxPollInterval(query.state.data, pollUntil, Date.now()),
   });
 
-  const { syncMutation, unlinkMutation } = useMailboxActions(
-    (mailboxId) => {
-      setSyncRequests((requests) => ({ ...requests, [mailboxId]: Date.now() }));
-      extendPoll();
-    },
-    setActionError,
-    () => setUnlinkTarget(null),
+  const { syncMutation, unlinkMutation } = useMailboxActions(markRequested, setActionError, () =>
+    setUnlinkTarget(null),
   );
-  useRerenderAt(pollUntil);
-  const gatheringIds = gatheringMailboxIds(mailboxes, syncRequests, pollUntil, Date.now());
+  const now = Date.now();
+  const gatheringIds = gatheringMailboxIds(mailboxes, syncRequests, pollUntil, now);
+  useRerenderAt(nextGatheringChangeAt(mailboxes, pollUntil, now));
 
   const translateError = (code: string): string =>
     t(`errors.${code}`, { defaultValue: t('errors.generic') });

@@ -7,7 +7,7 @@ import type { ReactElement } from 'react';
 import { useLocation } from 'react-router-dom';
 import { renderWithProviders } from '../test/renderWithProviders';
 import { LinkedEmailPage } from './LinkedEmailPage';
-import type { Mailbox } from '../services/mailbox.api';
+import { SYNC_POLL_INTERVAL_MS, type Mailbox } from '../services/mailbox.api';
 
 const GATHERING = 'Gathering your card and account details…';
 
@@ -68,10 +68,26 @@ describe('LinkedEmailPage', () => {
   });
 
   it('should show the progress banner while a mailbox has not finished its first sync', async () => {
-    mailboxes = [mailbox({ lastSyncStatus: 'NEVER', lastSyncedAt: null })];
+    mailboxes = [
+      mailbox({ lastSyncStatus: 'NEVER', lastSyncedAt: null, createdAt: new Date().toISOString() }),
+    ];
     renderPage();
     expect(await screen.findByText(GATHERING)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Refresh' })).toBeDisabled();
+  });
+
+  it('should let the user retry a first sync that never started', async () => {
+    mailboxes = [mailbox({ lastSyncStatus: 'NEVER', lastSyncedAt: null })];
+    renderPage();
+    expect(await screen.findByRole('button', { name: 'Refresh' })).toBeEnabled();
+    expect(screen.queryByText(GATHERING)).not.toBeInTheDocument();
+  });
+
+  it('should show the progress banner after refreshing a mailbox whose last sync failed', async () => {
+    mailboxes = [mailbox({ lastSyncStatus: 'FAILED' })];
+    renderPage();
+    await userEvent.click(await screen.findByRole('button', { name: 'Refresh' }));
+    expect(await screen.findByText(GATHERING)).toBeInTheDocument();
   });
 
   it('should not show the progress banner for a mailbox whose access expired', async () => {
@@ -82,17 +98,22 @@ describe('LinkedEmailPage', () => {
   });
 
   it('should show the progress banner after Refresh until the requested sync has run', async () => {
-    mailboxes = [mailbox({ lastSyncedAt: '2020-01-01T00:00:00Z' })];
-    renderPage();
-    await userEvent.click(await screen.findByRole('button', { name: 'Refresh' }));
-    expect(await screen.findByText(GATHERING)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Refresh' })).toBeDisabled();
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      mailboxes = [mailbox({ lastSyncedAt: '2020-01-01T00:00:00Z' })];
+      renderPage();
+      const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+      await user.click(await screen.findByRole('button', { name: 'Refresh' }));
+      expect(await screen.findByText(GATHERING)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Refresh' })).toBeDisabled();
 
-    mailboxes = [mailbox({ lastSyncedAt: new Date(Date.now() + 60_000).toISOString() })];
-    await waitFor(() => expect(screen.queryByText(GATHERING)).not.toBeInTheDocument(), {
-      timeout: 5000,
-    });
-  }, 10_000);
+      mailboxes = [mailbox({ lastSyncedAt: new Date(Date.now() + 60_000).toISOString() })];
+      await vi.advanceTimersByTimeAsync(SYNC_POLL_INTERVAL_MS);
+      await waitFor(() => expect(screen.queryByText(GATHERING)).not.toBeInTheDocument());
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 
   it('should not show the progress banner when the refresh request is rejected', async () => {
     server.use(
