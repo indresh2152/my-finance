@@ -133,14 +133,21 @@ describe('AuthService.refresh', () => {
 });
 
 describe('AuthService.logout', () => {
-  it('should call UPDATE to revoke the token', async () => {
+  it('should revoke the token and return the id of the user it belonged to', async () => {
     const db = makeDb();
-    db.query.mockResolvedValueOnce({ rows: [] });
+    db.query.mockResolvedValueOnce({ rows: [{ user_id: 'user-1' }] });
     const service = new AuthService(db as never, 'secret', 'refresh-secret');
-    await service.logout('some-raw-token');
+    await expect(service.logout('some-raw-token')).resolves.toBe('user-1');
     expect(db.query).toHaveBeenCalledWith(
       expect.stringContaining('UPDATE refresh_tokens SET revoked_at'),
       expect.any(Array),
     );
+  });
+
+  it('should return null when the token is unknown', async () => {
+    const db = makeDb();
+    db.query.mockResolvedValueOnce({ rows: [] });
+    const service = new AuthService(db as never, 'secret', 'refresh-secret');
+    await expect(service.logout('unknown-token')).resolves.toBeNull();
   });
 });

@@ -12,6 +12,10 @@ When you fix one, delete its entry.
   React StrictMode running `restoreSession` twice in development. Then either:
   - both succeed, so one replay goes undetected, or
   - the second trips reuse detection and revokes every session for that user.
+- **Client mitigation (2026-09-29):** the web app no longer sends concurrent refreshes. Refresh, login
+  and logout run one at a time under a Web Lock shared by all tabs (`withAuthLock` in
+  `apps/web/src/services/api.ts`), and concurrent callers in a tab share one request. The server-side
+  race remains for any other client.
 - **Fix direction:**
   - Make revocation atomic: `UPDATE ... WHERE token_hash = $1 AND revoked_at IS NULL RETURNING id`.
   - Add a short grace window where the just-rotated token returns the same successor instead of
@@ -87,7 +91,21 @@ When you fix one, delete its entry.
   - Run the mailbox worker in one dedicated replica (or a separate worker deployment).
   - Or move to the `singleton` policy / a per-mailbox advisory lock inside `syncMailbox`.
 
+## 8. Login, register and refresh audit entries have no user
+
+- **Where:** `auditMiddleware` in `apps/api/src/middleware/audit.middleware.ts`, and the auth routes.
+- **Problem:** the audit row takes its user from `req.user`, which only exists after `requireAuth`. These
+  three routes run without it, so `USER_LOGIN`, `USER_REGISTER` and `TOKEN_REFRESH` are written with
+  `user_id` null. Logout was fixed on 2026-09-29 via `setAuditUserId`.
+- **Why it matters:** SOC 2 / CERT-In expect audit entries to name the actor.
+- **Fix direction:** call `setAuditUserId(res, user.id)` in the login and register handlers, and make
+  `AuthService.refresh` return the user id so the refresh handler can do the same.
+
 ## Minor (also deferred)
+
+- **`apiErrorCode` exists twice.** It is exported from both `apps/web/src/services/api.ts` and
+  `apps/web/src/services/mailbox.api.ts`, and `PanRegisterPage.tsx` extracts the code inline. Make
+  `mailbox.api.ts` re-export the `api.ts` version, and use it in `PanRegisterPage`.
 
 - **A legacy-path cookie is never revoked at logout.** A client holding only the pre-change cookie
   (`Path=/api/v1/auth/refresh`) doesn't send it to `/logout`. The browser copy is cleared, but the

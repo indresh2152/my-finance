@@ -1,6 +1,6 @@
 import type { Request, Response, NextFunction } from 'express';
 import { EventEmitter } from 'events';
-import { auditMiddleware } from './audit.middleware';
+import { auditMiddleware, setAuditUserId } from './audit.middleware';
 
 const makePool = (): { query: jest.Mock } => ({ query: jest.fn().mockResolvedValue({ rows: [] }) });
 
@@ -18,6 +18,7 @@ const makeReq = (overrides: Partial<Request> = {}): Partial<Request> => ({
 const makeRes = (): EventEmitter & Partial<Response> => {
   const emitter = new EventEmitter() as EventEmitter & Partial<Response>;
   emitter.statusCode = 200;
+  emitter.locals = {};
   return emitter;
 };
 
@@ -54,6 +55,25 @@ describe('auditMiddleware', () => {
     expect(pool.query).toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO audit_logs'),
       expect.arrayContaining(['user-uuid', 'CARD_LIST']),
+    );
+  });
+
+  it('should attribute an unauthenticated request to the user its handler identified', async () => {
+    const pool = makePool();
+    const middleware = auditMiddleware(pool as never);
+    const req = makeReq({
+      method: 'DELETE',
+      path: '/api/v1/auth/logout',
+      route: { path: '/auth/logout' },
+    }) as Request;
+    const res = makeRes() as unknown as Response;
+    middleware(req, res, mockNext);
+    setAuditUserId(res, 'logged-out-user');
+    res.emit('finish');
+    await new Promise((r) => setTimeout(r, 10));
+    expect(pool.query).toHaveBeenCalledWith(
+      expect.stringContaining('INSERT INTO audit_logs'),
+      expect.arrayContaining(['logged-out-user', 'USER_LOGOUT']),
     );
   });
 

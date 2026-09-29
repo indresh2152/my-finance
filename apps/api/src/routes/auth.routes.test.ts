@@ -180,8 +180,24 @@ describe('DELETE /api/v1/auth/logout', () => {
     );
   });
 
-  it('should return 401 when not authenticated', async () => {
+  it('should revoke the refresh cookie without an access token', async () => {
+    const refreshToken = signRefreshToken('uid', REFRESH_SECRET);
+    const res = await request(app)
+      .delete('/api/v1/auth/logout')
+      .set('Cookie', `refreshToken=${refreshToken}`);
+    expect(res.status).toBe(204);
+    expect(mockDb.query).toHaveBeenCalledWith(
+      expect.stringContaining('UPDATE refresh_tokens SET revoked_at'),
+      [hashToken(refreshToken)],
+    );
+  });
+
+  it('should succeed and clear cookies when there is no session at all', async () => {
     const res = await request(app).delete('/api/v1/auth/logout');
-    expect(res.status).toBe(401);
+    expect(res.status).toBe(204);
+    expect(mockDb.query).not.toHaveBeenCalledWith(
+      expect.stringContaining('UPDATE refresh_tokens'),
+      expect.anything(),
+    );
   });
 });

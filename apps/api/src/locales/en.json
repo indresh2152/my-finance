@@ -53,6 +53,7 @@
       "login": "Log in and get an access token",
       "loginDescription": "Returns a bearer access token. Use it with the Authorize button to call protected endpoints.",
       "logout": "Log out and revoke the current session",
+      "logoutDescription": "Revokes the session identified by the refreshToken cookie. No access token is needed, so logout works after the access token has expired; do not send an Authorization header, because an expired or invalid one is rejected with 401 before logout runs. Returns 204 and clears the cookie.",
       "getMe": "Get the signed-in user's profile",
       "registerPan": "Link and verify your PAN",
       "getPan": "Get your linked PAN profile (masked)",

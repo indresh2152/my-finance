@@ -29,6 +29,16 @@ const RESOURCE_TYPE_MAP: Record<string, string> = {
   'GET /api/v1/pan': 'pan_profile',
 };
 
+const AUDIT_USER_ID = 'auditUserId';
+
+/**
+ * Names the user for a route that runs without an access token (such as logout, which works from
+ * the refresh cookie alone), so its audit entry is still attributed.
+ */
+export const setAuditUserId = (res: Response, userId: string | null): void => {
+  res.locals[AUDIT_USER_ID] = userId;
+};
+
 export const auditMiddleware =
   (pool: Pool) =>
   (req: Request, res: Response, next: NextFunction): void => {
@@ -63,7 +73,7 @@ export const auditMiddleware =
              (user_id, action, resource_type, resource_id, ip_address, metadata)
            VALUES ($1, $2, $3, $4, $5::inet, $6)`,
           [
-            req.user?.id ?? null,
+            req.user?.id ?? (res.locals[AUDIT_USER_ID] as string | null | undefined) ?? null,
             action,
             resourceType,
             resourceId ?? null,

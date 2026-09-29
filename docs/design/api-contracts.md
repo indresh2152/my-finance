@@ -140,9 +140,15 @@ Returned when the refresh token is missing, expired, or revoked. Frontend must r
 
 ---
 
-### POST /auth/logout
+### DELETE /auth/logout
+
+Uses the `refreshToken` cookie. **No access token required**, so logout still works after the access token has expired and the client never refreshes just to log out. Revokes that refresh token (the audit entry is attributed to its owner) and clears the cookie. A missing or unknown cookie is not an error.
+
+Send **no** `Authorization` header: the global auth middleware rejects an expired or invalid bearer token before logout runs.
 
 **Response 204** — no body.
+
+**Response 401** — `INVALID_TOKEN`, only when an invalid `Authorization` header was sent.
 
 ---
 

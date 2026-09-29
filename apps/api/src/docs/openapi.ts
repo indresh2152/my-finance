@@ -130,7 +130,7 @@ const buildOpenApiDocument = (lng: string): OpenAPIObject => {
     path: '/api/v1/auth/logout',
     tags: [t('tags.auth')],
     summary: t('operations.logout'),
-    security: bearer,
+    description: t('operations.logoutDescription'),
     responses: {
       204: { description: t('responses.noContent') },
       401: error('unauthorized'),

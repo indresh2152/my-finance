@@ -1,6 +1,12 @@
-import React, { createContext, useContext, useRef, useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
-import apiClient, { setAccessToken } from '../services/api';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import apiClient, {
+  StaleRefreshError,
+  authClient,
+  getAccessToken,
+  refreshAccessToken,
+  setAccessToken,
+  withAuthLock,
+} from '../services/api';
 
 export interface AuthUser {
   id: string;
@@ -27,10 +33,6 @@ interface LoginResponse {
   user: { id: string; username: string; email: string; hasPan: boolean };
 }
 
-interface RefreshResponse {
-  accessToken: string;
-}
-
 interface MeResponse {
   id: string;
   username: string;
@@ -43,12 +45,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [panSkipped, setPanSkipped] = useState(false);
-  const tokenRef = useRef<string | null>(null);
 
   const login = useCallback(async (username: string, password: string): Promise<void> => {
-    const { data } = await apiClient.post<LoginResponse>('/auth/login', { username, password });
-    tokenRef.current = data.accessToken;
-    setAccessToken(data.accessToken);
+    const data = await withAuthLock(async () => {
+      const response = await authClient.post<LoginResponse>('/auth/login', { username, password });
+      setAccessToken(response.data.accessToken);
+      return response.data;
+    });
     setUser({
       id: data.user.id,
       username: data.user.username,
@@ -59,10 +62,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const logout = useCallback(async (): Promise<void> => {
+    // Clearing first marks any refresh still running as stale, so it cannot restore the token.
+    // Holding the auth lock makes logout revoke whatever cookie the last refresh left.
+    setAccessToken(null);
     try {
-      await apiClient.delete('/auth/logout');
+      await withAuthLock(() => authClient.delete('/auth/logout'));
     } finally {
-      tokenRef.current = null;
+      // Again after the lock: a refresh queued during logout started after the first clear.
       setAccessToken(null);
       setUser(null);
       setPanSkipped(false);
@@ -78,17 +84,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   useEffect(() => {
+    let restoredToken: string | null = null;
+    // True once a login or logout has replaced the session being restored; it owns the state then.
+    const superseded = (err?: unknown): boolean =>
+      err instanceof StaleRefreshError ||
+      (restoredToken !== null && getAccessToken() !== restoredToken);
+
     const restoreSession = async (): Promise<void> => {
       try {
-        const { data } = await axios.post<RefreshResponse>(
-          '/api/v1/auth/refresh',
-          {},
-          { withCredentials: true },
-        );
-        tokenRef.current = data.accessToken;
-        setAccessToken(data.accessToken);
+        restoredToken = await refreshAccessToken();
 
         const { data: me } = await apiClient.get<MeResponse>('/users/me');
+        if (superseded()) return;
         setUser({
           id: me.id,
           username: me.username,
@@ -96,10 +103,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           hasPan: me.hasPan,
           panMasked: me.panMasked,
         });
-      } catch {
-        tokenRef.current = null;
-        setAccessToken(null);
-        setUser(null);
+      } catch (err) {
+        if (!superseded(err)) {
+          setAccessToken(null);
+          setUser(null);
+        }
       } finally {
         setIsLoading(false);
       }

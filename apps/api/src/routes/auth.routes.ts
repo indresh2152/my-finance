@@ -9,8 +9,8 @@ import { z } from 'zod';
 import type { AppDeps } from '../app';
 import { AuthService } from '../services/auth.service';
 import { loginRateLimiter, registerRateLimiter } from '../middleware/rateLimit.middleware';
-import { requireAuth } from '../middleware/auth.middleware';
 import { AppError } from '../middleware/error.middleware';
+import { setAuditUserId } from '../middleware/audit.middleware';
 import { i18next } from '../i18n';
 import { REFRESH_TOKEN_TTL_MS } from '../utils/token.utils';
 
@@ -156,15 +156,16 @@ export const authRouter = (deps: AppDeps): Router => {
     },
   );
 
+  // No requireAuth: the refresh cookie identifies the session, so logout still works once the
+  // access token has expired, and the client never has to refresh just to log out.
   router.delete(
     '/logout',
-    requireAuth,
     async (req: Request, res: Response, next: NextFunction): Promise<void> => {
       try {
         const rawToken = (req.cookies as Record<string, string | undefined>)[COOKIE_NAME];
 
         if (rawToken) {
-          await service.logout(rawToken);
+          setAuditUserId(res, await service.logout(rawToken));
         }
 
         clearRefreshCookies(res);

@@ -158,6 +158,8 @@ describe('OpenAPI document', () => {
     const publicRoutes = [
       'post /api/v1/auth/login',
       'post /api/v1/auth/register',
+      // Identified by the refresh cookie so it works after the access token expires.
+      'delete /api/v1/auth/logout',
       // Browser redirect from the mail provider; bound to the user by server-side state + cookie.
       'get /api/v1/mailboxes/oauth/callback/{provider}',
     ];

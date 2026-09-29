@@ -207,11 +207,14 @@ export class AuthService {
     );
   }
 
-  async logout(rawRefreshToken: string): Promise<void> {
+  /** Revokes the refresh token; returns the owning user's id, or null for an unknown token. */
+  async logout(rawRefreshToken: string): Promise<string | null> {
     const tokenHash = hashToken(rawRefreshToken);
-    await this.db.query('UPDATE refresh_tokens SET revoked_at = NOW() WHERE token_hash = $1', [
-      tokenHash,
-    ]);
+    const { rows } = await this.db.query<{ user_id: string }>(
+      'UPDATE refresh_tokens SET revoked_at = NOW() WHERE token_hash = $1 RETURNING user_id',
+      [tokenHash],
+    );
+    return rows[0]?.user_id ?? null;
   }
 
   private async issueTokens(
