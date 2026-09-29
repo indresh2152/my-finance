@@ -100,9 +100,7 @@ describe('LinkedEmailPage', () => {
 
   it('should show a success notice after linking', async () => {
     renderPage('/linked-email?linked=1');
-    expect(
-      await screen.findByText("Mailbox linked. We're reading your bank emails now."),
-    ).toBeInTheDocument();
+    expect(await screen.findByText('Mailbox linked.')).toBeInTheDocument();
   });
 
   it('should remove the linked flag from the URL after showing the notice', async () => {
@@ -113,9 +111,7 @@ describe('LinkedEmailPage', () => {
       </>,
       { initialEntries: ['/linked-email?linked=1'] },
     );
-    expect(
-      await screen.findByText("Mailbox linked. We're reading your bank emails now."),
-    ).toBeInTheDocument();
+    expect(await screen.findByText('Mailbox linked.')).toBeInTheDocument();
     await waitFor(() => expect(screen.getByTestId('search')).toHaveTextContent(''));
     expect(screen.getByTestId('search').textContent).toBe('');
   });

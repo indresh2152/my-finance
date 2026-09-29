@@ -35,7 +35,11 @@
     "cancel": "Cancel"
   },
   "notices": {
-    "linked": "Mailbox linked. We're reading your bank emails now."
+    "linked": "Mailbox linked."
+  },
+  "progress": {
+    "title": "Gathering your card and account details…",
+    "body": "This can take a few minutes. Cards we find will appear under Credit Cards."
   },
   "errors": {
     "MAILBOX_LINK_FAILED": "We couldn't link your mailbox. Please try again.",
