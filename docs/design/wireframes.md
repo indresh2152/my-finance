@@ -169,6 +169,26 @@ The home screen shows a net-worth snapshot and navigation tiles to all financial
 └─────────────────────────────────────────────────────────────────┘
 ```
 
+### Card found in email — latest statement
+
+Email-derived cards show only what the bank email revealed, plus the card's latest statement.
+Amounts are masked until the eye icon is pressed (the real value is not in the page while
+hidden). ⓘ shows the bank's statement-password hint on hover. **Download statement** fetches
+the PDF from the mailbox and is hidden when the email had no PDF or mailbox features are off.
+
+```
+┌──────────────────────────────────┐   ┌──────────────────────────────────┐
+│  HDFC                  ● ACTIVE  │   │  AXIS                  ● ACTIVE  │
+│  •••• 1234                       │   │  •••• 5678                       │
+│                                  │   │                                  │
+│  Amount due       ₹ •••••• [👁]  │   │  No statement found yet          │
+│  Minimum due      ₹ •••••• [👁]  │   │                                  │
+│  Due by              25 Sep 2026 │   └──────────────────────────────────┘
+│  Statement date      05 Sep 2026 │
+│  [⤓ Download statement]  [ⓘ]    │
+└──────────────────────────────────┘
+```
+
 ---
 
 ## Card Detail — Slide-over / Modal

@@ -52,15 +52,12 @@ export const HomePage: React.FC = () => {
             aria-label={tCards('pageTitle')}
           >
             <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <CreditCardIcon color="primary" />
                 <Typography variant="h6" fontWeight={600}>
                   {tCards('pageTitle')}
                 </Typography>
               </Box>
-              <Typography variant="body2" color="text.secondary">
-                {tCards('pageSubtitle')}
-              </Typography>
             </CardContent>
           </Card>
         </Grid>

@@ -56,6 +56,29 @@ export const apiErrorCode = (err: unknown): string | null => {
   return data?.error?.code ?? null;
 };
 
+/** FileReader rather than Blob.text(), which older engines (and jsdom) lack. */
+const readBlobText = (blob: Blob): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (): void => resolve(String(reader.result));
+    reader.onerror = (): void => reject(reader.error ?? new Error('Failed to read the response'));
+    reader.readAsText(blob);
+  });
+
+/**
+ * A request made with responseType 'blob' gets its JSON error body as a Blob too. Decoding it here,
+ * before the refresh check, lets file downloads refresh an expired token and report error codes.
+ */
+const decodeBlobErrorBody = async (error: AxiosError): Promise<void> => {
+  const { response } = error;
+  if (!(response?.data instanceof Blob)) return;
+  try {
+    response.data = JSON.parse(await readBlobText(response.data)) as unknown;
+  } catch {
+    // Not JSON: leave the body as it is.
+  }
+};
+
 const isSessionExpired = (error: AxiosError): boolean =>
   error.response?.status === 401 && SESSION_EXPIRED_CODES.has(apiErrorCode(error) ?? '');
 
@@ -116,6 +139,7 @@ apiClient.interceptors.response.use(
   (response: AxiosResponse): AxiosResponse => response,
   async (error: unknown) => {
     if (!axios.isAxiosError(error)) throw error;
+    await decodeBlobErrorBody(error);
 
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
 

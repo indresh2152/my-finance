@@ -29,6 +29,7 @@ const mockCard: CreditCard = {
   creditLimit: 500000,
   availableCredit: 350000,
   currentBalance: 150000,
+  latestStatement: null,
 };
 
 const emailCard: CreditCard = {
@@ -41,6 +42,19 @@ const emailCard: CreditCard = {
   expiryYear: null,
   nameOnCard: null,
   creditLimit: null,
+};
+
+const statementCard: CreditCard = {
+  ...emailCard,
+  latestStatement: {
+    id: 'stmt-1',
+    statementDate: '2026-09-05',
+    dueDate: '2026-09-25',
+    totalAmountDue: 12345.67,
+    minimumAmountDue: null,
+    passwordHint: null,
+    downloadAvailable: true,
+  },
 };
 
 const mailbox = (overrides: Partial<Mailbox> = {}): Mailbox => ({
@@ -395,5 +409,89 @@ describe('CreditCardsPage — gathering progress', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe('CreditCardsPage — statements', () => {
+  const DOWNLOAD_URL = '/api/v1/mailboxes/statements/:id/download';
+
+  beforeEach(() => {
+    cards = [statementCard];
+    Object.assign(URL, { createObjectURL: vi.fn(() => 'blob:1'), revokeObjectURL: vi.fn() });
+  });
+
+  it('should show the latest statement with the amount masked', async () => {
+    renderPage();
+    expect(await screen.findByText('Amount due')).toBeInTheDocument();
+    expect(screen.getByText('₹ ••••••')).toBeInTheDocument();
+    expect(screen.queryByText(/12,345/)).not.toBeInTheDocument();
+  });
+
+  it('should download the statement under its own name', async () => {
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    server.use(
+      http.get(
+        DOWNLOAD_URL,
+        () =>
+          new HttpResponse('%PDF-1.7', {
+            headers: { 'Content-Disposition': 'attachment; filename="HDFC.pdf"' },
+          }),
+      ),
+    );
+    renderPage();
+    await userEvent.click(await screen.findByRole('button', { name: 'Download statement' }));
+    await waitFor(() => expect(click).toHaveBeenCalled());
+    expect((click.mock.instances[0] as unknown as HTMLAnchorElement).download).toBe('HDFC.pdf');
+    click.mockRestore();
+  });
+
+  it('should explain when the statement is no longer in the mailbox', async () => {
+    server.use(
+      http.get(DOWNLOAD_URL, () =>
+        HttpResponse.json(
+          { error: { code: 'STATEMENT_UNAVAILABLE', message: 'x' } },
+          { status: 404 },
+        ),
+      ),
+    );
+    renderPage();
+    await userEvent.click(await screen.findByRole('button', { name: 'Download statement' }));
+    expect(
+      await screen.findByText('This statement is no longer available in your mailbox'),
+    ).toBeInTheDocument();
+  });
+
+  it('should fall back to a generic message for an unexpected download failure', async () => {
+    server.use(http.get(DOWNLOAD_URL, () => new HttpResponse('oops', { status: 502 })));
+    renderPage();
+    await userEvent.click(await screen.findByRole('button', { name: 'Download statement' }));
+    expect(
+      await screen.findByText("Couldn't download the statement. Please try again."),
+    ).toBeInTheDocument();
+  });
+
+  it('should show Reconnect when a download finds the mailbox access expired', async () => {
+    server.use(
+      http.get(DOWNLOAD_URL, () => {
+        mailboxes = [mailbox({ status: 'REAUTH_REQUIRED', lastSyncStatus: 'FAILED' })];
+        return HttpResponse.json(
+          { error: { code: 'MAILBOX_REAUTH_REQUIRED', message: 'x' } },
+          { status: 409 },
+        );
+      }),
+    );
+    renderPage();
+    await userEvent.click(await screen.findByRole('button', { name: 'Download statement' }));
+    expect(
+      await screen.findByText('Access to this mailbox has expired. Reconnect it first.'),
+    ).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Reconnect' })).toBeInTheDocument();
+  });
+
+  it('should not offer downloads when mailbox features are off', async () => {
+    server.use(http.get('/api/v1/mailboxes', () => new HttpResponse(null, { status: 404 })));
+    renderPage();
+    expect(await screen.findByText('Amount due')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Download statement' })).not.toBeInTheDocument();
   });
 });

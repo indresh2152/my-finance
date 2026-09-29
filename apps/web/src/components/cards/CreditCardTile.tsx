@@ -2,8 +2,8 @@ import React from 'react';
 import { Box, Card, CardContent, Chip, Stack, Typography } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import type { CreditCard } from '../../services/credit-cards.api';
-
-const INR_FORMATTER = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' });
+import { formatInr } from '../../utils/format';
+import { StatementDetails } from './StatementDetails';
 
 const statusColor = (status: string): 'success' | 'error' | 'warning' | 'default' => {
   if (status === 'ACTIVE') return 'success';
@@ -25,17 +25,24 @@ const AmountRow: React.FC<AmountRowProps> = ({ label, amount }) =>
         {label}
       </Typography>
       <Typography variant="caption" fontWeight={600}>
-        {INR_FORMATTER.format(amount)}
+        {formatInr(amount)}
       </Typography>
     </Box>
   );
 
 interface CreditCardTileProps {
   readonly card: CreditCard;
+  readonly isDownloading: boolean;
+  /** Absent when mailbox features are off, since statements are fetched from the mailbox. */
+  readonly onDownload?: (statementId: string) => void;
 }
 
 /** Details a bank email did not reveal (network, expiry, amounts) are left out rather than shown blank. */
-export const CreditCardTile: React.FC<CreditCardTileProps> = ({ card }) => {
+export const CreditCardTile: React.FC<CreditCardTileProps> = ({
+  card,
+  isDownloading,
+  onDownload,
+}) => {
   const { t } = useTranslation('cards');
   const { t: tCommon } = useTranslation('common');
   const maskedNumber = `•••• ${card.cardNumberLast4}`;
@@ -61,6 +68,11 @@ export const CreditCardTile: React.FC<CreditCardTileProps> = ({ card }) => {
           <AmountRow label={t('availableCredit')} amount={card.availableCredit} />
           <AmountRow label={t('currentBalance')} amount={card.currentBalance} />
         </Stack>
+        <StatementDetails
+          statement={card.latestStatement}
+          isDownloading={isDownloading}
+          onDownload={onDownload}
+        />
         {card.expiryMonth !== null && card.expiryYear !== null && (
           <Typography variant="caption" color="text.secondary" display="block" mt={1}>
             {t('expiresOn')} {String(card.expiryMonth).padStart(2, '0')}/{card.expiryYear}

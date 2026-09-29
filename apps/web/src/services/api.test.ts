@@ -4,6 +4,7 @@ import { http, HttpResponse } from 'msw';
 import apiClient, {
   AUTH_LOCK_NAME,
   StaleRefreshError,
+  apiErrorCode,
   getAccessToken,
   refreshAccessToken,
   setAccessToken,
@@ -128,6 +129,34 @@ describe('apiClient 401 handling', () => {
     await expect(apiClient.get('/a')).rejects.toMatchObject({ response: { status: 500 } });
 
     expect(redirectTo).not.toHaveBeenCalled();
+  });
+
+  it('should refresh an expired token for a request that wants a blob', async () => {
+    mockRefresh(true);
+    protectedEndpoint('/file');
+    const res = await apiClient.get('/file', { responseType: 'blob' });
+    expect(res.status).toBe(200);
+    expect(refreshCalls).toBe(1);
+  });
+
+  it('should decode a JSON error body sent to a blob request', async () => {
+    server.use(
+      http.get('/api/v1/file', () =>
+        HttpResponse.json({ error: { code: 'NOT_THERE', message: 'x' } }, { status: 404 }),
+      ),
+    );
+    const err: unknown = await apiClient
+      .get('/file', { responseType: 'blob' })
+      .catch((e: unknown) => e);
+    expect(apiErrorCode(err)).toBe('NOT_THERE');
+  });
+
+  it('should leave a non-JSON error body sent to a blob request as a blob', async () => {
+    server.use(http.get('/api/v1/file', () => new HttpResponse('oops', { status: 502 })));
+    const err: unknown = await apiClient
+      .get('/file', { responseType: 'blob' })
+      .catch((e: unknown) => e);
+    expect(apiErrorCode(err)).toBeNull();
   });
 
   it('should pass non-401 errors through without refreshing', async () => {

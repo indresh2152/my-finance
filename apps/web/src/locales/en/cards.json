@@ -1,6 +1,5 @@
 {
   "pageTitle": "Credit Cards",
-  "pageSubtitle": "Credit cards we found in your bank emails.",
   "linkEmail": "Link email",
   "creditLimit": "Credit Limit",
   "availableCredit": "Available Credit",
@@ -11,5 +10,25 @@
   "emptyStateMailboxLinked": "We haven't found any credit cards in your linked email yet. New cards will show up here after the next sync.",
   "errors": {
     "loadFailed": "Failed to load credit cards. Please try again."
+  },
+  "amount": {
+    "masked": "₹ ••••••",
+    "show": "Show {{label}}",
+    "hide": "Hide {{label}}"
+  },
+  "statement": {
+    "amountDue": "Amount due",
+    "minimumDue": "Minimum due",
+    "dueBy": "Due by",
+    "statementDate": "Statement date",
+    "download": "Download statement",
+    "passwordHint": "Statement password hint",
+    "noPasswordHint": "No password hint found in the email",
+    "none": "No statement found yet",
+    "errors": {
+      "STATEMENT_UNAVAILABLE": "This statement is no longer available in your mailbox",
+      "STATEMENT_NOT_FOUND": "This statement is no longer available in your mailbox",
+      "generic": "Couldn't download the statement. Please try again."
+    }
   }
 }
