@@ -7,6 +7,7 @@ import authEn from './locales/en/auth.json';
 import cardsEn from './locales/en/cards.json';
 import panEn from './locales/en/pan.json';
 import mailboxEn from './locales/en/mailbox.json';
+import accountsEn from './locales/en/accounts.json';
 
 void i18next
   .use(LanguageDetector)
@@ -21,6 +22,7 @@ void i18next
         cards: cardsEn,
         pan: panEn,
         mailbox: mailboxEn,
+        accounts: accountsEn,
       },
     },
     interpolation: { escapeValue: false },

@@ -7,6 +7,7 @@ import {
   buildStatementIdSchema,
   callbackQuerySchema,
 } from '../routes/mailboxes.routes';
+import { bankAccountTypeEnum } from '../db/mailbox.schema';
 
 const MAILBOXES_PATH = '/api/v1/mailboxes';
 
@@ -22,7 +23,7 @@ export interface DocHelpers {
 const registerSchemas = (
   registry: OpenAPIRegistry,
   t: DocHelpers['t'],
-): { summary: z.ZodTypeAny; resolution: z.ZodTypeAny } => {
+): { summary: z.ZodTypeAny; resolution: z.ZodTypeAny; account: z.ZodTypeAny } => {
   const provider = z.enum(['GOOGLE', 'MICROSOFT']);
   const summary = registry.register(
     'Mailbox',
@@ -44,7 +45,18 @@ const registerSchemas = (
       z.object({ supported: z.literal(false), reason: z.literal('PROVIDER_NOT_SUPPORTED') }),
     ]),
   );
-  return { summary, resolution };
+  const account = registry.register(
+    'EmailBankAccount',
+    z.object({
+      id: z.string().uuid(),
+      bankName: z.string().describe(t('schemas.bankCode')),
+      accountNumberLast4: z.string().length(4),
+      accountType: z.enum(bankAccountTypeEnum.enumValues),
+      availableBalance: z.number().describe(t('schemas.inrAmount')),
+      balanceAsOf: z.string().datetime().describe(t('schemas.balanceAsOf')),
+    }),
+  );
+  return { summary, resolution, account };
 };
 
 interface DocContext {
@@ -139,6 +151,22 @@ const registerListPath = ({ registry, h, tags }: DocContext, summary: z.ZodTypeA
   });
 };
 
+const registerAccountsPath = ({ registry, h, tags }: DocContext, account: z.ZodTypeAny): void => {
+  registry.registerPath({
+    method: 'get',
+    path: `${MAILBOXES_PATH}/accounts`,
+    tags,
+    summary: h.t('operations.listEmailAccounts'),
+    description: h.t('operations.listEmailAccountsDescription'),
+    security: h.bearer,
+    responses: {
+      200: h.json(h.t('responses.ok'), z.object({ data: z.array(account) })),
+      401: h.error('unauthorized'),
+      403: h.error('panNotRegistered'),
+    },
+  });
+};
+
 const registerSyncPath = ({ registry, h, lng, tags }: DocContext): void => {
   registry.registerPath({
     method: 'post',
@@ -203,11 +231,12 @@ export const registerMailboxPaths = (
   lng: string,
 ): void => {
   const ctx: DocContext = { registry, h: helpers, lng, tags: [helpers.t('tags.mailboxes')] };
-  const { summary, resolution } = registerSchemas(registry, helpers.t);
+  const { summary, resolution, account } = registerSchemas(registry, helpers.t);
   registerResolvePath(ctx, resolution);
   registerConnectPath(ctx);
   registerCallbackPath(ctx);
   registerListPath(ctx, summary);
+  registerAccountsPath(ctx, account);
   registerSyncPath(ctx);
   registerUnlinkPath(ctx);
   registerDownloadPath(ctx);

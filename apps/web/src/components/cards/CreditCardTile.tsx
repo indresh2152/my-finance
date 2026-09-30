@@ -2,7 +2,7 @@ import React from 'react';
 import { Box, Card, CardContent, Chip, Stack, Typography } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import type { CreditCard } from '../../services/credit-cards.api';
-import { formatInr } from '../../utils/format';
+import { formatInr, maskLast4 } from '../../utils/format';
 import { StatementDetails } from './StatementDetails';
 
 const statusColor = (status: string): 'success' | 'error' | 'warning' | 'default' => {
@@ -45,7 +45,7 @@ export const CreditCardTile: React.FC<CreditCardTileProps> = ({
 }) => {
   const { t } = useTranslation('cards');
   const { t: tCommon } = useTranslation('common');
-  const maskedNumber = `•••• ${card.cardNumberLast4}`;
+  const maskedNumber = maskLast4(card.cardNumberLast4);
 
   return (
     <Card variant="outlined" sx={{ height: '100%' }}>

@@ -17,6 +17,7 @@ const service = {
 };
 
 const statements = { download: jest.fn() };
+const accounts = { list: jest.fn() };
 
 const deps: AppDeps = {
   db: { query: jest.fn().mockResolvedValue({ rows: [] }) } as never,
@@ -27,6 +28,7 @@ const deps: AppDeps = {
   mailbox: {
     service: service as never,
     statements: statements as never,
+    accounts: accounts as never,
     appBaseUrl: 'https://app.example',
   },
 };
@@ -202,6 +204,36 @@ describe('DELETE /api/v1/mailboxes/:mailboxId', () => {
   it('should pass errors on', async () => {
     service.unlink.mockRejectedValueOnce(new AppError('MAILBOX_NOT_FOUND', 404, 'nf'));
     await request(app).delete(`/api/v1/mailboxes/${MAILBOX_ID}`).set(auth).expect(404);
+  });
+});
+
+describe('GET /api/v1/mailboxes/accounts', () => {
+  it('should return 401 without a token', async () => {
+    await request(app).get('/api/v1/mailboxes/accounts').expect(401);
+    expect(accounts.list).not.toHaveBeenCalled();
+  });
+
+  it('should return the accounts under data', async () => {
+    const account = {
+      id: 'acc-1',
+      bankName: 'ICICI',
+      accountNumberLast4: '5678',
+      accountType: 'SAVINGS',
+      availableBalance: 234567.89,
+      balanceAsOf: '2026-09-24T10:12:00.000Z',
+    };
+    accounts.list.mockResolvedValueOnce([account]);
+    const res = await request(app).get('/api/v1/mailboxes/accounts').set(auth);
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ data: [account] });
+    expect(accounts.list).toHaveBeenCalledWith(expect.objectContaining({ userId: 'user-1' }));
+  });
+
+  it('should pass service errors to the error handler', async () => {
+    accounts.list.mockRejectedValueOnce(new AppError('PAN_NOT_REGISTERED', 403, 'No PAN'));
+    const res = await request(app).get('/api/v1/mailboxes/accounts').set(auth);
+    expect(res.status).toBe(403);
+    expect(res.body.error.code).toBe('PAN_NOT_REGISTERED');
   });
 });
 

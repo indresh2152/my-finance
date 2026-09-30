@@ -13,6 +13,7 @@ const app = createApp({
   mailbox: {
     service: { completeConnect } as never,
     statements: {} as never,
+    accounts: {} as never,
     appBaseUrl: 'https://app.example',
   },
 });

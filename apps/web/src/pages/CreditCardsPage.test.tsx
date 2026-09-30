@@ -10,6 +10,7 @@ import { CreditCardsPage } from './CreditCardsPage';
 import { AuthProvider } from '../context/AuthContext';
 import { SYNC_POLL_INTERVAL_MS, type Mailbox } from '../services/mailbox.api';
 import type { CreditCard } from '../services/credit-cards.api';
+import type { EmailAccount } from '../services/accounts.api';
 
 const GATHERING = 'Gathering your card and account details…';
 const NO_MAILBOX = 'No mailbox linked yet.';
@@ -69,8 +70,26 @@ const mailbox = (overrides: Partial<Mailbox> = {}): Mailbox => ({
   ...overrides,
 });
 
+const emailAccount: EmailAccount = {
+  id: 'acc-1',
+  bankName: 'KOTAK',
+  accountNumberLast4: '7890',
+  accountType: 'SAVINGS',
+  availableBalance: 234567.89,
+  balanceAsOf: '2026-09-24T10:12:00.000Z',
+};
+
+/** The alert holding `text`; the page may show several (cards and accounts). */
+const alertWith = (text: string | RegExp): HTMLElement => {
+  const alert = screen.getByText(text).closest<HTMLElement>('[role="alert"]');
+  if (!alert) throw new Error('no alert around the text');
+  return alert;
+};
+
 let cards: CreditCard[] = [];
 let cardRequests = 0;
+let accounts: EmailAccount[] = [];
+let accountRequests = 0;
 let mailboxes: Mailbox[] = [];
 const server = setupServer(
   http.post('/api/v1/auth/refresh', () => HttpResponse.json({ accessToken: 'token' })),
@@ -88,6 +107,10 @@ const server = setupServer(
     return HttpResponse.json({ cards });
   }),
   http.get('/api/v1/mailboxes', () => HttpResponse.json({ mailboxes })),
+  http.get('/api/v1/mailboxes/accounts', () => {
+    accountRequests += 1;
+    return HttpResponse.json({ data: accounts });
+  }),
   http.post('/api/v1/mailboxes/:id/sync', () =>
     HttpResponse.json({ queued: true }, { status: 202 }),
   ),
@@ -101,6 +124,8 @@ beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 beforeEach(() => {
   cards = [mockCard];
   cardRequests = 0;
+  accounts = [];
+  accountRequests = 0;
   mailboxes = [mailbox()];
 });
 afterEach(() => server.resetHandlers());
@@ -150,17 +175,16 @@ describe('CreditCardsPage — cards', () => {
     mailboxes = [];
     renderPage();
     expect(await screen.findByText('No credit cards yet.')).toBeInTheDocument();
-    expect(within(screen.getByRole('alert')).queryByRole('button')).not.toBeInTheDocument();
+    expect(within(alertWith('No credit cards yet.')).queryByRole('button')).not.toBeInTheDocument();
     expect(await screen.findAllByRole('button', { name: 'Link email' })).toHaveLength(1);
   });
 
   it('should not ask to link an email again when a mailbox is already linked', async () => {
     cards = [];
     renderPage();
-    expect(
-      await screen.findByText(/haven't found any credit cards in your linked email yet/),
-    ).toBeInTheDocument();
-    expect(within(screen.getByRole('alert')).queryByRole('button')).not.toBeInTheDocument();
+    const found = /haven't found any credit cards in your linked email yet/;
+    expect(await screen.findByText(found)).toBeInTheDocument();
+    expect(within(alertWith(found)).queryByRole('button')).not.toBeInTheDocument();
   });
 
   it('should show error alert when API fails', async () => {
@@ -169,6 +193,68 @@ describe('CreditCardsPage — cards', () => {
     expect(
       await screen.findByText('Failed to load credit cards. Please try again.'),
     ).toBeInTheDocument();
+  });
+});
+
+describe('CreditCardsPage — bank accounts', () => {
+  it('should show each account with its balance masked and the date it was reported', async () => {
+    accounts = [emailAccount];
+    const { container } = renderPage();
+    const section = await screen.findByRole('region', { name: 'Bank accounts' });
+    expect(await within(section).findByText('KOTAK')).toBeInTheDocument();
+    expect(within(section).getByText('•••• 7890')).toBeInTheDocument();
+    expect(within(section).getByText('Savings')).toBeInTheDocument();
+    expect(within(section).getByText(/^as of 24 Sept? 2026$/)).toBeInTheDocument();
+    expect(container.textContent).not.toMatch(/2,34,567/);
+
+    await userEvent.click(within(section).getByRole('button', { name: 'Show Available balance' }));
+    expect(within(section).getByText('₹2,34,567.89')).toBeInTheDocument();
+  });
+
+  it('should leave out the type chip when the email did not say', async () => {
+    accounts = [{ ...emailAccount, accountType: 'OTHER' }];
+    renderPage();
+    const section = await screen.findByRole('region', { name: 'Bank accounts' });
+    expect(await within(section).findByText('KOTAK')).toBeInTheDocument();
+    expect(within(section).queryByText('Savings')).not.toBeInTheDocument();
+    expect(within(section).queryByText(/other/i)).not.toBeInTheDocument();
+  });
+
+  it('should report that none were found when a mailbox is linked', async () => {
+    renderPage();
+    const section = await screen.findByRole('region', { name: 'Bank accounts' });
+    expect(
+      await within(section).findByText(/haven't found any bank accounts in your linked email yet/),
+    ).toBeInTheDocument();
+  });
+
+  it('should suggest linking email when no mailbox is linked', async () => {
+    mailboxes = [];
+    renderPage();
+    const section = await screen.findByRole('region', { name: 'Bank accounts' });
+    expect(await within(section).findByText('No bank accounts yet.')).toBeInTheDocument();
+    expect(
+      within(section).getByText(/Link your email and we'll find your bank accounts/),
+    ).toBeInTheDocument();
+    expect(accountRequests).toBe(0);
+  });
+
+  it('should show an error when the accounts fail to load', async () => {
+    server.use(
+      http.get('/api/v1/mailboxes/accounts', () => new HttpResponse(null, { status: 500 })),
+    );
+    renderPage();
+    expect(
+      await screen.findByText('Failed to load bank accounts. Please try again.'),
+    ).toBeInTheDocument();
+  });
+
+  it('should hide the section when mailbox features are off', async () => {
+    server.use(http.get('/api/v1/mailboxes', () => new HttpResponse(null, { status: 404 })));
+    renderPage();
+    expect(await screen.findByText('HDFC Bank')).toBeInTheDocument();
+    expect(screen.queryByRole('region', { name: 'Bank accounts' })).not.toBeInTheDocument();
+    expect(accountRequests).toBe(0);
   });
 });
 
@@ -304,15 +390,18 @@ describe('CreditCardsPage — linked mailboxes', () => {
     expect(await screen.findByText('This mailbox is no longer linked.')).toBeInTheDocument();
   });
 
-  it('should unlink after confirmation and refresh the card list', async () => {
+  it('should unlink after confirmation and refresh the cards and accounts', async () => {
     renderPage();
     await userEvent.click(await screen.findByRole('button', { name: 'Unlink' }));
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByText('Unlink us****@gmail.com?')).toBeInTheDocument();
+    await waitFor(() => expect(accountRequests).toBeGreaterThan(0));
     const requestsBefore = cardRequests;
+    const accountRequestsBefore = accountRequests;
     await userEvent.click(within(dialog).getByRole('button', { name: 'Unlink' }));
     expect(await screen.findByText(NO_MAILBOX)).toBeInTheDocument();
     await waitFor(() => expect(cardRequests).toBeGreaterThan(requestsBefore));
+    await waitFor(() => expect(accountRequests).toBeGreaterThan(accountRequestsBefore));
   });
 
   it('should show the Microsoft consent note when unlinking a Microsoft mailbox', async () => {
@@ -368,7 +457,7 @@ describe('CreditCardsPage — gathering progress', () => {
     expect(await screen.findByText(GATHERING)).toBeInTheDocument();
   });
 
-  it('should reload the cards when a sync fails after saving some of them', async () => {
+  it('should reload the cards and accounts when a sync fails after saving some of them', async () => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
     try {
       cards = [];
@@ -383,9 +472,11 @@ describe('CreditCardsPage — gathering progress', () => {
       expect(await screen.findByText(GATHERING)).toBeInTheDocument();
 
       cards = [emailCard];
+      accounts = [emailAccount];
       mailboxes = [mailbox({ lastSyncStatus: 'FAILED', lastSyncedAt: null })];
       await vi.advanceTimersByTimeAsync(SYNC_POLL_INTERVAL_MS);
       expect(await screen.findByText('ICICI Bank')).toBeInTheDocument();
+      expect(await screen.findByText('KOTAK')).toBeInTheDocument();
     } finally {
       vi.useRealTimers();
     }

@@ -26,6 +26,7 @@ import {
 import { errorName } from '../services/mailbox/mailbox-link';
 import type { ProviderKey } from '../services/mailbox/providers/mail-provider';
 import type { StatementDownloadService } from '../services/mailbox/statement-download.service';
+import type { EmailAccountsService } from '../services/mailbox/email-accounts.service';
 
 const logger = pino({ ...errorLoggerOptions, name: 'mailboxes-routes' });
 
@@ -53,6 +54,7 @@ export interface MailboxModule {
     'resolve' | 'startConnect' | 'completeConnect' | 'list' | 'requestSync' | 'unlink'
   >;
   statements: Pick<StatementDownloadService, 'download'>;
+  accounts: Pick<EmailAccountsService, 'list'>;
   appBaseUrl: string;
 }
 
@@ -212,6 +214,16 @@ const unlinkHandler =
     }
   };
 
+const accountsHandler =
+  (accounts: MailboxModule['accounts']): RequestHandler =>
+  async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      res.json({ data: await accounts.list(contextOf(req)) });
+    } catch (err) {
+      next(err);
+    }
+  };
+
 /**
  * res.attachment() encodes the untrusted, email-supplied filename safely (basename only, RFC 5987
  * for non-ASCII); the Content-Type comes from the service's byte check, not the file extension.
@@ -243,6 +255,7 @@ export const mailboxesRouter = (mailbox: MailboxModule): Router => {
   router.post('/resolve', requireAuth, mailboxResolveRateLimiter, resolveHandler(service));
   router.post('/connect', requireAuth, mailboxConnectRateLimiter, connectHandler(service));
   router.get('/', requireAuth, listHandler(service));
+  router.get('/accounts', requireAuth, accountsHandler(mailbox.accounts));
   router.get(
     '/statements/:statementId/download',
     requireAuth,

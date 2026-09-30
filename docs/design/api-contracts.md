@@ -622,13 +622,24 @@ Routes exist only when `MAILBOX_ENABLED=true`. All under `/api/v1/mailboxes`.
 | GET | /api/v1/mailboxes | JWT + PAN | 200 `{ mailboxes: Mailbox[] }` | 403 |
 | POST | /api/v1/mailboxes/{mailboxId}/sync | JWT + PAN | 202 `{ queued: true }` | 404 MAILBOX_NOT_FOUND, 409 MAILBOX_REAUTH_REQUIRED, 429 SYNC_TOO_FREQUENT |
 | DELETE | /api/v1/mailboxes/{mailboxId} | JWT + PAN | 204 | 404 MAILBOX_NOT_FOUND |
+| GET | /api/v1/mailboxes/accounts | JWT + PAN | 200 `{ data: EmailBankAccount[] }` | 403 PAN_NOT_REGISTERED |
 | GET | /api/v1/mailboxes/statements/{statementId}/download | JWT + PAN | 200 file (`Content-Disposition: attachment`, `Cache-Control: no-store`; `application/pdf` only when the bytes are a PDF) | 404 STATEMENT_NOT_FOUND\|STATEMENT_UNAVAILABLE, 409 MAILBOX_REAUTH_REQUIRED, 422, 429 (20/h per user) |
 
 `Mailbox` = `{ id, provider: 'GOOGLE'|'MICROSOFT', emailMasked, status: 'ACTIVE'|'REAUTH_REQUIRED',
 lastSyncStatus: 'NEVER'|'RUNNING'|'SUCCEEDED'|'FAILED', lastSyncErrorCode, lastSyncedAt, createdAt }`.
 The download fetches the statement file live from the mailbox that received it; nothing is stored.
-Card statements themselves are returned by `GET /credit-cards` (`latestStatement`). Phase 3 adds
-`GET /mailboxes/accounts` (see docs/superpowers/specs/2026-09-26-mailbox-integration-design.md §7).
+Card statements themselves are returned by `GET /credit-cards` (`latestStatement`).
+
+`EmailBankAccount` = `{ id, bankName, accountNumberLast4, accountType: 'SAVINGS'|'CURRENT'|'FD'|'RD'|'NRE'|'NRO'|'OTHER',
+availableBalance, balanceAsOf }`. `bankName` is a bank code (`HDFC`, `ICICI`, `SBI`, `AXIS`, `KOTAK`);
+`availableBalance` is a number in INR (negative when overdrawn); `balanceAsOf` is an ISO timestamp.
+Each account carries the newest balance any of the caller's mailboxes has seen. Writes
+`EMAIL_ACCOUNT_LIST` (metadata: `count` only).
+
+```json
+{ "data": [ { "id": "uuid", "bankName": "ICICI", "accountNumberLast4": "5678", "accountType": "SAVINGS",
+  "availableBalance": 234567.89, "balanceAsOf": "2026-09-24T10:12:00.000Z" } ] }
+```
 
 ---
 

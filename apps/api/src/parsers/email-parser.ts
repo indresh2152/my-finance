@@ -1,6 +1,7 @@
 import type { ParsedEmail } from '../services/mailbox/providers/mail-provider';
 
-export type BankCode = 'HDFC' | 'ICICI' | 'SBI_CARD' | 'AXIS' | 'KOTAK';
+/** SBI_CARD (SBI Card, the card issuer) and SBI (State Bank of India) are separate companies. */
+export type BankCode = 'HDFC' | 'ICICI' | 'SBI' | 'SBI_CARD' | 'AXIS' | 'KOTAK';
 
 export interface CardStatementResult {
   kind: 'CARD_STATEMENT';

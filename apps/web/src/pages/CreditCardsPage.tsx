@@ -1,17 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import {
-  Alert,
-  Card,
-  CardContent,
-  Container,
-  Grid,
-  Link,
-  Skeleton,
-  Snackbar,
-  Stack,
-  Typography,
-} from '@mui/material';
+import { Alert, Container, Link, Snackbar, Stack, Typography } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
@@ -20,6 +9,8 @@ import { CREDIT_CARDS_QUERY_KEY, listCreditCards } from '../services/credit-card
 import { useMailboxes, type LinkNotice } from '../hooks/useMailboxes';
 import { useStatementDownload } from '../hooks/useStatementDownload';
 import { CreditCardTile } from '../components/cards/CreditCardTile';
+import { TileGrid } from '../components/TileGrid';
+import { BankAccountsSection } from '../components/accounts/BankAccountsSection';
 import { LinkMailboxDialog } from '../components/mailbox/LinkMailboxDialog';
 import { MailboxesPanel } from '../components/mailbox/MailboxesPanel';
 import { SyncProgressBanner } from '../components/mailbox/SyncProgressBanner';
@@ -31,16 +22,6 @@ const SKELETON_CARDS = 3;
 const downloadErrorMessage = (t: TFunction<'cards'>, code: string): string =>
   t([`statement.errors.${code}`, `mailbox:errors.${code}`, 'statement.errors.generic'] as never);
 const DOWNLOAD_ERROR_HIDE_MS = 6000;
-
-const CardSkeleton: React.FC = () => (
-  <Card variant="outlined">
-    <CardContent>
-      <Skeleton variant="text" width="60%" height={28} />
-      <Skeleton variant="text" width="40%" />
-      <Skeleton variant="rectangular" height={60} sx={{ mt: 1, borderRadius: 1 }} />
-    </CardContent>
-  </Card>
-);
 
 interface LinkEmailLinkProps {
   readonly onClick: () => void;
@@ -117,39 +98,19 @@ const CardGrid: React.FC<CardGridProps> = ({ hasMailbox, isDownloading, onDownlo
     enabled: !!user?.hasPan,
   });
 
-  if (isError) return <Alert severity="error">{t('errors.loadFailed')}</Alert>;
-
-  if (isLoading) {
-    return (
-      <Grid container spacing={2}>
-        {Array.from({ length: SKELETON_CARDS }, (_value, index) => (
-          <Grid item xs={12} sm={6} md={4} key={index}>
-            <CardSkeleton />
-          </Grid>
-        ))}
-      </Grid>
-    );
-  }
-
-  if (cards?.length === 0) {
-    return (
-      <Alert severity="info">
-        {t('emptyState')}
-        <Typography variant="caption" color="text.secondary" display="block" mt={0.5}>
-          {hasMailbox ? t('emptyStateMailboxLinked') : t('emptyStateHint')}
-        </Typography>
-      </Alert>
-    );
-  }
-
   return (
-    <Grid container spacing={2}>
-      {cards?.map((card) => (
-        <Grid item xs={12} sm={6} md={4} key={card.id}>
-          <CreditCardTile card={card} isDownloading={isDownloading} onDownload={onDownload} />
-        </Grid>
-      ))}
-    </Grid>
+    <TileGrid
+      items={cards}
+      isLoading={isLoading}
+      isError={isError}
+      skeletonCount={SKELETON_CARDS}
+      errorText={t('errors.loadFailed')}
+      emptyText={t('emptyState')}
+      emptyHint={hasMailbox ? t('emptyStateMailboxLinked') : t('emptyStateHint')}
+      renderTile={(card) => (
+        <CreditCardTile card={card} isDownloading={isDownloading} onDownload={onDownload} />
+      )}
+    />
   );
 };
 
@@ -159,6 +120,7 @@ export const CreditCardsPage: React.FC = () => {
   const statements = useStatementDownload();
   const [isLinkDialogOpen, setLinkDialogOpen] = useState(false);
   const openLinkDialog = (): void => setLinkDialogOpen(true);
+  const hasMailbox = (mailbox.mailboxes?.length ?? 0) > 0;
 
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
@@ -185,10 +147,12 @@ export const CreditCardsPage: React.FC = () => {
         {mailbox.gatheringIds.size > 0 && <SyncProgressBanner />}
 
         <CardGrid
-          hasMailbox={(mailbox.mailboxes?.length ?? 0) > 0}
+          hasMailbox={hasMailbox}
           isDownloading={statements.isDownloading}
           onDownload={mailbox.isAvailable ? statements.download : undefined}
         />
+
+        {mailbox.isAvailable && <BankAccountsSection hasMailbox={hasMailbox} />}
 
         {mailbox.isAvailable && (
           <MailboxesPanel

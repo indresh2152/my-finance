@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import { useSearchParams } from 'react-router-dom';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query';
 import {
   MAILBOXES_QUERY_KEY,
   POST_ACTION_POLL_MS,
@@ -16,8 +16,15 @@ import {
   type SyncRequests,
 } from '../services/mailbox.api';
 import { CREDIT_CARDS_QUERY_KEY } from '../services/credit-cards.api';
+import { EMAIL_ACCOUNTS_QUERY_KEY } from '../services/accounts.api';
 
 const GENERIC_ERROR = 'generic';
+
+/** Cards and accounts both come from mailbox syncs, so both are refetched when a mailbox changes. */
+const invalidateFoundRecords = (queryClient: QueryClient): void => {
+  void queryClient.invalidateQueries({ queryKey: CREDIT_CARDS_QUERY_KEY });
+  void queryClient.invalidateQueries({ queryKey: EMAIL_ACCOUNTS_QUERY_KEY });
+};
 
 export type LinkNotice = { severity: 'success' | 'error'; code: string } | null;
 
@@ -87,10 +94,10 @@ const finishedSyncKey = (mailbox: Mailbox): string =>
   `${mailbox.lastSyncStatus}@${mailbox.lastSyncedAt ?? ''}`;
 
 /**
- * Refetches the card list when a mailbox finishes a sync, so found cards appear without a reload.
+ * Refetches cards and accounts when a mailbox finishes a sync, so they appear without a reload.
  * A RUNNING sync keeps its previous key, so starting a sync alone does not refetch.
  */
-const useRefreshCardsOnSync = (mailboxes: readonly Mailbox[] | undefined): void => {
+const useRefreshFoundRecordsOnSync = (mailboxes: readonly Mailbox[] | undefined): void => {
   const queryClient = useQueryClient();
   const finished = useRef(new Map<string, string>());
   useEffect(() => {
@@ -103,7 +110,7 @@ const useRefreshCardsOnSync = (mailboxes: readonly Mailbox[] | undefined): void 
         if (previous !== undefined && previous !== key) changed = true;
         finished.current.set(mailbox.id, key);
       });
-    if (changed) void queryClient.invalidateQueries({ queryKey: CREDIT_CARDS_QUERY_KEY });
+    if (changed) invalidateFoundRecords(queryClient);
   }, [mailboxes, queryClient]);
 };
 
@@ -166,10 +173,10 @@ export const useMailboxes = (): MailboxesState => {
   const unlinkMutation = useMutation({
     mutationFn: unlinkMailbox,
     onMutate: () => setActionError(null),
-    // Unlinking deletes cards found only in that mailbox.
+    // Unlinking deletes cards and accounts found only in that mailbox.
     onSuccess: () => {
       refreshList();
-      void queryClient.invalidateQueries({ queryKey: CREDIT_CARDS_QUERY_KEY });
+      invalidateFoundRecords(queryClient);
     },
     onError: reportError,
     onSettled: () => setUnlinkTarget(null),
@@ -178,7 +185,7 @@ export const useMailboxes = (): MailboxesState => {
   const now = Date.now();
   const gatheringIds = gatheringMailboxIds(mailboxes, syncRequests, pollUntil, now);
   useRerenderAt(nextGatheringChangeAt(mailboxes, pollUntil, now));
-  useRefreshCardsOnSync(mailboxes);
+  useRefreshFoundRecordsOnSync(mailboxes);
 
   return {
     isAvailable,

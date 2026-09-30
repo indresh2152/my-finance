@@ -189,6 +189,26 @@ the PDF from the mailbox and is hidden when the email had no PDF or mailbox feat
 └──────────────────────────────────┘
 ```
 
+### Bank accounts found in email
+
+A **Bank accounts** section sits on the Credit Cards page, below the card grid and above the
+linked mailboxes panel (it is hidden when mailbox features are off). Each account shows the bank,
+the last 4 digits, a type chip (left out when the email did not say), the available balance
+masked until the eye icon is pressed, and the day the balance was reported (IST). Empty states
+mirror the card grid: "No bank accounts yet." with a hint to link email, or "We haven't found any
+bank accounts in your linked email yet…" when a mailbox is linked.
+
+```
+Bank accounts
+┌──────────────────────────────────┐   ┌──────────────────────────────────┐
+│  KOTAK                [Savings]  │   │  SBI                             │
+│  •••• 7890                       │   │  •••• 9012                       │
+│                                  │   │                                  │
+│  Available balance ₹ •••••• [👁] │   │  Available balance ₹ •••••• [👁] │
+│               as of 24 Sep 2026  │   │               as of 28 Sep 2026  │
+└──────────────────────────────────┘   └──────────────────────────────────┘
+```
+
 ---
 
 ## Card Detail — Slide-over / Modal

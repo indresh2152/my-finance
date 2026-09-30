@@ -7,17 +7,14 @@ import {
   istDate,
   labelledAmount,
   labelledDate,
+  MAX_PARSED_CHARS,
+  MAX_SUBJECT_CHARS,
 } from './fields';
 
 const readTotalDue = labelledAmount(/total\s+(?:amount|payment)\s+due/);
 const readMinimumDue = labelledAmount(/min(?:imum)?\.?\s+(?:amount|payment)\s+due/);
 const readDueDate = labelledDate(/(?:payment\s+)?due\s+date/);
 const readStatementDate = labelledDate(/statement\s+date/);
-
-/** Statement figures sit near the top; the cap bounds regex work on very long (or hostile) bodies. */
-const MAX_PARSED_CHARS = 20_000;
-/** Real subjects are short; the cap keeps the subject pattern's `.*` cheap on hostile ones. */
-const MAX_SUBJECT_CHARS = 500;
 
 /** Card statements only: excludes transaction alerts, offers and savings account statements. */
 const CREDIT_CARD_STATEMENT = /credit\s*card.*statement|statement.*credit\s*card/i;

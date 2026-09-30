@@ -70,7 +70,9 @@
       "syncMailbox": "Queue a sync of a linked mailbox",
       "unlinkMailbox": "Unlink a mailbox and revoke its access",
       "downloadStatement": "Download a card statement PDF",
-      "downloadStatementDescription": "Fetches the statement attachment live from the linked mailbox that received it; nothing is stored. Rate limited to 20 per hour."
+      "downloadStatementDescription": "Fetches the statement attachment live from the linked mailbox that received it; nothing is stored. Rate limited to 20 per hour.",
+      "listEmailAccounts": "List bank accounts found in your linked email",
+      "listEmailAccountsDescription": "Each account comes with the newest balance any of your linked mailboxes has seen for it."
     },
     "schemas": {
       "accessToken": "Bearer token for the Authorization header.",
@@ -78,7 +80,9 @@
       "inrAmount": "Amount in INR (₹).",
       "emailMasked": "Mailbox address with most of the local part hidden.",
       "passwordHint": "The bank's description of the statement password format, taken from the email. Never the password itself.",
-      "downloadAvailable": "Whether the statement email had a PDF that can be downloaded."
+      "downloadAvailable": "Whether the statement email had a PDF that can be downloaded.",
+      "bankCode": "Bank code, e.g. HDFC, ICICI, SBI, AXIS or KOTAK.",
+      "balanceAsOf": "When the balance was reported: the email's date, or the date stated in it."
     },
     "responses": {
       "ok": "Success",
