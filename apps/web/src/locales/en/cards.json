@@ -20,6 +20,7 @@
     "amountDue": "Amount due",
     "minimumDue": "Minimum due",
     "dueBy": "Due by",
+    "noPaymentDue": "No payment due",
     "statementDate": "Statement date",
     "download": "Download statement",
     "passwordHint": "Statement password hint",

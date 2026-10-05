@@ -1,14 +1,18 @@
 import type { ParsedEmail } from '../services/mailbox/providers/mail-provider';
 
 /** SBI_CARD (SBI Card, the card issuer) and SBI (State Bank of India) are separate companies. */
-export type BankCode = 'HDFC' | 'ICICI' | 'SBI' | 'SBI_CARD' | 'AXIS' | 'KOTAK';
+export type BankCode = 'HDFC' | 'ICICI' | 'SBI' | 'SBI_CARD' | 'AXIS' | 'KOTAK' | 'FEDERAL';
 
 export interface CardStatementResult {
   kind: 'CARD_STATEMENT';
   issuingBank: BankCode;
-  last4: string;
+  /** Every result has last4 or cardName: some banks' emails never show the card's digits. */
+  last4?: string;
+  /** The card's name from the subject ('Pixel Play'), when the subject names one. */
+  cardName?: string;
   statementDate: string; // YYYY-MM-DD
-  dueDate: string; // YYYY-MM-DD
+  /** Absent only when nothing is due ('No Payment Due'). */
+  dueDate?: string; // YYYY-MM-DD
   totalDue: number;
   minDue?: number;
   passwordHint?: string;

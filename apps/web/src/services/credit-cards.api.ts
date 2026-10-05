@@ -5,7 +5,8 @@ import { filenameFromDisposition } from '../utils/download';
 export interface CardStatement {
   id: string;
   statementDate: string;
-  dueDate: string;
+  /** Null only when nothing is due. */
+  dueDate: string | null;
   totalAmountDue: number;
   minimumAmountDue: number | null;
   passwordHint: string | null;
@@ -13,10 +14,14 @@ export interface CardStatement {
   downloadAvailable: boolean;
 }
 
-/** Cards found in bank emails carry only the bank and last 4 digits; the other details may be null. */
+/**
+ * Cards found in bank emails carry only the bank and last 4 digits (or, when the bank's emails
+ * never show the digits, the card's name); the other details may be null.
+ */
 export interface CreditCard {
   id: string;
-  cardNumberLast4: string;
+  cardNumberLast4: string | null;
+  cardName: string | null;
   cardNetwork: string | null;
   issuingBank: string;
   cardVariant: string;

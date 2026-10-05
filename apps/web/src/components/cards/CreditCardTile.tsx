@@ -45,7 +45,14 @@ export const CreditCardTile: React.FC<CreditCardTileProps> = ({
 }) => {
   const { t } = useTranslation('cards');
   const { t: tCommon } = useTranslation('common');
-  const maskedNumber = maskLast4(card.cardNumberLast4);
+  // 'VISA Amazon Pay •••• 0019': each part the bank or email gave.
+  const cardLabel = [
+    card.cardNetwork,
+    card.cardName,
+    card.cardNumberLast4 && maskLast4(card.cardNumberLast4),
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   return (
     <Card variant="outlined" sx={{ height: '100%' }}>
@@ -61,7 +68,7 @@ export const CreditCardTile: React.FC<CreditCardTileProps> = ({
           />
         </Box>
         <Typography variant="body2" color="text.secondary" gutterBottom>
-          {card.cardNetwork ? `${card.cardNetwork} ${maskedNumber}` : maskedNumber}
+          {cardLabel}
         </Typography>
         <Stack spacing={0.5} mt={1}>
           <AmountRow label={t('creditLimit')} amount={card.creditLimit} />

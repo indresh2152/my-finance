@@ -45,6 +45,11 @@ describe('StatementDetails', () => {
     expect(screen.getByText(/^05 Sept? 2026$/)).toBeInTheDocument();
   });
 
+  it('should say no payment is due when the statement has no due date', () => {
+    renderDetails({ ...statement, dueDate: null, totalAmountDue: 0 });
+    expect(screen.getByText('No payment due')).toBeInTheDocument();
+  });
+
   it('should leave out the minimum due when the email had none', () => {
     renderDetails({ ...statement, minimumAmountDue: null });
     expect(screen.queryByText('Minimum due')).not.toBeInTheDocument();

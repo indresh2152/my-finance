@@ -96,13 +96,19 @@ CREATE TABLE IF NOT EXISTS pan_profiles (
 CREATE INDEX IF NOT EXISTS idx_pan_profiles_pan_hash ON pan_profiles (pan_hash);
 
 -- USER rows: added by the user, all identity fields required.
--- EMAIL rows: derived from bank emails; only masked last4 + bank are known.
+-- EMAIL rows: derived from bank emails; only bank, masked last4 and the card's name (from the
+-- subject) are known. Some banks' emails never show the digits (HDFC Pixel, Scapia, OneCard): the
+-- name alone identifies those cards.
 CREATE TABLE IF NOT EXISTS credit_cards (
   id                UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
   pan_profile_id    UUID          NOT NULL REFERENCES pan_profiles(id) ON DELETE CASCADE,
   source            record_source NOT NULL DEFAULT 'USER',
   card_number_hash  TEXT,
-  card_number_last4 CHAR(4)       NOT NULL,
+  card_number_last4 CHAR(4),
+  card_name         VARCHAR(60),                 -- e.g. 'Pixel Play'; NULL when the subject names none
+  -- A card is its digits when known, otherwise its name: a name stored next to the digits never
+  -- makes a second card.
+  card_key          VARCHAR(60)   GENERATED ALWAYS AS (COALESCE(card_number_last4, card_name)) STORED,
   card_network      card_network,
   issuing_bank      VARCHAR(100)  NOT NULL,
   card_variant      card_variant  NOT NULL DEFAULT 'CLASSIC',
@@ -116,6 +122,10 @@ CREATE TABLE IF NOT EXISTS credit_cards (
   billing_cycle_day SMALLINT      CHECK (billing_cycle_day BETWEEN 1 AND 31),
   created_at        TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
   updated_at        TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  -- USER cards keep their digits; an EMAIL card needs its digits or its name.
+  CONSTRAINT credit_cards_identity_required CHECK (
+    card_number_last4 IS NOT NULL OR (source = 'EMAIL' AND card_name IS NOT NULL)
+  ),
   CONSTRAINT credit_cards_user_fields_required CHECK (
     source <> 'USER' OR (
       card_number_hash IS NOT NULL AND card_network IS NOT NULL
@@ -129,7 +139,7 @@ CREATE INDEX IF NOT EXISTS idx_credit_cards_status         ON credit_cards (stat
 CREATE UNIQUE INDEX IF NOT EXISTS uq_credit_cards_card_number_hash
   ON credit_cards (card_number_hash) WHERE card_number_hash IS NOT NULL;
 CREATE UNIQUE INDEX IF NOT EXISTS uq_credit_cards_email
-  ON credit_cards (pan_profile_id, issuing_bank, card_number_last4) WHERE source = 'EMAIL';
+  ON credit_cards (pan_profile_id, issuing_bank, card_key) WHERE source = 'EMAIL';
 
 CREATE TABLE IF NOT EXISTS refresh_tokens (
   id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -200,7 +210,8 @@ CREATE TABLE IF NOT EXISTS card_statements (
   credit_card_id      UUID          NOT NULL REFERENCES credit_cards(id) ON DELETE CASCADE,
   mail_connection_id  UUID          NOT NULL REFERENCES mail_connections(id) ON DELETE CASCADE,
   statement_date      DATE          NOT NULL,
-  due_date            DATE          NOT NULL,
+  -- No due date only on a statement with nothing due ("No Payment Due").
+  due_date            DATE,
   total_amount_due    NUMERIC(15,2) NOT NULL,
   minimum_amount_due  NUMERIC(15,2),
   password_hint       TEXT,
@@ -208,6 +219,7 @@ CREATE TABLE IF NOT EXISTS card_statements (
   attachment_locator  TEXT,
   attachment_filename VARCHAR(255),
   created_at          TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  CONSTRAINT card_statements_due_date_required CHECK (due_date IS NOT NULL OR total_amount_due <= 0),
   CONSTRAINT uq_card_statements_card_mailbox_date UNIQUE (credit_card_id, mail_connection_id, statement_date)
 );
 

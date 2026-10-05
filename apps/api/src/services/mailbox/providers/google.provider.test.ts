@@ -174,7 +174,7 @@ describe('GoogleMailProvider.search', () => {
 });
 
 describe('GoogleMailProvider.getMessage', () => {
-  it('should prefer the text/plain body and list attachments by part id', async () => {
+  it('should prefer the HTML body over a plain stub and list attachments by part id', async () => {
     spyOnFetch().mockResolvedValueOnce(
       jsonResponse({
         id: 'm1',
@@ -190,8 +190,12 @@ describe('GoogleMailProvider.getMessage', () => {
               partId: '0',
               mimeType: 'multipart/alternative',
               parts: [
-                { partId: '0.0', mimeType: 'text/plain', body: { data: b64('Total due Rs 100') } },
-                { partId: '0.1', mimeType: 'text/html', body: { data: b64('<b>ignored</b>') } },
+                { partId: '0.0', mimeType: 'text/plain', body: { data: b64('View in browser') } },
+                {
+                  partId: '0.1',
+                  mimeType: 'text/html',
+                  body: { data: b64('<b>Total due Rs 100</b>') },
+                },
               ],
             },
             {
@@ -215,7 +219,18 @@ describe('GoogleMailProvider.getMessage', () => {
     });
   });
 
-  it('should fall back to stripped HTML when there is no plain part', async () => {
+  it('should fall back to the plain body when there is no HTML part', async () => {
+    spyOnFetch().mockResolvedValueOnce(
+      jsonResponse({
+        id: 'm3',
+        internalDate: '0',
+        payload: { mimeType: 'text/plain', headers: [], body: { data: b64('Plain only') } },
+      }),
+    );
+    expect((await provider.getMessage('at', 'm3')).text).toBe('Plain only');
+  });
+
+  it('should strip an HTML-only body', async () => {
     spyOnFetch().mockResolvedValueOnce(
       jsonResponse({
         id: 'm2',

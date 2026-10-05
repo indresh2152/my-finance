@@ -9,6 +9,7 @@ const makeDb = (): { query: jest.Mock } => ({ query: jest.fn() });
 const mockCardRow = {
   id: 'card-uuid',
   card_number_last4: '4242',
+  card_name: null,
   card_network: 'VISA',
   issuing_bank: 'HDFC Bank',
   card_variant: 'PLATINUM',
@@ -93,6 +94,7 @@ describe('CreditCardsService.listByUserId', () => {
 
     const cardsSql = db.query.mock.calls[1]?.[0] as string;
     expect(cardsSql).not.toContain('source');
+    expect(cardsSql).toContain('c.card_name');
     expect(result).toEqual([
       expect.objectContaining({
         cardNetwork: null,
@@ -101,6 +103,15 @@ describe('CreditCardsService.listByUserId', () => {
         nameOnCard: null,
       }),
     ]);
+  });
+
+  it('should name a card whose emails never show its digits', async () => {
+    const db = makeDb();
+    db.query.mockResolvedValueOnce({ rows: [{ id: PAN_PROFILE_ID }] }).mockResolvedValueOnce({
+      rows: [{ ...mockCardRow, card_number_last4: null, card_name: 'Pixel Play' }],
+    });
+    const result = await new CreditCardsService(db as never).listByUserId(USER_ID, LNG);
+    expect(result[0]).toMatchObject({ cardNumberLast4: null, cardName: 'Pixel Play' });
   });
 
   it('should attach the latest statement', async () => {
@@ -127,7 +138,7 @@ describe('CreditCardsService.listByUserId', () => {
 
     const cardsSql = db.query.mock.calls[1]?.[0] as string;
     expect(cardsSql).toContain(
-      'ORDER BY due_date DESC, (attachment_locator IS NOT NULL) DESC, statement_date DESC',
+      'ORDER BY COALESCE(due_date, statement_date) DESC, (attachment_locator IS NOT NULL) DESC, statement_date DESC',
     );
     expect(card?.latestStatement).toEqual({
       id: 'stmt-1',

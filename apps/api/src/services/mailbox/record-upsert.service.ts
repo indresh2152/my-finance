@@ -22,10 +22,11 @@ export const fitFilename = (filename: string): string => {
   return filename.slice(0, MAX_FILENAME_LENGTH - extension.length) + extension;
 };
 
-const UPSERT_CARD_SQL = `INSERT INTO credit_cards (pan_profile_id, source, card_number_last4, issuing_bank, card_variant)
-   VALUES ($1, 'EMAIL', $2, $3, 'OTHER')
-   ON CONFLICT (pan_profile_id, issuing_bank, card_number_last4) WHERE source = 'EMAIL'
-   DO UPDATE SET updated_at = NOW()
+const UPSERT_CARD_SQL = `INSERT INTO credit_cards (pan_profile_id, source, card_number_last4, card_name, issuing_bank,
+                           card_variant)
+   VALUES ($1, 'EMAIL', $2, $3, $4, 'OTHER')
+   ON CONFLICT (pan_profile_id, issuing_bank, card_key) WHERE source = 'EMAIL'
+   DO UPDATE SET card_name = COALESCE(EXCLUDED.card_name, credit_cards.card_name), updated_at = NOW()
    RETURNING id`;
 
 const UPSERT_STATEMENT_SQL = `INSERT INTO card_statements (credit_card_id, mail_connection_id, statement_date, due_date, total_amount_due,
@@ -103,7 +104,8 @@ export class RecordUpsertService {
   ): Promise<string> {
     const { rows } = await client.query<{ id: string }>(UPSERT_CARD_SQL, [
       panProfileId,
-      statement.last4,
+      statement.last4 ?? null,
+      statement.cardName ?? null,
       statement.issuingBank,
     ]);
     return firstRowOrThrow(rows, 'credit_cards upsert').id;
@@ -120,7 +122,7 @@ export class RecordUpsertService {
       creditCardId,
       mailboxId,
       statement.statementDate,
-      statement.dueDate,
+      statement.dueDate ?? null,
       statement.totalDue,
       statement.minDue ?? null,
       statement.passwordHint ?? null,

@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { Pool } from 'pg';
+import { Pool, type QueryResult } from 'pg';
 import { firstRowOrThrow } from '../../utils/db.utils';
 
 // Runs only when TEST_DATABASE_URL is exported (CI / explicit local run). The database is wiped.
@@ -66,6 +66,43 @@ describeWithDb('001_initial_schema', () => {
     ).rejects.toThrow(/uq_credit_cards_email/);
   });
 
+  it('should treat a named card with digits as the same card as its digits alone', async () => {
+    await expect(
+      pool.query(
+        `INSERT INTO credit_cards (pan_profile_id, source, card_number_last4, card_name, issuing_bank)
+         VALUES ($1, 'EMAIL', '2222', 'Regalia', 'HDFC')`,
+        [panProfileId],
+      ),
+    ).rejects.toThrow(/uq_credit_cards_email/);
+  });
+
+  it('should accept an EMAIL card known only by its name, once per bank and name', async () => {
+    const insert = `INSERT INTO credit_cards (pan_profile_id, source, card_name, issuing_bank)
+                    VALUES ($1, 'EMAIL', 'Pixel Play', 'HDFC')`;
+    await expect(pool.query(insert, [panProfileId])).resolves.toBeDefined();
+    await expect(pool.query(insert, [panProfileId])).rejects.toThrow(/uq_credit_cards_email/);
+  });
+
+  it('should reject an EMAIL card with neither digits nor a name', async () => {
+    await expect(
+      pool.query(
+        `INSERT INTO credit_cards (pan_profile_id, source, issuing_bank) VALUES ($1, 'EMAIL', 'AXIS')`,
+        [panProfileId],
+      ),
+    ).rejects.toThrow(/credit_cards_identity_required/);
+  });
+
+  it('should reject a USER card without digits', async () => {
+    await expect(
+      pool.query(
+        `INSERT INTO credit_cards (pan_profile_id, source, card_number_hash, card_network, issuing_bank,
+                                   expiry_month, expiry_year, name_on_card)
+         VALUES ($1, 'USER', 'no-digits-hash', 'VISA', 'HDFC', 12, 2030, 'Test User')`,
+        [panProfileId],
+      ),
+    ).rejects.toThrow(/credit_cards_identity_required/);
+  });
+
   it('should allow a USER card and an EMAIL card with the same bank and last4', async () => {
     await expect(
       pool.query(
@@ -117,6 +154,18 @@ describeWithDb('001_initial_schema', () => {
                                     total_amount_due, source_message_id)
        VALUES ($1, $2, '2026-09-05', '2026-09-25', 1000, 'msg-1')`,
       [cardId, mailboxId],
+    );
+    const insertWithoutDueDate = (statementDate: string, total: number): Promise<QueryResult> =>
+      pool.query(
+        `INSERT INTO card_statements (credit_card_id, mail_connection_id, statement_date, due_date,
+                                      total_amount_due, source_message_id)
+         VALUES ($1, $2, $3, NULL, $4, 'msg-2')`,
+        [cardId, mailboxId, statementDate, total],
+      );
+    // Only a statement with nothing due may leave out the due date.
+    await expect(insertWithoutDueDate('2026-08-26', 0)).resolves.toBeDefined();
+    await expect(insertWithoutDueDate('2026-07-26', 100)).rejects.toThrow(
+      /card_statements_due_date_required/,
     );
     await pool.query(`DELETE FROM mail_connections WHERE id = $1`, [mailboxId]);
     const remaining = await pool.query(`SELECT 1 FROM card_statements`);

@@ -44,11 +44,23 @@ const PROVIDER_NOT_CONFIGURED = 'PROVIDER_NOT_CONFIGURED';
 const MARK_FAILED_SQL = `UPDATE mail_connections SET last_sync_status = 'FAILED', last_sync_error_code = $2, updated_at = NOW()
    WHERE id = $1`;
 
+/**
+ * Recorded in the MAILBOX_SYNC audit row. Skips are broken down by reason without any email content,
+ * so a bank whose emails stop parsing shows up there: no parser for the sender and subject, or the
+ * parser (by key) found the email but not its fields.
+ */
 export interface SyncCounts {
   readonly scanned: number;
   readonly parsed: number;
   readonly skipped: number;
+  readonly noParser: number;
+  readonly fieldsMissing: Readonly<Record<string, number>>;
 }
+
+/** Why a message produced no record: no parser, the parser (by key) found no fields, or other. */
+type Skip =
+  | { readonly reason: 'noParser' | 'other' }
+  | { readonly reason: 'fieldsMissing'; readonly parserKey: string };
 
 export interface SyncParserRegistry {
   allSenders(): string[];
@@ -99,6 +111,8 @@ interface ParseOutcome {
   readonly parserKey: string;
   readonly result: ParsedResult;
 }
+
+const OTHER_SKIP: Skip = { reason: 'other' };
 
 const errorName = (err: unknown): string => (err instanceof Error ? err.name : 'UnknownError');
 
@@ -171,9 +185,10 @@ export class MailSyncService {
   private async scan(run: SyncRun): Promise<SyncCounts> {
     const provider = getProvider(this.deps.providers, run.row.provider);
     const grant = await obtainAccess(this.deps, provider, run.row);
-    const counts = { scanned: 0, parsed: 0, skipped: 0 };
+    const counts = { scanned: 0, parsed: 0, skipped: 0, noParser: 0 };
+    const fieldsMissing: Record<string, number> = {};
     if (run.senders.length === 0) {
-      return counts;
+      return { ...counts, fieldsMissing };
     }
 
     const query = {
@@ -186,11 +201,18 @@ export class MailSyncService {
       if (seen.has(ref.id)) continue;
       seen.add(ref.id);
       counts.scanned += 1;
-      const parsed = await this.processMessage(provider, grant.accessToken, run.row, ref.id);
-      if (parsed) counts.parsed += 1;
-      else counts.skipped += 1;
+      const skip = await this.processMessage(provider, grant.accessToken, run.row, ref.id);
+      if (skip === null) {
+        counts.parsed += 1;
+        continue;
+      }
+      counts.skipped += 1;
+      if (skip.reason === 'noParser') counts.noParser += 1;
+      if (skip.reason === 'fieldsMissing') {
+        fieldsMissing[skip.parserKey] = (fieldsMissing[skip.parserKey] ?? 0) + 1;
+      }
     }
-    return counts;
+    return { ...counts, fieldsMissing };
   }
 
   /** Incremental from the last sync (minus overlap), unless it never ran or the sender set changed. */
@@ -203,19 +225,18 @@ export class MailSyncService {
     return new Date(lastSyncedAt.getTime() - OVERLAP_MS);
   }
 
-  /** Returns true when the message produced a record, false when it was skipped. */
+  /** Null when the message produced a record, otherwise why it was skipped. */
   private async processMessage(
     provider: MailProvider,
     accessToken: string,
     row: SyncRow,
     messageId: string,
-  ): Promise<boolean> {
+  ): Promise<Skip | null> {
     const email = await this.fetchMessage(provider, accessToken, messageId);
-    const outcome = email ? this.parse(email) : null;
-    if (!email || !outcome) {
-      return false;
-    }
-    return this.applyOutcome(row, email.id, outcome);
+    if (!email) return OTHER_SKIP;
+    const outcome = this.parse(email);
+    if ('reason' in outcome) return outcome;
+    return (await this.applyOutcome(row, email.id, outcome)) ? null : OTHER_SKIP;
   }
 
   /**
@@ -254,18 +275,20 @@ export class MailSyncService {
     }
   }
 
-  private parse(email: ParsedEmail): ParseOutcome | null {
+  private parse(email: ParsedEmail): ParseOutcome | Skip {
     const parser = this.deps.parsers.find({ from: email.from, subject: email.subject });
-    if (!parser) return null;
+    if (!parser) return { reason: 'noParser' };
     try {
       const result = parser.parse(email);
-      return result ? { parserKey: parser.key, result } : null;
+      return result
+        ? { parserKey: parser.key, result }
+        : { reason: 'fieldsMissing', parserKey: parser.key };
     } catch (err) {
       logger.warn(
         { parserKey: parser.key, messageId: email.id, errName: errorName(err) },
         'parser failed; email skipped',
       );
-      return null;
+      return OTHER_SKIP;
     }
   }
 }

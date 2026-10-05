@@ -62,6 +62,8 @@ describe('MailSyncService.syncMailbox', () => {
       scanned: 2,
       parsed: 2,
       skipped: 0,
+      noParser: 0,
+      fieldsMissing: {},
     });
 
     expect(provider.getAccessToken).toHaveBeenCalledWith('rt');
@@ -78,7 +80,14 @@ describe('MailSyncService.syncMailbox', () => {
       expect.arrayContaining([
         'user-1',
         'MAILBOX_SYNC',
-        JSON.stringify({ provider: 'GOOGLE', scanned: 2, parsed: 2, skipped: 0 }),
+        JSON.stringify({
+          provider: 'GOOGLE',
+          scanned: 2,
+          parsed: 2,
+          skipped: 0,
+          noParser: 0,
+          fieldsMissing: {},
+        }),
       ]),
     );
   });
@@ -156,6 +165,9 @@ describe('MailSyncService.syncMailbox', () => {
       scanned: 5,
       parsed: 1,
       skipped: 4,
+      // Why, without any email content: 'otp' matched no parser, 'null' had no fields.
+      noParser: 1,
+      fieldsMissing: { 'hdfc.cc-statement': 1 },
     });
     expect(upserts.apply).toHaveBeenCalledTimes(1);
     expect(mockLogger.warn).toHaveBeenCalledWith(
@@ -181,6 +193,8 @@ describe('MailSyncService.syncMailbox', () => {
       scanned: 0,
       parsed: 0,
       skipped: 0,
+      noParser: 0,
+      fieldsMissing: {},
     });
     expect(provider.search).not.toHaveBeenCalled();
     expect(paramsWhere(db.query, SUCCEEDED)).toEqual(['mb-1', NOW, sha256Hex('')]);

@@ -254,9 +254,14 @@ Returns a summary of all financial instruments linked to the user's PAN — one 
 Returns all credit cards linked to the user's PAN, whatever their source — in practice the cards
 found in the user's linked mailboxes. Email-derived cards only carry the bank and last 4 digits, so
 `cardNetwork`, `nameOnCard`, `expiryMonth`, `expiryYear` and the amount fields may be `null`.
-Each card carries its `latestStatement` — the newest billing cycle (latest due date) across all
-linked mailboxes, preferring the email that had the PDF — or `null`. Statement dates are `YYYY-MM-DD`; amounts are INR numbers (the UI
-masks them). `passwordHint` is the bank's description of the PDF password format, never the password.
+`cardName` is the card's name from the statement email subject (e.g. `"Pixel Play"`, `"Amazon Pay"`),
+or `null` when the subject names none. Some banks' statement emails never show the card's digits
+(HDFC Pixel, Scapia, OneCard): those cards have `cardNumberLast4: null` and always a `cardName`.
+Each card carries its `latestStatement` — the newest billing cycle (latest due date, or statement
+date when nothing was due) across all linked mailboxes, preferring the email that had the PDF — or
+`null`. Statement dates are `YYYY-MM-DD`; `dueDate` is `null` only when nothing is due ("No Payment
+Due"). Amounts are INR numbers (the UI masks them). `passwordHint` is the bank's description of the
+PDF password format, never the password, and never holds a date, ID or sample password.
 
 **Response 200**
 ```json
@@ -265,6 +270,7 @@ masks them). `passwordHint` is the bank's description of the PDF password format
     {
       "id": "uuid",
       "cardNumberLast4": "1234",
+      "cardName": "Regalia",
       "cardNetwork": "VISA",
       "issuingBank": "HDFC Bank",
       "cardVariant": "PLATINUM",

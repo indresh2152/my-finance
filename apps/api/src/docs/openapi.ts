@@ -68,7 +68,7 @@ const buildOpenApiDocument = (lng: string): OpenAPIObject => {
     z.object({
       id: z.string().uuid(),
       statementDate: z.string().date(),
-      dueDate: z.string().date(),
+      dueDate: z.string().date().nullable().describe(t('schemas.dueDate')),
       totalAmountDue: z.number().describe(t('schemas.inrAmount')),
       minimumAmountDue: z.number().nullable().describe(t('schemas.inrAmount')),
       passwordHint: z.string().nullable().describe(t('schemas.passwordHint')),
@@ -80,7 +80,8 @@ const buildOpenApiDocument = (lng: string): OpenAPIObject => {
     'CreditCard',
     z.object({
       id: z.string().uuid(),
-      cardNumberLast4: z.string().length(4),
+      cardNumberLast4: z.string().length(4).nullable().describe(t('schemas.cardNumberLast4')),
+      cardName: z.string().nullable().describe(t('schemas.cardName')),
       cardNetwork: z.string().nullable(),
       issuingBank: z.string(),
       cardVariant: z.string(),

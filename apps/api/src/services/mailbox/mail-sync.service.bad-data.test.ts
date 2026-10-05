@@ -29,6 +29,8 @@ describe('MailSyncService.syncMailbox with records the database rejects', () => 
       scanned: 2,
       parsed: 1,
       skipped: 1,
+      noParser: 0,
+      fieldsMissing: {},
     });
     expect(upserts.apply).toHaveBeenCalledTimes(2);
     expect(mockLogger.warn).toHaveBeenCalledWith(
@@ -48,6 +50,8 @@ describe('MailSyncService.syncMailbox with records the database rejects', () => 
       scanned: 1,
       parsed: 0,
       skipped: 1,
+      noParser: 0,
+      fieldsMissing: {},
     });
   });
 

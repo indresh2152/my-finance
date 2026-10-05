@@ -97,7 +97,8 @@ export const cardStatements = pgTable(
       .notNull()
       .references(() => mailConnections.id, { onDelete: 'cascade' }),
     statementDate: date('statement_date').notNull(),
-    dueDate: date('due_date').notNull(),
+    /** Null only on a statement with nothing due ('No Payment Due'). */
+    dueDate: date('due_date'),
     totalAmountDue: numeric('total_amount_due', { precision: 15, scale: 2 }).notNull(),
     minimumAmountDue: numeric('minimum_amount_due', { precision: 15, scale: 2 }),
     passwordHint: text('password_hint'),
@@ -107,6 +108,10 @@ export const cardStatements = pgTable(
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [
+    check(
+      'card_statements_due_date_required',
+      sql`${t.dueDate} IS NOT NULL OR ${t.totalAmountDue} <= 0`,
+    ),
     unique('uq_card_statements_card_mailbox_date').on(
       t.creditCardId,
       t.mailConnectionId,

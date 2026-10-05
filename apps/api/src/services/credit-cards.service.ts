@@ -4,7 +4,8 @@ import { i18next } from '../i18n';
 
 interface CreditCardRow {
   id: string;
-  card_number_last4: string;
+  card_number_last4: string | null;
+  card_name: string | null;
   card_network: string | null;
   issuing_bank: string;
   card_variant: string;
@@ -23,7 +24,8 @@ interface CreditCardRow {
 export interface CardStatement {
   id: string;
   statementDate: string; // YYYY-MM-DD
-  dueDate: string; // YYYY-MM-DD
+  /** Null only when nothing is due. */
+  dueDate: string | null; // YYYY-MM-DD
   totalAmountDue: number;
   minimumAmountDue: number | null;
   passwordHint: string | null;
@@ -33,7 +35,9 @@ export interface CardStatement {
 
 export interface CreditCard {
   id: string;
-  cardNumberLast4: string;
+  /** Null for a card whose bank's emails never show its digits; cardName then names it. */
+  cardNumberLast4: string | null;
+  cardName: string | null;
   cardNetwork: string | null;
   issuingBank: string;
   cardVariant: string;
@@ -49,10 +53,11 @@ export interface CreditCard {
 }
 
 /**
- * Latest statement per card across all mailboxes: the newest billing cycle (due date), preferring a
- * row with a PDF, so a reminder email for the same cycle cannot hide the statement.
+ * Latest statement per card across all mailboxes: the newest billing cycle (its due date, or its
+ * statement date when nothing was due), preferring a row with a PDF, so a reminder email for the
+ * same cycle cannot hide the statement.
  */
-const LIST_CARDS_SQL = `SELECT c.id, c.card_number_last4, c.card_network, c.issuing_bank, c.card_variant,
+const LIST_CARDS_SQL = `SELECT c.id, c.card_number_last4, c.card_name, c.card_network, c.issuing_bank, c.card_variant,
           c.expiry_month, c.expiry_year, c.name_on_card, c.status,
           c.credit_limit, c.available_credit, c.current_balance, c.billing_cycle_day,
           CASE WHEN s.id IS NULL THEN NULL ELSE json_build_object(
@@ -70,7 +75,7 @@ const LIST_CARDS_SQL = `SELECT c.id, c.card_number_last4, c.card_network, c.issu
             attachment_locator
      FROM card_statements
      WHERE credit_card_id = c.id
-     ORDER BY due_date DESC, (attachment_locator IS NOT NULL) DESC, statement_date DESC, created_at DESC
+     ORDER BY COALESCE(due_date, statement_date) DESC, (attachment_locator IS NOT NULL) DESC, statement_date DESC, created_at DESC
      LIMIT 1
    ) s ON TRUE
    WHERE c.pan_profile_id = $1
@@ -81,6 +86,7 @@ const toDecimal = (v: string | null): number | null => (v !== null ? parseFloat(
 const toCard = (row: CreditCardRow): CreditCard => ({
   id: row.id,
   cardNumberLast4: row.card_number_last4,
+  cardName: row.card_name,
   cardNetwork: row.card_network,
   issuingBank: row.issuing_bank,
   cardVariant: row.card_variant,

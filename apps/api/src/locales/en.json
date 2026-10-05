@@ -80,6 +80,9 @@
       "inrAmount": "Amount in INR (₹).",
       "emailMasked": "Mailbox address with most of the local part hidden.",
       "passwordHint": "The bank's description of the statement password format, taken from the email. Never the password itself.",
+      "dueDate": "Null only when the statement has nothing due.",
+      "cardNumberLast4": "Last 4 digits of the card. Null when the bank's statement emails never show them; cardName names the card instead.",
+      "cardName": "The card's name from the statement email subject (e.g. Pixel Play, Amazon Pay). Null when the subject names none.",
       "downloadAvailable": "Whether the statement email had a PDF that can be downloaded.",
       "bankCode": "Bank code, e.g. HDFC, ICICI, SBI, AXIS or KOTAK.",
       "balanceAsOf": "When the balance was reported: the email's date, or the date stated in it."

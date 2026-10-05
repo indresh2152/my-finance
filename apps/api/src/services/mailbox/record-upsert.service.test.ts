@@ -54,9 +54,9 @@ describe('RecordUpsertService.apply', () => {
     expect(sql[0]).toBe('BEGIN');
     expect(sql[1]).toContain('INSERT INTO credit_cards');
     expect(sql[1]).toContain(
-      "ON CONFLICT (pan_profile_id, issuing_bank, card_number_last4) WHERE source = 'EMAIL'",
+      "ON CONFLICT (pan_profile_id, issuing_bank, card_key) WHERE source = 'EMAIL'",
     );
-    expect(paramsAt(client, 1)).toEqual(['pan-1', '1234', 'HDFC']);
+    expect(paramsAt(client, 1)).toEqual(['pan-1', '1234', null, 'HDFC']);
     expect(sql[2]).toContain('INSERT INTO card_statements');
     expect(paramsAt(client, 2)).toEqual([
       'row-id',
@@ -72,6 +72,22 @@ describe('RecordUpsertService.apply', () => {
     ]);
     expect(sql[3]).toBe('COMMIT');
     expect(client.release).toHaveBeenCalled();
+  });
+
+  it('should key a card without digits on its name, with no due date when nothing is due', async () => {
+    const { pool, client } = makePool();
+    const named: CardStatementResult = {
+      ...statement,
+      last4: undefined,
+      cardName: 'Pixel Play',
+      dueDate: undefined,
+      totalDue: 0,
+    };
+    await new RecordUpsertService(pool as never).apply('pan-1', 'mb-1', named, 'msg-1');
+    expect(paramsAt(client, 1)).toEqual(['pan-1', null, 'Pixel Play', 'HDFC']);
+    expect(paramsAt(client, 2)).toEqual(
+      expect.arrayContaining(['row-id', 'mb-1', '2026-09-05', null, 0]),
+    );
   });
 
   it('should store nulls for optional statement fields', async () => {

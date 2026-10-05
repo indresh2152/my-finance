@@ -26,6 +26,28 @@ describe('htmlToText', () => {
     expect(htmlToText('&#38;lt; &amp;nbsp; &#x26;amp;')).toBe('&lt; &nbsp; &amp;');
   });
 
+  it('should collapse CRLF line breaks between nested cells', () => {
+    const html =
+      '<table><tr><td>\r\n<table><tr><td>Total amount due</td></tr>\r\n</table>\r\n</td></tr></table>\r\n\r\n<p>Rs 5</p>';
+    expect(htmlToText(html)).toBe('Total amount due\nRs 5');
+  });
+
+  it('should turn non-breaking spaces into spaces', () => {
+    expect(htmlToText('&#8377;&#160;2,427.31 and ₹\u00A01\u202F2')).toBe('₹ 2,427.31 and ₹ 1 2');
+  });
+
+  it('should drop an unclosed style block to the end', () => {
+    expect(htmlToText('Total<style>.a{} Hidden')).toBe('Total');
+  });
+
+  it('should stay fast on hostile HTML', () => {
+    const started = Date.now();
+    htmlToText('<'.repeat(200_000));
+    htmlToText('<style>'.repeat(30_000));
+    htmlToText('<a'.repeat(100_000));
+    expect(Date.now() - started).toBeLessThan(1000);
+  });
+
   it('should convert br tags to new lines', () => {
     expect(htmlToText('line1<br/>line2<BR>line3')).toBe('line1\nline2\nline3');
   });

@@ -20,6 +20,7 @@ vi.mock('../services/navigation', () => ({ redirectTo: vi.fn() }));
 const mockCard: CreditCard = {
   id: 'card-1',
   cardNumberLast4: '4242',
+  cardName: null,
   cardNetwork: 'VISA',
   issuingBank: 'HDFC Bank',
   cardVariant: 'PLATINUM',
@@ -158,6 +159,19 @@ describe('CreditCardsPage — cards', () => {
   it('should display credit limit formatted in INR', async () => {
     renderPage();
     expect(await screen.findByText(/5,00,000/)).toBeInTheDocument();
+  });
+
+  it("should show a card's name before its digits", async () => {
+    cards = [{ ...emailCard, cardName: 'Amazon Pay' }];
+    renderPage();
+    expect(await screen.findByText('Amazon Pay •••• 9876')).toBeInTheDocument();
+  });
+
+  it('should name a card whose bank emails never show its digits', async () => {
+    cards = [{ ...emailCard, issuingBank: 'HDFC', cardNumberLast4: null, cardName: 'Pixel Play' }];
+    renderPage();
+    expect(await screen.findByText('Pixel Play')).toBeInTheDocument();
+    expect(screen.queryByText(/••••/)).not.toBeInTheDocument();
   });
 
   it('should leave out details a bank email did not reveal', async () => {

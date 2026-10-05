@@ -58,7 +58,7 @@ export const StatementDetails: React.FC<StatementDetailsProps> = ({
       )}
       <DetailRow label={t('statement.dueBy')}>
         <Typography variant="caption" fontWeight={600}>
-          {formatDate(statement.dueDate)}
+          {statement.dueDate !== null ? formatDate(statement.dueDate) : t('statement.noPaymentDue')}
         </Typography>
       </DetailRow>
       <DetailRow label={t('statement.statementDate')}>

@@ -89,7 +89,8 @@ export const panProfiles = pgTable('pan_profiles', {
 });
 
 // USER rows: added by the user, all identity fields required.
-// EMAIL rows: derived from bank emails; only masked last4 + bank are known.
+// EMAIL rows: derived from bank emails; only bank, masked last4 and the card's name are known. Some
+// banks' emails never show the digits: the name alone identifies those cards.
 export const creditCards = pgTable(
   'credit_cards',
   {
@@ -99,7 +100,12 @@ export const creditCards = pgTable(
       .references(() => panProfiles.id, { onDelete: 'cascade' }),
     source: recordSourceEnum('source').notNull().default('USER'),
     cardNumberHash: text('card_number_hash'),
-    cardNumberLast4: char('card_number_last4', { length: 4 }).notNull(),
+    cardNumberLast4: char('card_number_last4', { length: 4 }),
+    cardName: varchar('card_name', { length: 60 }),
+    /** The card's identity: its digits when known, otherwise its name. */
+    cardKey: varchar('card_key', { length: 60 }).generatedAlwaysAs(
+      sql`COALESCE(card_number_last4, card_name)`,
+    ),
     cardNetwork: cardNetworkEnum('card_network'),
     issuingBank: varchar('issuing_bank', { length: 100 }).notNull(),
     cardVariant: cardVariantEnum('card_variant').notNull().default('CLASSIC'),
@@ -119,8 +125,12 @@ export const creditCards = pgTable(
       .on(t.cardNumberHash)
       .where(sql`${t.cardNumberHash} IS NOT NULL`),
     uniqueIndex('uq_credit_cards_email')
-      .on(t.panProfileId, t.issuingBank, t.cardNumberLast4)
+      .on(t.panProfileId, t.issuingBank, t.cardKey)
       .where(sql`${t.source} = 'EMAIL'`),
+    check(
+      'credit_cards_identity_required',
+      sql`${t.cardNumberLast4} IS NOT NULL OR (${t.source} = 'EMAIL' AND ${t.cardName} IS NOT NULL)`,
+    ),
     check(
       'credit_cards_user_fields_required',
       sql`${t.source} <> 'USER' OR (${t.cardNumberHash} IS NOT NULL AND ${t.cardNetwork} IS NOT NULL AND ${t.expiryMonth} IS NOT NULL AND ${t.expiryYear} IS NOT NULL AND ${t.nameOnCard} IS NOT NULL)`,

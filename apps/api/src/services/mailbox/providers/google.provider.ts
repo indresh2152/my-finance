@@ -1,4 +1,4 @@
-import { htmlToText } from '../../../utils/html-to-text';
+import { htmlToText, normaliseText } from '../../../utils/html-to-text';
 import { extractAddress } from '../../../parsers/sender-match';
 import { FORM_CONTENT_TYPE, getJson, postTokenForm } from './provider-http';
 import {
@@ -165,10 +165,11 @@ export class GoogleMailProvider implements MailProvider {
     const parts = flattenParts(message.payload);
     const plain = findBodyPart(parts, 'text/plain');
     const html = findBodyPart(parts, 'text/html');
-    const text = plain?.body?.data
-      ? decodeBody(plain.body.data)
-      : html?.body?.data
-        ? htmlToText(decodeBody(html.body.data))
+    // HTML first: it is what the reader sees, while a plain part is often a 'view in browser' stub.
+    const text = html?.body?.data
+      ? htmlToText(decodeBody(html.body.data))
+      : plain?.body?.data
+        ? normaliseText(decodeBody(plain.body.data))
         : '';
     const attachments: EmailAttachment[] = parts.filter(isAttachmentPart).map((part) => ({
       locator: part.partId,

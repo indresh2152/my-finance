@@ -136,7 +136,9 @@ CREATE TABLE credit_cards (
   pan_profile_id    UUID          NOT NULL REFERENCES pan_profiles(id) ON DELETE CASCADE,
   source            record_source NOT NULL DEFAULT 'USER',
   card_number_hash  TEXT,                        -- HMAC of full 16-digit card number; NULL for EMAIL rows
-  card_number_last4 CHAR(4)       NOT NULL,
+  card_number_last4 CHAR(4),                     -- NULL only for EMAIL cards whose emails never show digits
+  card_name         VARCHAR(60),                 -- card's name from the email subject ('Pixel Play'), if any
+  card_key          VARCHAR(60)   GENERATED ALWAYS AS (COALESCE(card_number_last4, card_name)) STORED,
   card_network      card_network,
   issuing_bank      VARCHAR(100)  NOT NULL,
   card_variant      card_variant  NOT NULL DEFAULT 'CLASSIC',
@@ -150,6 +152,9 @@ CREATE TABLE credit_cards (
   billing_cycle_day SMALLINT      CHECK (billing_cycle_day BETWEEN 1 AND 31),
   created_at        TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
   updated_at        TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  CONSTRAINT credit_cards_identity_required CHECK (
+    card_number_last4 IS NOT NULL OR (source = 'EMAIL' AND card_name IS NOT NULL)
+  ),
   CONSTRAINT credit_cards_user_fields_required CHECK (
     source <> 'USER' OR (
       card_number_hash IS NOT NULL AND card_network IS NOT NULL
@@ -163,10 +168,10 @@ CREATE INDEX idx_credit_cards_status         ON credit_cards (status);
 CREATE UNIQUE INDEX uq_credit_cards_card_number_hash
   ON credit_cards (card_number_hash) WHERE card_number_hash IS NOT NULL;
 CREATE UNIQUE INDEX uq_credit_cards_email
-  ON credit_cards (pan_profile_id, issuing_bank, card_number_last4) WHERE source = 'EMAIL';
+  ON credit_cards (pan_profile_id, issuing_bank, card_key) WHERE source = 'EMAIL';
 ```
 
-`source` distinguishes user-added (`USER`) from email-derived (`EMAIL`) cards. EMAIL rows carry only bank + last4; the `credit_cards_user_fields_required` CHECK keeps USER rows unchanged. EMAIL rows are unique per `(pan_profile_id, issuing_bank, card_number_last4)`.
+`source` distinguishes user-added (`USER`) from email-derived (`EMAIL`) cards. EMAIL rows carry only bank, last4 and `card_name` (the card's name from the email subject, when it names one); some banks' statement emails never show the digits (HDFC Pixel, Scapia, OneCard), so `credit_cards_identity_required` needs last4 or a name, and the `credit_cards_user_fields_required` CHECK keeps USER rows unchanged. An EMAIL card is its digits when known, otherwise its name: the generated `card_key` holds that, and rows are unique per `(pan_profile_id, issuing_bank, card_key)`, so storing a name next to the digits never creates a second card.
 
 ---
 
@@ -271,7 +276,7 @@ CREATE TABLE card_statements (
   credit_card_id      UUID          NOT NULL REFERENCES credit_cards(id) ON DELETE CASCADE,
   mail_connection_id  UUID          NOT NULL REFERENCES mail_connections(id) ON DELETE CASCADE,
   statement_date      DATE          NOT NULL,
-  due_date            DATE          NOT NULL,
+  due_date            DATE,                        -- NULL only when nothing is due ("No Payment Due")
   total_amount_due    NUMERIC(15,2) NOT NULL,
   minimum_amount_due  NUMERIC(15,2),
   password_hint       TEXT,                       -- bank's wording, verbatim-ish; never the password
@@ -279,6 +284,7 @@ CREATE TABLE card_statements (
   attachment_locator  TEXT,                        -- Gmail MIME partId | Graph attachment id; NULL = no PDF
   attachment_filename VARCHAR(255),
   created_at          TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  CONSTRAINT card_statements_due_date_required CHECK (due_date IS NOT NULL OR total_amount_due <= 0),
   CONSTRAINT uq_card_statements_card_mailbox_date UNIQUE (credit_card_id, mail_connection_id, statement_date)
 );
 

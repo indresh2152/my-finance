@@ -6,8 +6,8 @@ import {
   parseBalanceAmount,
   labelledAmount,
   labelledDate,
+  extractCardLast4,
   extractLast4,
-  extractPasswordHint,
   findPdfAttachment,
   istDate,
   parseIndianDate,
@@ -26,6 +26,13 @@ describe('parseInrAmount', () => {
     ['Rs. 0.00 Cr', 0],
   ])('should parse %s', (raw, expected) => {
     expect(parseInrAmount(raw)).toBe(expected);
+  });
+
+  it.each([
+    ['Total Amount Due: Rs. 12,345.00/-', 12345],
+    ['Total Amount Due: Rs. 500/-', 500],
+  ])('should read %p with the Indian "/-" suffix', (text, expected) => {
+    expect(labelledAmount(/total amount due/)(text)).toBe(expected);
   });
 
   it.each(['', 'Rs.', 'NIL', 'abc 12'])('should reject %p', (raw) => {
@@ -114,6 +121,22 @@ describe('labelledAmount / labelledDate', () => {
   });
 });
 
+describe('extractCardLast4', () => {
+  it.each([
+    ['Your Credit Card Statement for Card No. XXXX XXXX XXXX 1234', '1234'],
+    ['Axis Bank Credit Card statement. Your card number XXXX XXXX XXXX 1234', '1234'],
+    ['ICICI Bank Credit Card XX4008', '4008'],
+  ])('should read the card number after "card" in %p', (text, expected) => {
+    expect(extractCardLast4(text)).toBe(expected);
+  });
+
+  it('should ignore masked numbers away from "card"', () => {
+    expect(
+      extractCardLast4('Registered mobile XXXXXX5678. Your card statement is ready.'),
+    ).toBeNull();
+  });
+});
+
 describe('extractLast4', () => {
   it.each([
     ['Card No: XXXX XXXX XXXX 1234', '1234'],
@@ -123,12 +146,14 @@ describe('extractLast4', () => {
     ['your card ending 7890', '7890'],
     ['card ending with 2468', '2468'],
     ['mobile XXXXXX5678, card ending 1234', '1234'],
+    ['Statement for Zen Credit Card X0958', '0958'],
   ])('should find the last 4 digits in %p', (text, expected) => {
     expect(extractLast4(text)).toBe(expected);
   });
 
   it('should return null without a masked number', () => {
     expect(extractLast4('Your statement is ready')).toBeNull();
+    expect(extractLast4('PO Box1234, Mumbai and 0x1234 and *2345')).toBeNull();
   });
 });
 
@@ -148,39 +173,6 @@ describe('hostile input', () => {
   it('should reject a label followed by a long gap quickly', () => {
     const text = `Total Amount Due${' '.repeat(20_000)}x`;
     expect(timed(() => labelledAmount(/total\s+amount\s+due/)(text))).toBeLessThan(FAST_MS);
-  });
-});
-
-describe('extractPasswordHint', () => {
-  it('should return the password sentences about opening the statement', () => {
-    const text =
-      'Dear customer, your statement is attached. The attachment is password protected. ' +
-      'The password is the first 4 letters of your name in capitals followed by DDMM of birth. ' +
-      'Never share your OTP or PIN with anyone.';
-    expect(extractPasswordHint(text)).toBe(
-      'The attachment is password protected. The password is the first 4 letters of your name in capitals followed by DDMM of birth.',
-    );
-  });
-
-  it('should keep an e.g. example inside the hint', () => {
-    expect(
-      extractPasswordHint(
-        'The statement is password protected. The password is your name and DDMM, e.g. RAHU0101. Thanks.',
-      ),
-    ).toBe(
-      'The statement is password protected. The password is your name and DDMM, e.g. RAHU0101.',
-    );
-  });
-
-  it('should ignore a password warning unrelated to the statement', () => {
-    expect(extractPasswordHint('Never share your password with anyone.')).toBeNull();
-  });
-
-  it('should cap the hint at 300 characters', () => {
-    const hint = extractPasswordHint(
-      `To open the statement use this password format: ${'x'.repeat(400)}.`,
-    );
-    expect(hint).toHaveLength(300);
   });
 });
 

@@ -1,4 +1,4 @@
-import { htmlToText } from '../../../utils/html-to-text';
+import { htmlToText, normaliseText } from '../../../utils/html-to-text';
 import { matchesSender } from '../../../parsers/sender-match';
 import { getJson, postTokenForm } from './provider-http';
 import {
@@ -21,7 +21,6 @@ const SCOPES =
   'offline_access https://graph.microsoft.com/Mail.Read https://graph.microsoft.com/User.Read';
 const PAGE_SIZE = 100;
 const HTTP_BAD_REQUEST = 400;
-const TEXT_BODY_PREFERENCE = 'outlook.body-content-type="text"';
 const DEFAULT_MIME_TYPE = 'application/octet-stream';
 const HTML_CONTENT_TYPE = 'html';
 
@@ -174,7 +173,6 @@ export class MicrosoftMailProvider implements MailProvider {
       this.key,
       `${GRAPH}/me/messages/${encodeURIComponent(id)}?$select=from,subject,receivedDateTime,body&$expand=attachments($select=id,name,contentType)`,
       accessToken,
-      { Prefer: TEXT_BODY_PREFERENCE },
     );
     const content = message.body?.content ?? '';
     return {
@@ -182,7 +180,11 @@ export class MicrosoftMailProvider implements MailProvider {
       from: (message.from?.emailAddress?.address ?? '').toLowerCase(),
       subject: message.subject ?? '',
       receivedAt: new Date(message.receivedDateTime),
-      text: message.body?.contentType === HTML_CONTENT_TYPE ? htmlToText(content) : content.trim(),
+      // The HTML body, as Gmail's: Graph's own text conversion would skip our clean-up.
+      text:
+        message.body?.contentType === HTML_CONTENT_TYPE
+          ? htmlToText(content)
+          : normaliseText(content),
       attachments: (message.attachments ?? []).map(toEmailAttachment),
     };
   }

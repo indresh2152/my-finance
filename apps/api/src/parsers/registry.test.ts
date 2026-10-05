@@ -57,7 +57,7 @@ describe('ParserRegistry', () => {
     expect(new ParserRegistry(BANK_PARSERS).allSenders()).toEqual(
       expect.arrayContaining(['@hdfcbank.net', '@sbi.co.in']),
     );
-    expect(BANK_PARSERS).toHaveLength(10);
+    expect(BANK_PARSERS).toHaveLength(11);
     expect(new ParserRegistry(BANK_PARSERS).allSubjectKeywords()).toEqual([
       'statement',
       'estatement',

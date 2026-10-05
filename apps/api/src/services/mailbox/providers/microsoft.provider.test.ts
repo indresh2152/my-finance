@@ -203,7 +203,8 @@ describe('MicrosoftMailProvider.getMessage', () => {
       attachments: [{ locator: 'a1', filename: 'stmt.pdf', mimeType: 'application/pdf' }],
     });
     const headers = initAt(fetchSpy, 0).headers as Record<string, string>;
-    expect(headers['Prefer']).toBe('outlook.body-content-type="text"');
+    // No text preference: Graph returns the HTML body, which goes through htmlToText.
+    expect(headers['Prefer']).toBeUndefined();
   });
 
   it('should strip an HTML body and tolerate missing fields', async () => {

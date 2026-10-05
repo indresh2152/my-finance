@@ -12,4 +12,20 @@ export const BANK_SENDERS: Readonly<Record<BankCode, readonly string[]>> = {
   SBI_CARD: ['@sbicard.com'],
   AXIS: ['@axisbank.com', '@axis.bank.in'],
   KOTAK: ['@kotak.com', '@kotakbank.com', '@kotak.bank.in'],
+  // Federal Bank's co-branded cards mail from their partners: Scapia, and OneCard (getonecard.app).
+  FEDERAL: ['@federalbank.co.in', '@federal.bank.in', '@getonecard.app'],
+};
+
+/**
+ * Words naming the bank in its card emails' subjects ('Your HDFC Bank Pixel Play Credit Card
+ * Statement'), so they are not taken for the card's name. A Record, so a new bank needs its entry.
+ */
+export const BANK_NAME_WORDS: Readonly<Record<BankCode, readonly string[]>> = {
+  HDFC: ['hdfc'],
+  ICICI: ['icici'],
+  SBI: ['sbi', 'state'],
+  SBI_CARD: ['sbi'],
+  AXIS: ['axis'],
+  KOTAK: ['kotak', 'mahindra'],
+  FEDERAL: ['federal'],
 };
