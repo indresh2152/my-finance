@@ -1,5 +1,6 @@
 import type { ParsedEmail } from '../../services/mailbox/providers/mail-provider';
 import { ParserRegistry } from '../registry';
+import { htmlToText } from '../../utils/html-to-text';
 import { CARD_STATEMENT_PARSERS } from './card-statements';
 
 // Synthetic emails following each bank's publicly known wording; no real samples exist yet.
@@ -55,7 +56,7 @@ const FIXTURES: Array<[string, ParsedEmail, Record<string, unknown>]> = [
     {
       issuingBank: 'ICICI',
       last4: '5678',
-      statementDate: '2026-09-06',
+      statementDate: '2026-09-04',
       dueDate: '2026-09-22',
       totalDue: 8000,
       minDue: 400,
@@ -142,6 +143,31 @@ describe('card statement parsers', () => {
       attachment: { locator: 'att-1', filename: 'statement.pdf' },
     });
     expect(result).toHaveProperty('passwordHint', expect.stringMatching(/password/i));
+  });
+
+  it('should parse the layout of a real Amazon Pay ICICI statement email', () => {
+    const html = [
+      '<h1>Credit Card Statement</h1>',
+      '<div><h2>Payment due</h2><p>by October 16, 2026</p></div>',
+      '<table><tr><td>ICICI Bank Credit Card</td><td>XX0019</td></tr></table>',
+      '<p>Minimum Amount Due: &#x20B9;770.00</p>',
+      '<p>Total Amount Due:</p><p><b>&#x20B9;15,398.51</b></p>',
+      '<p>Pay now using:</p>',
+    ].join('');
+    const fixture = email(
+      'credit_cards@icici.bank.in',
+      'Amazon Pay ICICI Bank Credit Card Statement for the period August 29, 2026 to September 28, 2026',
+      htmlToText(html),
+    );
+    const parser = registry.find({ from: fixture.from, subject: fixture.subject });
+    expect(parser?.parse(fixture)).toMatchObject({
+      issuingBank: 'ICICI',
+      last4: '0019',
+      statementDate: '2026-09-28',
+      dueDate: '2026-10-16',
+      totalDue: 15398.51,
+      minDue: 770,
+    });
   });
 
   it.each([

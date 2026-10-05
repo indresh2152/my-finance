@@ -13,8 +13,18 @@ import {
 
 const readTotalDue = labelledAmount(/total\s+(?:amount|payment)\s+due/);
 const readMinimumDue = labelledAmount(/min(?:imum)?\.?\s+(?:amount|payment)\s+due/);
-const readDueDate = labelledDate(/(?:payment\s+)?due\s+date/);
+/**
+ * 'Payment Due Date: …', 'Due Date …', and ICICI's 'Payment due by …' / 'due on (or before) …'.
+ * 'due by/on' needs 'Payment' in front: 'Total Amount Due on <date>' is an as-of date.
+ */
+const readDueDate = labelledDate(/due\s+date|payment\s+due\s+(?:by|on(?:\s+or\s+before)?)\b/);
 const readStatementDate = labelledDate(/statement\s+date/);
+/**
+ * End of the period a subject names: 'for the period ending (on) …' or 'for the period August 29,
+ * 2026 to September 28, 2026'. Greedy, so the last 'to' wins ('pertaining to X to Y' → Y). Subject
+ * only: the gaps are bounded, but bodies are long and untrusted.
+ */
+const readPeriodEnd = labelledDate(/\bperiod\b(?:\s{1,3}ending(?:\s{1,3}on)?|[^\n]{0,40}\bto)\b/);
 
 /** Card statements only: excludes transaction alerts, offers and savings account statements. */
 const CREDIT_CARD_STATEMENT = /credit\s*card.*statement|statement.*credit\s*card/i;
@@ -35,10 +45,11 @@ export interface CardStatementParserConfig {
 
 /** Null unless the email gives the card's last 4 digits, the total due and the due date. */
 const parseStatement = (issuingBank: BankCode, email: ParsedEmail): CardStatementResult | null => {
+  const subject = email.subject.slice(0, MAX_SUBJECT_CHARS);
   const body = email.text.slice(0, MAX_PARSED_CHARS);
-  const text = `${email.subject}\n${body}`;
+  const text = `${subject}\n${body}`;
   // The subject names the card; the body may also mask a mobile or account number.
-  const last4 = extractLast4(email.subject) ?? extractLast4(body);
+  const last4 = extractLast4(subject) ?? extractLast4(body);
   const totalDue = readTotalDue(text);
   const dueDate = readDueDate(text);
   if (last4 === null || totalDue === null || dueDate === null) return null;
@@ -50,7 +61,7 @@ const parseStatement = (issuingBank: BankCode, email: ParsedEmail): CardStatemen
     kind: 'CARD_STATEMENT',
     issuingBank,
     last4,
-    statementDate: readStatementDate(text) ?? istDate(email.receivedAt),
+    statementDate: readStatementDate(text) ?? readPeriodEnd(subject) ?? istDate(email.receivedAt),
     dueDate,
     totalDue,
     ...(minDue !== null ? { minDue } : {}),

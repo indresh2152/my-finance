@@ -78,6 +78,45 @@ describe('createCardStatementParser', () => {
     expect(result).toMatchObject({ last4: '4321' });
   });
 
+  it.each([
+    ['due by', 'Payment due by October 16, 2026', '2026-10-16'],
+    ['due on', 'Payment due on 16/10/2026', '2026-10-16'],
+    ['due on or before', 'Payment due on or before 16/10/2026', '2026-10-16'],
+  ])('should read a due date written as "%s"', (_wording, dueText, dueDate) => {
+    const result = parser.parse(email({ text: `Card XX1234 Total Amount Due: Rs. 5 ${dueText}` }));
+    expect(result).toMatchObject({ dueDate });
+  });
+
+  it.each([
+    ['from … to', 'for the period from 29/08/2026 to 28/09/2026', '2026-09-28'],
+    ['… to', 'for the period August 29, 2026 to September 28, 2026', '2026-09-28'],
+    ['ending', 'for the period ending 04 Sep 2026', '2026-09-04'],
+    ['ending on', 'for the period ending on 04 Sep 2026', '2026-09-04'],
+    ['two "to"s', 'for the period pertaining to 29 Aug 2026 to 28 Sep 2026', '2026-09-28'],
+  ])('should take the statement date from a subject period "%s"', (_form, period, date) => {
+    const text = 'Card XX1234 Total Amount Due: Rs. 5 Payment Due Date: 25/09/2026';
+    const result = parser.parse(email({ subject: `Credit Card Statement ${period}`, text }));
+    expect(result).toMatchObject({ statementDate: date });
+  });
+
+  it('should not take an as-of "Amount Due on" date as the due date', () => {
+    const text =
+      'Card XX1234 Amount due on 05/09/2026. Total Amount Due: Rs. 5,000. Payment Due Date: 25/09/2026';
+    expect(parser.parse(email({ text }))).toMatchObject({ dueDate: '2026-09-25' });
+  });
+
+  it('should prefer the statement date in the body over the subject period', () => {
+    const result = parser.parse(
+      email({ subject: 'Credit Card Statement for the period 01/08/2026 to 31/08/2026' }),
+    );
+    expect(result).toMatchObject({ statementDate: '2026-09-05' });
+  });
+
+  it('should not read a statement period from the body', () => {
+    const text = `Card XX1234 for the period 01/08/2026 to 31/08/2026. Total Amount Due: Rs. 5. Payment Due Date: 25/09/2026`;
+    expect(parser.parse(email({ text }))).toMatchObject({ statementDate: '2026-09-06' });
+  });
+
   it('should read only the start of a very long body', () => {
     const text = `${'filler '.repeat(4000)}Card XX1234 Total Amount Due: Rs. 500 Payment Due Date: 25/09/2026`;
     expect(parser.parse(email({ text }))).toBeNull();
