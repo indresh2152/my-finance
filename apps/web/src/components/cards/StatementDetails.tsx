@@ -12,7 +12,8 @@ interface DetailRowProps {
   readonly children: React.ReactNode;
 }
 
-const DetailRow: React.FC<DetailRowProps> = ({ label, children }) => (
+/** A caption label on the left, its value on the right. */
+export const DetailRow: React.FC<DetailRowProps> = ({ label, children }) => (
   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
     <Typography variant="caption" color="text.secondary">
       {label}
@@ -64,23 +65,26 @@ export const StatementDetails: React.FC<StatementDetailsProps> = ({
       <DetailRow label={t('statement.statementDate')}>
         <Typography variant="caption">{formatDate(statement.statementDate)}</Typography>
       </DetailRow>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, pt: 0.5 }}>
-        {onDownload && statement.downloadAvailable && (
-          <Button
-            size="small"
-            startIcon={<DownloadIcon />}
-            disabled={isDownloading}
-            onClick={() => onDownload(statement.id)}
-          >
-            {t('statement.download')}
-          </Button>
-        )}
-        <Tooltip title={statement.passwordHint ?? t('statement.noPasswordHint')}>
-          <IconButton size="small" aria-label={t('statement.passwordHint')}>
-            <InfoOutlinedIcon fontSize="inherit" />
-          </IconButton>
-        </Tooltip>
-      </Box>
+      {/* The password hint opens the PDF, so it shows only when the email had one. */}
+      {statement.downloadAvailable && (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, pt: 0.5 }}>
+          {onDownload && (
+            <Button
+              size="small"
+              startIcon={<DownloadIcon />}
+              disabled={isDownloading}
+              onClick={() => onDownload(statement.id)}
+            >
+              {t('statement.download')}
+            </Button>
+          )}
+          <Tooltip title={statement.passwordHint ?? t('statement.noPasswordHint')}>
+            <IconButton size="small" aria-label={t('statement.passwordHint')}>
+              <InfoOutlinedIcon fontSize="inherit" />
+            </IconButton>
+          </Tooltip>
+        </Box>
+      )}
     </Stack>
   );
 };

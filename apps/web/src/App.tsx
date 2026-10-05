@@ -9,12 +9,14 @@ import { AuthProvider } from './context/AuthContext';
 import { ProtectedRoute } from './routes/ProtectedRoute';
 import { AppLayout } from './components/AppLayout';
 import { FullPageSpinner } from './components/FullPageSpinner';
-import { LinkedEmailRedirect } from './routes/LinkedEmailRedirect';
+import { LegacyPageRedirect } from './routes/LegacyPageRedirect';
 
 const LoginPage = lazy(() => import('./pages/LoginPage').then((m) => ({ default: m.LoginPage })));
-const HomePage = lazy(() => import('./pages/HomePage').then((m) => ({ default: m.HomePage })));
-const CreditCardsPage = lazy(() =>
-  import('./pages/CreditCardsPage').then((m) => ({ default: m.CreditCardsPage })),
+const DashboardPage = lazy(() =>
+  import('./pages/DashboardPage').then((m) => ({ default: m.DashboardPage })),
+);
+const ProfilePage = lazy(() =>
+  import('./pages/ProfilePage').then((m) => ({ default: m.ProfilePage })),
 );
 const PanRegisterPage = lazy(() =>
   import('./pages/PanRegisterPage').then((m) => ({ default: m.PanRegisterPage })),
@@ -32,6 +34,9 @@ const router = createBrowserRouter([
     path: '/login',
     element: <LoginPage />,
   },
+  // Old page URLs only redirect; the target page applies the auth and PAN guard.
+  { path: '/credit-cards', element: <LegacyPageRedirect /> },
+  { path: '/linked-email', element: <LegacyPageRedirect /> },
   {
     path: '/',
     element: (
@@ -40,9 +45,8 @@ const router = createBrowserRouter([
       </ProtectedRoute>
     ),
     children: [
-      { index: true, element: <HomePage /> },
-      { path: 'credit-cards', element: <CreditCardsPage /> },
-      { path: 'linked-email', element: <LinkedEmailRedirect /> },
+      { index: true, element: <DashboardPage /> },
+      { path: 'profile', element: <ProfilePage /> },
       { path: 'pan-register', element: <PanRegisterPage /> },
       { path: 'api-docs', element: <ApiDocsPage /> },
     ],

@@ -11,8 +11,25 @@ export interface Mailbox {
   lastSyncStatus: 'NEVER' | 'RUNNING' | 'SUCCEEDED' | 'FAILED';
   lastSyncErrorCode: string | null;
   lastSyncedAt: string | null;
+  /** When a manual sync is allowed again (the server's cooldown); null when it is allowed now. */
+  syncAvailableAt: string | null;
   createdAt: string;
 }
+
+/** True when the server will accept a manual sync for this mailbox now. */
+export const isSyncAvailable = (mailbox: Mailbox, now: number): boolean =>
+  mailbox.syncAvailableAt === null || Date.parse(mailbox.syncAvailableAt) <= now;
+
+/** The next time a mailbox's sync cooldown ends, so the UI can re-enable Refresh then. */
+export const nextSyncAvailableAt = (
+  mailboxes: readonly Mailbox[] | undefined,
+  now: number,
+): number | null => {
+  const upcoming = (mailboxes ?? [])
+    .map((mailbox) => (mailbox.syncAvailableAt === null ? 0 : Date.parse(mailbox.syncAvailableAt)))
+    .filter((availableAt) => availableAt > now);
+  return upcoming.length > 0 ? Math.min(...upcoming) : null;
+};
 
 export type ResolveResult =
   | { supported: true; provider: ProviderKey; authType: 'OAUTH' }

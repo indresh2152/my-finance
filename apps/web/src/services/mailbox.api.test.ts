@@ -9,21 +9,14 @@ import {
   SYNC_POLL_INTERVAL_MS,
   type Mailbox,
 } from './mailbox.api';
+import { mailbox as mailboxFixture } from '../test/fixtures';
 
 const CREATED_AT = '2026-09-01T00:00:00Z';
 const JUST_CREATED = Date.parse(CREATED_AT) + 1000;
 const FIRST_SYNC_OVERDUE = Date.parse(CREATED_AT) + FIRST_SYNC_LIMIT_MS;
 
-const mailbox = (lastSyncStatus: Mailbox['lastSyncStatus']): Mailbox => ({
-  id: 'mb-1',
-  provider: 'GOOGLE',
-  emailMasked: 'us****@gmail.com',
-  status: 'ACTIVE',
-  lastSyncStatus,
-  lastSyncErrorCode: null,
-  lastSyncedAt: null,
-  createdAt: CREATED_AT,
-});
+const mailbox = (lastSyncStatus: Mailbox['lastSyncStatus']): Mailbox =>
+  mailboxFixture({ lastSyncStatus, lastSyncedAt: null, createdAt: CREATED_AT });
 
 const REQUESTED_AT = Date.parse('2026-09-29T10:00:00Z');
 const BEFORE_REQUEST = '2026-09-29T09:59:00Z';

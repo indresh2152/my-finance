@@ -1,12 +1,10 @@
 {
-  "pageTitle": "Credit Cards",
-  "linkEmail": "Link email",
   "creditLimit": "Credit Limit",
   "availableCredit": "Available Credit",
   "currentBalance": "Current Balance",
   "expiresOn": "Expires",
   "emptyState": "No credit cards yet.",
-  "emptyStateHint": "Link your email and we'll find your credit cards from your bank statements.",
+  "emptyStateHint": "Link your email from your profile and we'll find your credit cards from your bank statements.",
   "emptyStateMailboxLinked": "We haven't found any credit cards in your linked email yet. New cards will show up here after the next sync.",
   "errors": {
     "loadFailed": "Failed to load credit cards. Please try again."
@@ -14,7 +12,9 @@
   "amount": {
     "masked": "₹ ••••••",
     "show": "Show {{label}}",
-    "hide": "Hide {{label}}"
+    "hide": "Hide {{label}}",
+    "showAll": "Show all amounts",
+    "hideAll": "Hide all amounts"
   },
   "statement": {
     "amountDue": "Amount due",
@@ -31,5 +31,21 @@
       "STATEMENT_NOT_FOUND": "This statement is no longer available in your mailbox",
       "generic": "Couldn't download the statement. Please try again."
     }
+  },
+  "banks": {
+    "HDFC": "HDFC Bank",
+    "ICICI": "ICICI Bank",
+    "SBI": "SBI",
+    "SBI_CARD": "SBI Card",
+    "AXIS": "Axis Bank",
+    "KOTAK": "Kotak",
+    "FEDERAL": "Federal Bank"
+  },
+  "networks": {
+    "VISA": "VISA",
+    "MASTERCARD": "Mastercard",
+    "RUPAY": "RuPay",
+    "AMEX": "AMEX",
+    "DINERS": "Diners Club"
   }
 }

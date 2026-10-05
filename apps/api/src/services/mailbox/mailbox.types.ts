@@ -40,6 +40,8 @@ export interface MailboxSummary {
   readonly lastSyncStatus: MailboxSyncStatus;
   readonly lastSyncErrorCode: string | null;
   readonly lastSyncedAt: string | null;
+  /** When a manual sync (POST /sync) is allowed again; null when it is allowed now. */
+  readonly syncAvailableAt: string | null;
   readonly createdAt: string;
 }
 

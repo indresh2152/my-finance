@@ -18,7 +18,8 @@ interface TileGridProps<T extends { id: string }> {
   readonly skeletonCount: number;
   readonly errorText: string;
   readonly emptyText: string;
-  readonly emptyHint: string;
+  /** Omitted when there is no next step to suggest. */
+  readonly emptyHint?: string;
   readonly renderTile: (item: T) => React.ReactNode;
 }
 
@@ -39,9 +40,11 @@ export const TileGrid = <T extends { id: string }>({
     return (
       <Alert severity="info">
         {emptyText}
-        <Typography variant="caption" color="text.secondary" display="block" mt={0.5}>
-          {emptyHint}
-        </Typography>
+        {emptyHint && (
+          <Typography variant="caption" color="text.secondary" display="block" mt={0.5}>
+            {emptyHint}
+          </Typography>
+        )}
       </Alert>
     );
   }

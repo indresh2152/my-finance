@@ -624,7 +624,7 @@ Routes exist only when `MAILBOX_ENABLED=true`. All under `/api/v1/mailboxes`.
 |---|---|---|---|---|
 | POST | /api/v1/mailboxes/resolve | JWT + PAN | 200 `{ supported, provider?, authType?, reason? }` | 403 PAN_NOT_REGISTERED, 409 MAILBOX_ALREADY_LINKED, 422 VALIDATION_ERROR, 429 |
 | POST | /api/v1/mailboxes/connect | JWT + PAN | 200 `{ authUrl }` | 403, 409, 422 PROVIDER_NOT_SUPPORTED, 429 |
-| GET | /api/v1/mailboxes/oauth/callback/{google\|microsoft} | none (state) | 302 → `/credit-cards?linked=1` | 302 → `/credit-cards?error=MAILBOX_LINK_FAILED\|MAILBOX_ACCESS_DENIED\|MAILBOX_EMAIL_MISMATCH\|MAILBOX_ADMIN_CONSENT_REQUIRED` |
+| GET | /api/v1/mailboxes/oauth/callback/{google\|microsoft} | none (state) | 302 → `/profile?linked=1` | 302 → `/profile?error=MAILBOX_LINK_FAILED\|MAILBOX_ACCESS_DENIED\|MAILBOX_EMAIL_MISMATCH\|MAILBOX_ADMIN_CONSENT_REQUIRED` |
 | GET | /api/v1/mailboxes | JWT + PAN | 200 `{ mailboxes: Mailbox[] }` | 403 |
 | POST | /api/v1/mailboxes/{mailboxId}/sync | JWT + PAN | 202 `{ queued: true }` | 404 MAILBOX_NOT_FOUND, 409 MAILBOX_REAUTH_REQUIRED, 429 SYNC_TOO_FREQUENT |
 | DELETE | /api/v1/mailboxes/{mailboxId} | JWT + PAN | 204 | 404 MAILBOX_NOT_FOUND |
@@ -632,7 +632,9 @@ Routes exist only when `MAILBOX_ENABLED=true`. All under `/api/v1/mailboxes`.
 | GET | /api/v1/mailboxes/statements/{statementId}/download | JWT + PAN | 200 file (`Content-Disposition: attachment`, `Cache-Control: no-store`; `application/pdf` only when the bytes are a PDF) | 404 STATEMENT_NOT_FOUND\|STATEMENT_UNAVAILABLE, 409 MAILBOX_REAUTH_REQUIRED, 422, 429 (20/h per user) |
 
 `Mailbox` = `{ id, provider: 'GOOGLE'|'MICROSOFT', emailMasked, status: 'ACTIVE'|'REAUTH_REQUIRED',
-lastSyncStatus: 'NEVER'|'RUNNING'|'SUCCEEDED'|'FAILED', lastSyncErrorCode, lastSyncedAt, createdAt }`.
+lastSyncStatus: 'NEVER'|'RUNNING'|'SUCCEEDED'|'FAILED', lastSyncErrorCode, lastSyncedAt, syncAvailableAt, createdAt }`.
+`syncAvailableAt` is when `POST /{mailboxId}/sync` is allowed again after the 5-minute manual-sync
+cooldown, or `null` when it is allowed now, so clients can disable Refresh instead of meeting a 429.
 The download fetches the statement file live from the mailbox that received it; nothing is stored.
 Card statements themselves are returned by `GET /credit-cards` (`latestStatement`).
 

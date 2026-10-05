@@ -76,6 +76,44 @@ When a user logs in for the first time (or has no PAN registered), all financial
 
 ## Overview / Dashboard (`/`)
 
+> **Built (2026-10-05) — tabbed dashboard plus profile.** The UI has two pages: this dashboard
+> and `/profile`. A user who skipped PAN registration sees only the title and a "Link PAN" prompt;
+> nothing else is loaded. The Accounts tab is hidden when mailbox features are off. Emails are
+> linked on `/profile` (the empty-state hints say so); the dashboard has no Link email. **Refresh**
+> (shown once an email is linked) syncs every linked email that can sync now, skipping ones that
+> need a reconnect; it is disabled while they sync, and a refresh error shows above the tabs. The
+> 👁 beside the title shows or hides every masked amount (statement amounts, balances) at once;
+> amounts start hidden, and each one's own eye still toggles it alone. The header does not show
+> the PAN, not even masked.
+>
+> Each card tile shows a **card face** drawn like the physical card (ID-1 proportions): the bank's
+> name top left and the card's own name top right, a drawn EMV chip and contactless mark, the
+> masked number, name on card and expiry, and the network mark (VISA / Mastercard circles / RuPay /
+> AMEX / Diners) bottom right. Colours come from `components/cards/cardBrands.ts`: a product's own
+> design when its bank and card name match (HDFC Pixel, ICICI Coral and Amazon Pay, Federal Scapia
+> and OneCard, Axis Flipkart, Kotak Zen), else the bank's gradient, else neutral slate. Marks are
+> drawn with CSS/SVG, not official logo files. The status chip sits under the face, then amounts
+> and the latest statement.
+> `(J)` is the user's initial in a circle; it opens a menu with the username and email,
+> **Profile** (goes to `/profile`) and **Sign out**. The snapshot and tile layout further down is
+> the original vision.
+>
+> ```
+> ┌─────────────────────────────────────────────────────────────────┐
+> │  MyFinance                                    [API Docs] (J)    │
+> ├─────────────────────────────────────────────────────────────────┤
+> │  Dashboard 👁                                       [⟳ Refresh] │
+> │  ("Gathering your card and account details…" while syncing)     │
+> │                                                                 │
+> │  [ Credit cards ● ]  [ Accounts ]                               │
+> │  ───────────────────────────────────────────────────────────    │
+> │  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐             │
+> │  │ card tile    │ │ card tile    │ │ card tile    │  ← or bank  │
+> │  └──────────────┘ └──────────────┘ └──────────────┘    account  │
+> │                                                        tiles    │
+> └─────────────────────────────────────────────────────────────────┘
+> ```
+
 The home screen shows a net-worth snapshot and navigation tiles to all financial sections.
 
 ```
@@ -370,6 +408,28 @@ Bank accounts
 ---
 
 ## Profile Page (`/profile`)
+
+> **Built (2026-10-05).** Reached from **Profile** in the account menu. Shows the username and
+> email (never the PAN), then the linked emails: mailbox notices (the OAuth callback lands here
+> with `?linked=1` / `?error=<CODE>`), the sync-progress banner, **+ Link email** (opens the Link a
+> mailbox dialog), and the linked-mailboxes list with Refresh, Unlink and Reconnect. Without a PAN
+> the linked-emails part is replaced by a "Link PAN" prompt, because mailboxes belong to a PAN
+> profile. The mockup below is the original vision.
+>
+> ```
+> ┌─────────────────────────────────────────────────────────────────┐
+> │  MyFinance                                    [API Docs] (J)    │
+> ├─────────────────────────────────────────────────────────────────┤
+> │  Profile                                                        │
+> │  ┌───────────────────────────────────────────────────────────┐  │
+> │  │ Username  johndoe                                         │  │
+> │  │ Email     john@example.com                                │  │
+> │  └───────────────────────────────────────────────────────────┘  │
+> │  [+ Link email]                                                 │
+> │  Linked mailboxes                                               │
+> │  us****@gmail.com · Google · Last synced …  [Refresh] [Unlink]  │
+> └─────────────────────────────────────────────────────────────────┘
+> ```
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐

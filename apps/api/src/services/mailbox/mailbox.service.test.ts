@@ -133,9 +133,20 @@ describe('MailboxService.list', () => {
         lastSyncStatus: 'SUCCEEDED',
         lastSyncErrorCode: null,
         lastSyncedAt: syncedAt.toISOString(),
+        syncAvailableAt: null,
         createdAt: createdAt.toISOString(),
       },
     ]);
+  });
+
+  it('should say when a recently synced mailbox may sync again', async () => {
+    const syncedAt = new Date(NOW.getTime() - 2 * MINUTE_MS);
+    const row = listRow({ last_synced_at: syncedAt });
+    const { service } = build(makeDb([PAN, ['ORDER BY created_at', [row]]]));
+    const [summary] = await service.list(CTX);
+    expect(summary?.syncAvailableAt).toBe(
+      new Date(syncedAt.getTime() + 5 * MINUTE_MS).toISOString(),
+    );
   });
 
   it('should report a sync stuck in RUNNING for over 30 minutes as FAILED', async () => {

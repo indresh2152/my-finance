@@ -67,15 +67,17 @@ Credit card discovery by PAN is one of the core features. The system is structur
 | Route                     | Component              | Auth | Description                                           |
 |---------------------------|------------------------|------|-------------------------------------------------------|
 | `/login`                  | `LoginPage`            | No   | Username + password login                             |
-| `/`                       | `OverviewPage`         | Yes  | Financial overview — net worth, all instruments summary |
-| `/credit-cards`           | `CreditCardsPage`      | Yes  | All credit cards linked to user's PAN                 |
+| `/`                       | `DashboardPage`        | Yes  | **Credit cards** and **Accounts** tabs (built) |
+| `/credit-cards`           | `LegacyPageRedirect`   | No (redirect only; the target page is guarded) | Redirects an OAuth result (`?linked` / `?error`) to `/profile`, anything else to `/` (as does `/linked-email`) (built) |
 | `/credit-cards/:cardId`   | `CardDetailPage`       | Yes  | Full details of a single credit card                  |
 | `/bank-accounts`          | `BankAccountsPage`     | Yes  | All bank accounts linked to user's PAN                |
 | `/loans`                  | `LoansPage`            | Yes  | All loans (home, personal, auto, etc.)                |
 | `/investments`            | `InvestmentsPage`      | Yes  | Mutual funds, stocks, PPF, NPS, bonds                 |
 | `/insurance`              | `InsurancePage`        | Yes  | Life, health, vehicle, home insurance policies        |
-| `/profile`                | `ProfilePage`          | Yes  | User profile and PAN registration                     |
+| `/profile`                | `ProfilePage`          | Yes  | Username, email and linked emails (link, refresh, unlink, reconnect); OAuth callback target (built) |
 | `/pan-register`           | `PanRegisterPage`      | Yes  | First-time PAN registration gate; shown when `hasPan: false` on login or redirected from a financial endpoint returning 403 PAN_NOT_REGISTERED |
+
+> **Built so far (2026-10-05):** the UI is the dashboard at `/` and `/profile` (from the header's account menu), plus `/login`, `/pan-register` and `/api-docs` (developer tooling). Future instruments (loans, investments, insurance) are planned as further dashboard tabs rather than separate pages; the rows above for those routes describe the original vision.
 
 ### State Management
 
@@ -117,7 +119,7 @@ During `isLoading: true`, render a full-page loading spinner — never flash pro
 `ProtectedRoute` wraps all authenticated routes. Behavior:
 1. If `isLoading` is true → render the full-page spinner.
 2. If `user` is null → redirect to `/login?redirect=<current path>` so the user returns to the original URL after logging in.
-3. If `user.hasPan` is false and the route is a financial route (`/`, `/credit-cards`, `/bank-accounts`, `/loans`, `/investments`, `/insurance`) → redirect to `/pan-register`.
+3. If `user.hasPan` is false and the route is a financial route (`/`, `/bank-accounts`, `/loans`, `/investments`, `/insurance`) → redirect to `/pan-register`.
 4. Otherwise → render the child route.
 
 After successful `POST /pan/register`, call `AuthContext.setPan(panMasked)` which sets `hasPan: true` in context, then navigate to `/`.

@@ -6,7 +6,7 @@ import userEvent from '@testing-library/user-event';
 import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import React from 'react';
-import { Route, Routes, useNavigate } from 'react-router-dom';
+import { Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 
 const server = setupServer(
   http.post('/api/v1/auth/refresh', () => new HttpResponse(null, { status: 401 })),
@@ -21,11 +21,16 @@ const ChildPage: React.FC = () => {
   return (
     <div>
       Protected Content
-      <button onClick={() => navigate('/credit-cards')}>Go to cards</button>
+      <button onClick={() => navigate('/bank-accounts')}>Go to accounts</button>
     </div>
   );
 };
-const LoginPage: React.FC = () => <div>Login Page</div>;
+const LoginPage: React.FC = () => (
+  <>
+    <div>Login Page</div>
+    <div data-testid="login-search">{useLocation().search}</div>
+  </>
+);
 const PanRegisterPage: React.FC = () => {
   const { skipPan } = useAuth();
   const navigate = useNavigate();
@@ -59,7 +64,7 @@ const renderRoute = (initialPath: string): ReturnType<typeof renderWithProviders
           }
         />
         <Route
-          path="/credit-cards"
+          path="/bank-accounts"
           element={
             <ProtectedRoute>
               <ChildPage />
@@ -72,6 +77,14 @@ const renderRoute = (initialPath: string): ReturnType<typeof renderWithProviders
   );
 
 describe('ProtectedRoute', () => {
+  it('should keep the query string in the login redirect', async () => {
+    renderRoute('/bank-accounts?linked=1');
+    await waitFor(() => expect(screen.getByText('Login Page')).toBeInTheDocument());
+    expect(screen.getByTestId('login-search')).toHaveTextContent(
+      `?redirect=${encodeURIComponent('/bank-accounts?linked=1')}`,
+    );
+  });
+
   it('should redirect to /login when user is not authenticated', async () => {
     renderRoute('/');
     await waitFor(() => expect(screen.getByText('Login Page')).toBeInTheDocument());
@@ -107,7 +120,7 @@ describe('ProtectedRoute', () => {
         }),
       ),
     );
-    renderRoute('/credit-cards');
+    renderRoute('/bank-accounts');
     await waitFor(() => expect(screen.getByText('Protected Content')).toBeInTheDocument());
   });
 
@@ -130,7 +143,7 @@ describe('ProtectedRoute', () => {
     await waitFor(() => expect(screen.getByText('Protected Content')).toBeInTheDocument());
   });
 
-  it('should still redirect credit cards to /pan-register after the user skips PAN', async () => {
+  it('should still redirect bank accounts to /pan-register after the user skips PAN', async () => {
     server.use(
       http.post('/api/v1/auth/refresh', () => HttpResponse.json({ accessToken: 'token' })),
       http.get('/api/v1/users/me', () =>
@@ -146,8 +159,8 @@ describe('ProtectedRoute', () => {
     renderRoute('/pan-register');
     await waitFor(() => screen.getByRole('button', { name: 'Skip' }));
     await userEvent.click(screen.getByRole('button', { name: 'Skip' }));
-    await waitFor(() => screen.getByRole('button', { name: 'Go to cards' }));
-    await userEvent.click(screen.getByRole('button', { name: 'Go to cards' }));
+    await waitFor(() => screen.getByRole('button', { name: 'Go to accounts' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Go to accounts' }));
     await waitFor(() => expect(screen.getByText(/PAN Register Page/)).toBeInTheDocument());
   });
 });

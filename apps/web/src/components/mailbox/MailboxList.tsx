@@ -19,8 +19,8 @@ const DATE_TIME_FORMATTER = new Intl.DateTimeFormat('en-IN', {
 
 interface MailboxListProps {
   readonly mailboxes: readonly Mailbox[];
-  /** Mailboxes still being gathered; their Refresh is disabled. */
-  readonly gatheringIds: ReadonlySet<string>;
+  /** Mailboxes the server would sync now; the others' Refresh is disabled. */
+  readonly syncableIds: ReadonlySet<string>;
   readonly isBusy: boolean;
   readonly onRefresh: (mailboxId: string) => void;
   readonly onUnlink: (mailbox: Mailbox) => void;
@@ -65,7 +65,7 @@ const SyncStatus: React.FC<SyncStatusProps> = ({ mailbox }) => {
 
 export const MailboxList: React.FC<MailboxListProps> = ({
   mailboxes,
-  gatheringIds,
+  syncableIds,
   isBusy,
   onRefresh,
   onUnlink,
@@ -98,7 +98,7 @@ export const MailboxList: React.FC<MailboxListProps> = ({
               ) : (
                 <Button
                   size="small"
-                  disabled={isBusy || gatheringIds.has(mailbox.id)}
+                  disabled={isBusy || !syncableIds.has(mailbox.id)}
                   onClick={() => onRefresh(mailbox.id)}
                 >
                   {t('mailboxes.refresh')}

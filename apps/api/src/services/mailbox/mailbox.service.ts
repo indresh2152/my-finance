@@ -121,7 +121,7 @@ export class MailboxService {
     if (mailbox.status === 'REAUTH_REQUIRED') {
       throw mailboxReauthRequired(ctx.lng);
     }
-    if (this.isActivelyRunning(mailbox) || this.syncedRecently(mailbox)) {
+    if (this.isActivelyRunning(mailbox) || this.cooldownEndsAt(mailbox) !== null) {
       throw new AppError(
         'SYNC_TOO_FREQUENT',
         HTTP_TOO_MANY_REQUESTS,
@@ -228,11 +228,11 @@ export class MailboxService {
     );
   }
 
-  private syncedRecently(row: Pick<MailboxRow, 'last_synced_at'>): boolean {
-    return (
-      row.last_synced_at !== null &&
-      this.now().getTime() - row.last_synced_at.getTime() < MANUAL_SYNC_COOLDOWN_MS
-    );
+  /** When a manual sync is allowed again, or null when it is allowed now. */
+  private cooldownEndsAt(row: Pick<MailboxRow, 'last_synced_at'>): Date | null {
+    if (row.last_synced_at === null) return null;
+    const endsAt = new Date(row.last_synced_at.getTime() + MANUAL_SYNC_COOLDOWN_MS);
+    return endsAt > this.now() ? endsAt : null;
   }
 
   private toSummary(row: MailboxRow): MailboxSummary {
@@ -245,6 +245,7 @@ export class MailboxService {
       lastSyncStatus: staleRunning ? 'FAILED' : row.last_sync_status,
       lastSyncErrorCode: row.last_sync_error_code,
       lastSyncedAt: row.last_synced_at ? row.last_synced_at.toISOString() : null,
+      syncAvailableAt: this.cooldownEndsAt(row)?.toISOString() ?? null,
       createdAt: row.created_at.toISOString(),
     };
   }

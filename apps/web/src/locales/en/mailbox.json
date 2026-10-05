@@ -1,4 +1,5 @@
 {
+  "linkEmail": "Link email",
   "provider": {
     "GOOGLE": "Google",
     "MICROSOFT": "Microsoft"
@@ -52,5 +53,9 @@
     "MAILBOX_REAUTH_REQUIRED": "Access to this mailbox has expired. Reconnect it first.",
     "RATE_LIMIT_EXCEEDED": "Too many attempts. Please wait a while and try again.",
     "generic": "Something went wrong. Please try again."
+  },
+  "refreshAll": {
+    "label": "Refresh",
+    "hint": "Check your linked emails for new cards, accounts and statements"
   }
 }

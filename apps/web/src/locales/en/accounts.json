@@ -1,5 +1,4 @@
 {
-  "sectionTitle": "Bank accounts",
   "availableBalance": "Available balance",
   "asOf": "as of {{date}}",
   "types": {
@@ -11,7 +10,7 @@
     "NRO": "NRO"
   },
   "emptyState": "No bank accounts yet.",
-  "emptyStateHint": "Link your email and we'll find your bank accounts from your bank's balance alerts and statements.",
+  "emptyStateHint": "Link your email from your profile and we'll find your bank accounts from your bank's balance alerts and statements.",
   "emptyStateMailboxLinked": "We haven't found any bank accounts in your linked email yet. New accounts will show up here after the next sync.",
   "errors": {
     "loadFailed": "Failed to load bank accounts. Please try again."

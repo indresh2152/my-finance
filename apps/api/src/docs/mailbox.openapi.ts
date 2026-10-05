@@ -35,6 +35,11 @@ const registerSchemas = (
       lastSyncStatus: z.enum(['NEVER', 'RUNNING', 'SUCCEEDED', 'FAILED']),
       lastSyncErrorCode: z.string().nullable(),
       lastSyncedAt: z.string().datetime().nullable(),
+      syncAvailableAt: z
+        .string()
+        .datetime()
+        .nullable()
+        .describe('When a manual sync is allowed again; null when it is allowed now.'),
       createdAt: z.string().datetime(),
     }),
   );

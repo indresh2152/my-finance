@@ -66,12 +66,18 @@ describe('StatementDetails', () => {
     expect(screen.getByRole('button', { name: 'Download statement' })).toBeDisabled();
   });
 
-  it.each([
-    ['the email had no PDF', { ...statement, downloadAvailable: false }, {}],
-    ['mailbox features are off', statement, { canDownload: false }],
-  ])('should hide the download button when %s', (_case, value, options) => {
-    renderDetails(value, options);
+  it('should hide the download button and password hint when the email had no PDF', () => {
+    renderDetails({ ...statement, downloadAvailable: false });
     expect(screen.queryByRole('button', { name: 'Download statement' })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Statement password hint' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('should keep the password hint but not the download when mailbox features are off', () => {
+    renderDetails(statement, { canDownload: false });
+    expect(screen.queryByRole('button', { name: 'Download statement' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Statement password hint' })).toBeInTheDocument();
   });
 
   it('should show the password hint on hover', async () => {

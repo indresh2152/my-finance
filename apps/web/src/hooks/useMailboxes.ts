@@ -8,7 +8,9 @@ import {
   apiErrorCode,
   gatheringMailboxIds,
   listMailboxes,
+  isSyncAvailable,
   nextGatheringChangeAt,
+  nextSyncAvailableAt,
   mailboxPollInterval,
   syncMailbox,
   unlinkMailbox,
@@ -19,6 +21,20 @@ import { CREDIT_CARDS_QUERY_KEY } from '../services/credit-cards.api';
 import { EMAIL_ACCOUNTS_QUERY_KEY } from '../services/accounts.api';
 
 const GENERIC_ERROR = 'generic';
+const SYNC_TOO_FREQUENT = 'SYNC_TOO_FREQUENT';
+
+/**
+ * The error to report after syncing several mailboxes, or null. Once any sync has started, a
+ * mailbox rejected for having synced recently is already fresh, so that rejection is not reported.
+ */
+const syncAllError = (results: readonly PromiseSettledResult<void>[]): string | null => {
+  const anyStarted = results.some((result) => result.status === 'fulfilled');
+  const codes = results
+    .filter((result): result is PromiseRejectedResult => result.status === 'rejected')
+    .map((result) => apiErrorCode(result.reason) ?? GENERIC_ERROR)
+    .filter((code) => !(anyStarted && code === SYNC_TOO_FREQUENT));
+  return codes[0] ?? null;
+};
 
 /** Cards and accounts both come from mailbox syncs, so both are refetched when a mailbox changes. */
 const invalidateFoundRecords = (queryClient: QueryClient): void => {
@@ -34,13 +50,20 @@ const readNotice = (params: URLSearchParams): LinkNotice => {
   return error ? { severity: 'error', code: error } : null;
 };
 
-/** Reads the OAuth-callback query params once and strips them from the URL. */
-const useLinkNotice = (): [LinkNotice, () => void] => {
+/** True when the URL carries an OAuth-callback result (?linked=1 or ?error=<CODE>). */
+export const hasLinkResult = (params: URLSearchParams): boolean =>
+  params.has('linked') || params.has('error');
+
+/**
+ * Reads the OAuth-callback query params once and strips them from the URL. Only the page the
+ * callback lands on (/profile) should call this.
+ */
+export const useLinkNotice = (): [LinkNotice, () => void] => {
   const [searchParams, setSearchParams] = useSearchParams();
   const [notice, setNotice] = useState<LinkNotice>(() => readNotice(searchParams));
 
   useEffect(() => {
-    if (searchParams.has('linked') || searchParams.has('error')) {
+    if (hasLinkResult(searchParams)) {
       setSearchParams({}, { replace: true });
     }
   }, [searchParams, setSearchParams]);
@@ -121,25 +144,31 @@ export interface MailboxesState {
   isLoading: boolean;
   isError: boolean;
   gatheringIds: ReadonlySet<string>;
-  notice: LinkNotice;
-  clearNotice: () => void;
   actionError: string | null;
   clearActionError: () => void;
   isBusy: boolean;
   isUnlinking: boolean;
   refresh: (mailboxId: string) => void;
+  /** Syncs every mailbox that can sync now: not awaiting a reconnect, gathering, or cooling down. */
+  refreshAll: () => void;
+  /** False while an action runs or when no mailbox can sync now. */
+  canRefreshAll: boolean;
+  /** Mailboxes the server would sync now; every Refresh button checks this one rule. */
+  syncableIds: ReadonlySet<string>;
   unlinkTarget: Mailbox | null;
   setUnlinkTarget: (mailbox: Mailbox | null) => void;
   confirmUnlink: (mailbox: Mailbox) => void;
 }
 
-/** Linked mailboxes with their sync progress, the OAuth-callback notice, and the refresh/unlink actions. */
-export const useMailboxes = (): MailboxesState => {
+interface UseMailboxesOptions {
+  /** A mailbox was linked just before this page loaded, so poll until its first sync shows up. */
+  readonly justLinked?: boolean;
+}
+
+/** Linked mailboxes with their sync progress and the refresh/unlink actions. */
+export const useMailboxes = ({ justLinked = false }: UseMailboxesOptions = {}): MailboxesState => {
   const queryClient = useQueryClient();
-  const [notice, clearNotice] = useLinkNotice();
-  const { pollUntil, syncRequests, markRequested } = useSyncTracking(
-    notice?.severity === 'success',
-  );
+  const { pollUntil, syncRequests, markRequested } = useSyncTracking(justLinked);
   const [actionError, setActionError] = useState<string | null>(null);
   const [unlinkTarget, setUnlinkTarget] = useState<Mailbox | null>(null);
 
@@ -153,21 +182,28 @@ export const useMailboxes = (): MailboxesState => {
     retry: (failureCount, err) => !isFeatureOff(err) && failureCount < MAX_RETRIES,
     refetchInterval: (query) => mailboxPollInterval(query.state.data, pollUntil, Date.now()),
   });
-  const isAvailable = mailboxes !== undefined || (error !== null && !isFeatureOff(error));
+  const isError = error !== null && !isFeatureOff(error);
+  const isAvailable = mailboxes !== undefined || isError;
 
   const refreshList = (): void => {
     void queryClient.invalidateQueries({ queryKey: MAILBOXES_QUERY_KEY });
   };
   const reportError = (err: unknown): void => setActionError(apiErrorCode(err) ?? GENERIC_ERROR);
 
-  const syncMutation = useMutation({
-    mutationFn: syncMailbox,
+  // Syncs one mailbox (Refresh on a row) or several at once (Refresh on the dashboard).
+  const syncAllMutation = useMutation({
+    mutationFn: async (mailboxIds: readonly string[]) => {
+      const results = await Promise.allSettled(mailboxIds.map(syncMailbox));
+      return { mailboxIds, results };
+    },
     onMutate: () => setActionError(null),
-    onSuccess: (_data, mailboxId) => {
-      markRequested(mailboxId);
+    onSuccess: ({ mailboxIds, results }) => {
+      mailboxIds
+        .filter((_mailboxId, index) => results[index]?.status === 'fulfilled')
+        .forEach(markRequested);
+      setActionError(syncAllError(results));
       refreshList();
     },
-    onError: reportError,
   });
 
   const unlinkMutation = useMutation({
@@ -185,21 +221,35 @@ export const useMailboxes = (): MailboxesState => {
   const now = Date.now();
   const gatheringIds = gatheringMailboxIds(mailboxes, syncRequests, pollUntil, now);
   useRerenderAt(nextGatheringChangeAt(mailboxes, pollUntil, now));
+  useRerenderAt(nextSyncAvailableAt(mailboxes, now));
   useRefreshFoundRecordsOnSync(mailboxes);
+  const isBusy = syncAllMutation.isPending || unlinkMutation.isPending;
+  // Awaiting a reconnect, already gathering, or in the server's cooldown: the server would refuse.
+  const syncableIds: ReadonlySet<string> = new Set(
+    (mailboxes ?? [])
+      .filter(
+        (mailbox) =>
+          mailbox.status !== 'REAUTH_REQUIRED' &&
+          !gatheringIds.has(mailbox.id) &&
+          isSyncAvailable(mailbox, now),
+      )
+      .map((mailbox) => mailbox.id),
+  );
 
   return {
     isAvailable,
     mailboxes,
     isLoading,
-    isError: error !== null && !isFeatureOff(error),
+    isError,
     gatheringIds,
-    notice,
-    clearNotice,
     actionError,
     clearActionError: () => setActionError(null),
-    isBusy: syncMutation.isPending || unlinkMutation.isPending,
+    isBusy,
     isUnlinking: unlinkMutation.isPending,
-    refresh: (mailboxId) => syncMutation.mutate(mailboxId),
+    refresh: (mailboxId) => syncAllMutation.mutate([mailboxId]),
+    refreshAll: () => syncAllMutation.mutate([...syncableIds]),
+    canRefreshAll: !isBusy && syncableIds.size > 0,
+    syncableIds,
     unlinkTarget,
     setUnlinkTarget,
     confirmUnlink: (mailbox) => unlinkMutation.mutate(mailbox.id),

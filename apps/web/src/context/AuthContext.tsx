@@ -67,6 +67,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setAccessToken(null);
     try {
       await withAuthLock(() => authClient.delete('/auth/logout'));
+    } catch {
+      // The local session is cleared below either way; a failed server revoke is not the caller's
+      // to handle, so logout always resolves.
     } finally {
       // Again after the lock: a refresh queued during logout started after the first clear.
       setAccessToken(null);

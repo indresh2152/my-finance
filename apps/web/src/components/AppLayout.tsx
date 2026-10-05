@@ -1,35 +1,13 @@
-import React from 'react';
-import { Outlet, useNavigate, Link as RouterLink } from 'react-router-dom';
-import {
-  AppBar,
-  Box,
-  Button,
-  Chip,
-  Container,
-  IconButton,
-  Toolbar,
-  Typography,
-} from '@mui/material';
+import React, { Suspense } from 'react';
+import { Outlet, Link as RouterLink } from 'react-router-dom';
+import { AppBar, Box, Button, Container, Toolbar, Typography } from '@mui/material';
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet';
-import LogoutIcon from '@mui/icons-material/Logout';
 import { useTranslation } from 'react-i18next';
-import { useAuth } from '../context/AuthContext';
-
-const NAV_LINKS = [
-  { to: '/credit-cards', labelKey: 'nav.creditCards' },
-  { to: '/api-docs', labelKey: 'nav.apiDocs' },
-] as const;
+import { UserMenu } from './UserMenu';
+import { FullPageSpinner } from './FullPageSpinner';
 
 export const AppLayout: React.FC = () => {
   const { t } = useTranslation('common');
-  const { user, logout } = useAuth();
-  const navigate = useNavigate();
-
-  const handleLogout = async (): Promise<void> => {
-    await logout();
-    navigate('/login', { replace: true });
-  };
-
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <AppBar position="static" elevation={1}>
@@ -44,42 +22,25 @@ export const AppLayout: React.FC = () => {
             {t('appName')}
           </Typography>
 
-          {user?.panMasked && (
-            <Chip
-              label={user.panMasked}
-              size="small"
-              sx={{ mr: 2, bgcolor: 'primary.dark', color: 'white', fontFamily: 'monospace' }}
-            />
-          )}
-
-          {NAV_LINKS.map(({ to, labelKey }) => (
-            <Button
-              key={to}
-              color="inherit"
-              component={RouterLink}
-              to={to}
-              sx={{ mr: 1, display: { xs: 'none', sm: 'inline-flex' } }}
-            >
-              {t(labelKey)}
-            </Button>
-          ))}
-
-          <IconButton
+          <Button
             color="inherit"
-            onClick={() => {
-              void handleLogout();
-            }}
-            aria-label={t('logout')}
-            title={t('logout')}
+            component={RouterLink}
+            to="/api-docs"
+            sx={{ mr: 1, display: { xs: 'none', sm: 'inline-flex' } }}
           >
-            <LogoutIcon />
-          </IconButton>
+            {t('nav.apiDocs')}
+          </Button>
+
+          <UserMenu />
         </Toolbar>
       </AppBar>
 
       <Box component="main" sx={{ flexGrow: 1 }}>
         <Container maxWidth={false} disableGutters>
-          <Outlet />
+          {/* Pages load lazily; suspending here keeps the header (and its open menu) mounted. */}
+          <Suspense fallback={<FullPageSpinner minHeight="50vh" />}>
+            <Outlet />
+          </Suspense>
         </Container>
       </Box>
     </Box>

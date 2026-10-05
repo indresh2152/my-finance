@@ -7,23 +7,33 @@
   "cancel": "Cancel",
   "submit": "Submit",
   "back": "Back",
-  "logout": "Logout",
   "nav": {
-    "home": "Home",
-    "creditCards": "Credit Cards",
-    "apiDocs": "API Docs",
-    "profile": "Profile"
-  },
-  "home": {
-    "welcomeBack": "Welcome back, {{username}}",
-    "panLabel": "PAN",
-    "linkPanPrompt": "Link your PAN to see your credit cards and other financial data.",
-    "linkPanAction": "Link PAN"
+    "apiDocs": "API Docs"
   },
   "status": {
     "active": "Active",
     "blocked": "Blocked",
     "expired": "Expired",
     "closed": "Closed"
-  }
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "tabs": {
+      "creditCards": "Credit cards",
+      "accounts": "Accounts"
+    },
+    "linkPanPrompt": "Link your PAN to see your credit cards and other financial data."
+  },
+  "userMenu": {
+    "open": "Open account menu",
+    "profile": "Profile",
+    "signOut": "Sign out"
+  },
+  "profile": {
+    "title": "Profile",
+    "username": "Username",
+    "email": "Email",
+    "linkPanFirst": "Link your PAN before linking an email: we match the cards and accounts we find to it."
+  },
+  "linkPanAction": "Link PAN"
 }

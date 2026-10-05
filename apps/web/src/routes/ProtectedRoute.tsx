@@ -4,14 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { FullPageSpinner } from '../components/FullPageSpinner';
 
 const HOME_ROUTE = '/';
-const FINANCIAL_ROUTES = new Set([
-  '/',
-  '/credit-cards',
-  '/bank-accounts',
-  '/loans',
-  '/investments',
-  '/insurance',
-]);
+const FINANCIAL_ROUTES = new Set(['/', '/bank-accounts', '/loans', '/investments', '/insurance']);
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -26,7 +19,9 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   }
 
   if (!user) {
-    return <Navigate to={`/login?redirect=${encodeURIComponent(location.pathname)}`} replace />;
+    // Keeps the query string: an OAuth result (/profile?linked=1) must survive signing in again.
+    const target = `${location.pathname}${location.search}`;
+    return <Navigate to={`/login?redirect=${encodeURIComponent(target)}`} replace />;
   }
 
   const isSkippableRoute = panSkipped && location.pathname === HOME_ROUTE;

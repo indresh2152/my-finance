@@ -1,20 +1,33 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Alert, Container, Link, Snackbar, Stack, Typography } from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
+import {
+  Box,
+  Button,
+  Container,
+  IconButton,
+  Snackbar,
+  Stack,
+  Tab,
+  Tabs,
+  Tooltip,
+} from '@mui/material';
+import RefreshIcon from '@mui/icons-material/Refresh';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import { useAuth } from '../context/AuthContext';
+import { AmountVisibilityContext } from '../context/AmountVisibilityContext';
 import { CREDIT_CARDS_QUERY_KEY, listCreditCards } from '../services/credit-cards.api';
-import { useMailboxes, type LinkNotice } from '../hooks/useMailboxes';
+import { useMailboxes } from '../hooks/useMailboxes';
 import { useStatementDownload } from '../hooks/useStatementDownload';
 import { CreditCardTile } from '../components/cards/CreditCardTile';
 import { TileGrid } from '../components/TileGrid';
-import { BankAccountsSection } from '../components/accounts/BankAccountsSection';
-import { LinkMailboxDialog } from '../components/mailbox/LinkMailboxDialog';
-import { MailboxesPanel } from '../components/mailbox/MailboxesPanel';
+import { BankAccountGrid } from '../components/accounts/BankAccountGrid';
+import { LinkPanAlert } from '../components/LinkPanAlert';
+import { PageTitle } from '../components/PageTitle';
+import { MailboxAlerts } from '../components/mailbox/MailboxAlerts';
 import { SyncProgressBanner } from '../components/mailbox/SyncProgressBanner';
-import { UnlinkMailboxDialog } from '../components/mailbox/UnlinkMailboxDialog';
 
 const SKELETON_CARDS = 3;
 
@@ -23,80 +36,59 @@ const downloadErrorMessage = (t: TFunction<'cards'>, code: string): string =>
   t([`statement.errors.${code}`, `mailbox:errors.${code}`, 'statement.errors.generic'] as never);
 const DOWNLOAD_ERROR_HIDE_MS = 6000;
 
-interface LinkEmailLinkProps {
-  readonly onClick: () => void;
+interface ShowAllToggleProps {
+  readonly showAll: boolean;
+  readonly onToggle: () => void;
 }
 
-const LinkEmailLink: React.FC<LinkEmailLinkProps> = ({ onClick }) => {
+/** Shows or hides every masked amount on the dashboard at once. */
+const ShowAllToggle: React.FC<ShowAllToggleProps> = ({ showAll, onToggle }) => {
   const { t } = useTranslation('cards');
+  // A toggle keeps one name and reports its state through aria-pressed; only the tooltip changes.
   return (
-    <Link
-      component="button"
-      type="button"
-      variant="body2"
-      onClick={onClick}
-      sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5 }}
-    >
-      <AddIcon fontSize="small" />
-      {t('linkEmail')}
-    </Link>
+    <Tooltip title={t(showAll ? 'amount.hideAll' : 'amount.showAll')}>
+      <IconButton aria-label={t('amount.showAll')} aria-pressed={showAll} onClick={onToggle}>
+        {showAll ? <VisibilityOffIcon /> : <VisibilityIcon />}
+      </IconButton>
+    </Tooltip>
   );
 };
 
-interface MailboxAlertsProps {
-  readonly notice: LinkNotice;
-  readonly onCloseNotice: () => void;
-  readonly actionError: string | null;
-  readonly onCloseActionError: () => void;
+interface RefreshButtonProps {
+  readonly disabled: boolean;
+  readonly onClick: () => void;
 }
 
-const MailboxAlerts: React.FC<MailboxAlertsProps> = ({
-  notice,
-  onCloseNotice,
-  actionError,
-  onCloseActionError,
-}) => {
+/** Syncs every linked email; new cards, accounts and statements appear when the syncs finish. */
+const RefreshButton: React.FC<RefreshButtonProps> = ({ disabled, onClick }) => {
   const { t } = useTranslation('mailbox');
-  const translateError = (code: string): string =>
-    t(`errors.${code}`, { defaultValue: t('errors.generic') });
-
   return (
-    <>
-      {notice && (
-        <Alert severity={notice.severity} onClose={onCloseNotice}>
-          {notice.severity === 'success' ? t('notices.linked') : translateError(notice.code)}
-        </Alert>
-      )}
-      {actionError && (
-        <Alert severity="error" onClose={onCloseActionError}>
-          {translateError(actionError)}
-        </Alert>
-      )}
-    </>
+    <Tooltip title={t('refreshAll.hint')}>
+      {/* A disabled button fires no events, so the tooltip needs a wrapper to anchor to. */}
+      <span>
+        <Button size="small" startIcon={<RefreshIcon />} disabled={disabled} onClick={onClick}>
+          {t('refreshAll.label')}
+        </Button>
+      </span>
+    </Tooltip>
   );
 };
 
 interface CardGridProps {
-  /** With a mailbox already linked, the empty state reports that nothing was found rather than asking to link one. */
-  readonly hasMailbox: boolean;
+  /** The empty state's next step; omitted when there is none to suggest. */
+  readonly emptyHint?: string;
   readonly isDownloading: boolean;
   /** Absent when mailbox features are off, since statements are fetched from the mailbox. */
   readonly onDownload?: (statementId: string) => void;
 }
 
-const CardGrid: React.FC<CardGridProps> = ({ hasMailbox, isDownloading, onDownload }) => {
+const CardGrid: React.FC<CardGridProps> = ({ emptyHint, isDownloading, onDownload }) => {
   const { t } = useTranslation('cards');
-  const { user } = useAuth();
-
   const {
     data: cards,
     isLoading,
     isError,
-  } = useQuery({
-    queryKey: CREDIT_CARDS_QUERY_KEY,
-    queryFn: listCreditCards,
-    enabled: !!user?.hasPan,
-  });
+  } = useQuery({ queryKey: CREDIT_CARDS_QUERY_KEY, queryFn: listCreditCards });
 
   return (
     <TileGrid
@@ -106,7 +98,7 @@ const CardGrid: React.FC<CardGridProps> = ({ hasMailbox, isDownloading, onDownlo
       skeletonCount={SKELETON_CARDS}
       errorText={t('errors.loadFailed')}
       emptyText={t('emptyState')}
-      emptyHint={hasMailbox ? t('emptyStateMailboxLinked') : t('emptyStateHint')}
+      emptyHint={emptyHint}
       renderTile={(card) => (
         <CreditCardTile card={card} isDownloading={isDownloading} onDownload={onDownload} />
       )}
@@ -114,13 +106,47 @@ const CardGrid: React.FC<CardGridProps> = ({ hasMailbox, isDownloading, onDownlo
   );
 };
 
-export const CreditCardsPage: React.FC = () => {
+type DashboardTab = 'cards' | 'accounts';
+
+const TABS = [
+  { value: 'cards', labelKey: 'dashboard.tabs.creditCards' },
+  { value: 'accounts', labelKey: 'dashboard.tabs.accounts' },
+] as const satisfies readonly { value: DashboardTab; labelKey: string }[];
+
+const tabId = (tab: DashboardTab): string => `dashboard-tab-${tab}`;
+const panelId = (tab: DashboardTab): string => `dashboard-panel-${tab}`;
+
+/**
+ * Shown to a user who skipped PAN registration (ProtectedRoute sends any other user without a PAN
+ * to /pan-register): every tab needs a PAN, so none is loaded.
+ */
+const LinkPanPrompt: React.FC = () => {
+  const { t } = useTranslation('common');
+  return (
+    <Container maxWidth="lg" sx={{ py: 4 }}>
+      <Stack spacing={3}>
+        <PageTitle>{t('dashboard.title')}</PageTitle>
+        <LinkPanAlert message={t('dashboard.linkPanPrompt')} />
+      </Stack>
+    </Container>
+  );
+};
+
+const Dashboard: React.FC = () => {
   const { t } = useTranslation('cards');
+  const { t: tCommon } = useTranslation('common');
   const mailbox = useMailboxes();
   const statements = useStatementDownload();
-  const [isLinkDialogOpen, setLinkDialogOpen] = useState(false);
-  const openLinkDialog = (): void => setLinkDialogOpen(true);
+  const [selectedTab, setSelectedTab] = useState<DashboardTab>('cards');
+  const [showAllAmounts, setShowAllAmounts] = useState(false);
   const hasMailbox = (mailbox.mailboxes?.length ?? 0) > 0;
+  // With mailbox features off there is nowhere to link an email, so no hint suggests it; with one
+  // linked, the empty state reports that nothing was found rather than asking to link one.
+  let cardsEmptyHint: string | undefined;
+  if (mailbox.isAvailable)
+    cardsEmptyHint = t(hasMailbox ? 'emptyStateMailboxLinked' : 'emptyStateHint');
+  // Accounts only ever come from a mailbox, so the tab exists only while mailbox features are on.
+  const activeTab: DashboardTab = mailbox.isAvailable ? selectedTab : 'cards';
 
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
@@ -131,50 +157,60 @@ export const CreditCardsPage: React.FC = () => {
         spacing={1}
         mb={3}
       >
-        <Typography variant="h4" fontWeight={700}>
-          {t('pageTitle')}
-        </Typography>
-        {mailbox.isAvailable && <LinkEmailLink onClick={openLinkDialog} />}
+        <Stack direction="row" alignItems="center" spacing={0.5}>
+          <PageTitle>{tCommon('dashboard.title')}</PageTitle>
+          <ShowAllToggle
+            showAll={showAllAmounts}
+            onToggle={() => setShowAllAmounts((shown) => !shown)}
+          />
+        </Stack>
+        {hasMailbox && (
+          <RefreshButton disabled={!mailbox.canRefreshAll} onClick={mailbox.refreshAll} />
+        )}
       </Stack>
 
       <Stack spacing={3}>
         <MailboxAlerts
-          notice={mailbox.notice}
-          onCloseNotice={mailbox.clearNotice}
           actionError={mailbox.actionError}
           onCloseActionError={mailbox.clearActionError}
         />
         {mailbox.gatheringIds.size > 0 && <SyncProgressBanner />}
 
-        <CardGrid
-          hasMailbox={hasMailbox}
-          isDownloading={statements.isDownloading}
-          onDownload={mailbox.isAvailable ? statements.download : undefined}
-        />
-
-        {mailbox.isAvailable && <BankAccountsSection hasMailbox={hasMailbox} />}
-
-        {mailbox.isAvailable && (
-          <MailboxesPanel
-            mailboxes={mailbox.mailboxes}
-            gatheringIds={mailbox.gatheringIds}
-            isLoading={mailbox.isLoading}
-            isError={mailbox.isError}
-            isBusy={mailbox.isBusy}
-            onRefresh={mailbox.refresh}
-            onUnlink={mailbox.setUnlinkTarget}
-            onReconnect={openLinkDialog}
-          />
-        )}
+        <Box>
+          <Tabs
+            value={activeTab}
+            onChange={(_event, tab: DashboardTab) => setSelectedTab(tab)}
+            sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}
+          >
+            {TABS.filter(({ value }) => value === 'cards' || mailbox.isAvailable).map(
+              ({ value, labelKey }) => (
+                <Tab
+                  key={value}
+                  value={value}
+                  label={tCommon(labelKey)}
+                  id={tabId(value)}
+                  // Only the active tab's panel is rendered.
+                  aria-controls={value === activeTab ? panelId(value) : undefined}
+                />
+              ),
+            )}
+          </Tabs>
+          <AmountVisibilityContext.Provider value={showAllAmounts}>
+            <Box role="tabpanel" id={panelId(activeTab)} aria-labelledby={tabId(activeTab)}>
+              {activeTab === 'cards' ? (
+                <CardGrid
+                  emptyHint={cardsEmptyHint}
+                  isDownloading={statements.isDownloading}
+                  onDownload={mailbox.isAvailable ? statements.download : undefined}
+                />
+              ) : (
+                <BankAccountGrid hasMailbox={hasMailbox} />
+              )}
+            </Box>
+          </AmountVisibilityContext.Provider>
+        </Box>
       </Stack>
 
-      <LinkMailboxDialog open={isLinkDialogOpen} onClose={() => setLinkDialogOpen(false)} />
-      <UnlinkMailboxDialog
-        mailbox={mailbox.unlinkTarget}
-        isBusy={mailbox.isUnlinking}
-        onCancel={() => mailbox.setUnlinkTarget(null)}
-        onConfirm={mailbox.confirmUnlink}
-      />
       <Snackbar
         open={statements.errorCode !== null}
         autoHideDuration={DOWNLOAD_ERROR_HIDE_MS}
@@ -183,4 +219,11 @@ export const CreditCardsPage: React.FC = () => {
       />
     </Container>
   );
+};
+
+/** Credit cards and bank accounts in tabs. Linked emails are managed on the profile page. */
+export const DashboardPage: React.FC = () => {
+  const { user } = useAuth();
+  if (!user) return null;
+  return user.hasPan ? <Dashboard /> : <LinkPanPrompt />;
 };
