@@ -65,6 +65,7 @@ describe('GET /api/v1/credit-cards', () => {
           current_balance: '150000.00',
           billing_cycle_day: 15,
           latest_statement: null,
+          mailbox_ids: ['mb-1'],
         },
       ],
     });
@@ -76,6 +77,7 @@ describe('GET /api/v1/credit-cards', () => {
     expect(res.body.cards[0].cardNumberLast4).toBe('4242');
     expect(res.body.cards[0].creditLimit).toBe(500000);
     expect(res.body.cards[0].latestStatement).toBeNull();
+    expect(res.body.cards[0].mailboxIds).toEqual(['mb-1']);
   });
 });
 
@@ -139,6 +141,7 @@ describe('GET /api/v1/credit-cards/:cardId/statements', () => {
             current_balance: null,
             billing_cycle_day: null,
             latest_statement: statement,
+            mailbox_ids: [],
           },
         ],
       })

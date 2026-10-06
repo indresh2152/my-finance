@@ -6,6 +6,8 @@
   "emptyState": "No credit cards yet.",
   "emptyStateHint": "Link your email from your profile and we'll find your credit cards from your bank statements.",
   "emptyStateMailboxLinked": "We haven't found any credit cards in your linked email yet. New cards will show up here after the next sync.",
+  "emptyStateFiltered": "We haven't found any credit cards in this email. Choose All cards to see the rest.",
+  "foundIn": "From {{emails}}",
   "errors": {
     "loadFailed": "Failed to load credit cards. Please try again."
   },

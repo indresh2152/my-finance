@@ -57,5 +57,9 @@
   "refreshAll": {
     "label": "Refresh",
     "hint": "Check your linked emails for new cards and statements"
+  },
+  "filter": {
+    "label": "Show cards from",
+    "all": "All cards"
   }
 }

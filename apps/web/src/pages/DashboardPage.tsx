@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { AmountVisibilityContext } from '../context/AmountVisibilityContext';
 import { CREDIT_CARDS_QUERY_KEY, listCreditCards } from '../services/credit-cards.api';
+import type { Mailbox } from '../services/mailbox.api';
 import { useMailboxes } from '../hooks/useMailboxes';
 import { useStatementDownload } from '../hooks/useStatementDownload';
 import { CreditCardTile } from '../components/cards/CreditCardTile';
@@ -15,6 +16,7 @@ import { TileGrid } from '../components/TileGrid';
 import { LinkPanAlert } from '../components/LinkPanAlert';
 import { PageTitle } from '../components/PageTitle';
 import { MailboxAlerts } from '../components/mailbox/MailboxAlerts';
+import { ALL_MAILBOXES, MailboxFilter } from '../components/mailbox/MailboxFilter';
 import { SyncProgressBanner } from '../components/mailbox/SyncProgressBanner';
 
 const SKELETON_CARDS = 3;
@@ -40,6 +42,9 @@ const RefreshButton: React.FC<RefreshButtonProps> = ({ disabled, onClick }) => {
 };
 
 interface CardGridProps {
+  readonly mailboxes: readonly Mailbox[];
+  /** ALL_MAILBOXES, or the id of the mailbox whose cards to show. */
+  readonly mailboxFilter: string;
   /** The empty state's next step; omitted when there is none to suggest. */
   readonly emptyHint?: string;
   readonly isDownloading: boolean;
@@ -47,25 +52,42 @@ interface CardGridProps {
   readonly onDownload?: (statementId: string) => void;
 }
 
-const CardGrid: React.FC<CardGridProps> = ({ emptyHint, isDownloading, onDownload }) => {
+const CardGrid: React.FC<CardGridProps> = ({
+  mailboxes,
+  mailboxFilter,
+  emptyHint,
+  isDownloading,
+  onDownload,
+}) => {
   const { t } = useTranslation('cards');
   const {
     data: cards,
     isLoading,
     isError,
   } = useQuery({ queryKey: CREDIT_CARDS_QUERY_KEY, queryFn: listCreditCards });
+  const emailById = new Map(mailboxes.map((mailbox) => [mailbox.id, mailbox.emailMasked]));
+  const isFiltered = mailboxFilter !== ALL_MAILBOXES;
+  const shownCards = isFiltered
+    ? cards?.filter((card) => card.mailboxIds.includes(mailboxFilter))
+    : cards;
 
   return (
     <TileGrid
-      items={cards}
+      items={shownCards}
       isLoading={isLoading}
       isError={isError}
       skeletonCount={SKELETON_CARDS}
       errorText={t('errors.loadFailed')}
-      emptyText={t('emptyState')}
-      emptyHint={emptyHint}
+      emptyText={t(isFiltered ? 'emptyStateFiltered' : 'emptyState')}
+      emptyHint={isFiltered ? undefined : emptyHint}
       renderTile={(card) => (
-        <CreditCardTile card={card} isDownloading={isDownloading} onDownload={onDownload} />
+        <CreditCardTile
+          card={card}
+          // An id with no match is a mailbox unlinked since the cards were loaded.
+          sourceEmails={card.mailboxIds.flatMap((id) => emailById.get(id) ?? [])}
+          isDownloading={isDownloading}
+          onDownload={onDownload}
+        />
       )}
     />
   );
@@ -93,7 +115,13 @@ const Dashboard: React.FC = () => {
   const mailbox = useMailboxes();
   const statements = useStatementDownload();
   const [showAllAmounts, setShowAllAmounts] = useState(false);
-  const hasMailbox = (mailbox.mailboxes?.length ?? 0) > 0;
+  const [selectedMailbox, setSelectedMailbox] = useState(ALL_MAILBOXES);
+  const mailboxes = mailbox.mailboxes ?? [];
+  const hasMailbox = mailboxes.length > 0;
+  // A mailbox unlinked while selected leaves nothing to filter by, so every card shows again.
+  const mailboxFilter = mailboxes.some(({ id }) => id === selectedMailbox)
+    ? selectedMailbox
+    : ALL_MAILBOXES;
   // With mailbox features off there is nowhere to link an email, so no hint suggests it; with one
   // linked, the empty state reports that nothing was found rather than asking to link one.
   let cardsEmptyHint: string | undefined;
@@ -117,7 +145,14 @@ const Dashboard: React.FC = () => {
           />
         </Stack>
         {hasMailbox && (
-          <RefreshButton disabled={!mailbox.canRefreshAll} onClick={mailbox.refreshAll} />
+          <Stack direction="row" alignItems="center" spacing={1}>
+            <RefreshButton disabled={!mailbox.canRefreshAll} onClick={mailbox.refreshAll} />
+            <MailboxFilter
+              mailboxes={mailboxes}
+              value={mailboxFilter}
+              onChange={setSelectedMailbox}
+            />
+          </Stack>
         )}
       </Stack>
 
@@ -130,6 +165,8 @@ const Dashboard: React.FC = () => {
 
         <AmountVisibilityContext.Provider value={showAllAmounts}>
           <CardGrid
+            mailboxes={mailboxes}
+            mailboxFilter={mailboxFilter}
             emptyHint={cardsEmptyHint}
             isDownloading={statements.isDownloading}
             onDownload={mailbox.isAvailable ? statements.download : undefined}

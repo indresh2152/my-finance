@@ -30,6 +30,7 @@ const mockCard: CreditCard = {
   availableCredit: 350000,
   currentBalance: 150000,
   latestStatement: null,
+  mailboxIds: ['mb-1'],
 };
 
 const emailCard: CreditCard = {
@@ -522,5 +523,79 @@ describe('DashboardPage — statements', () => {
     renderPage();
     expect(await screen.findByText('Amount due')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Download statement' })).not.toBeInTheDocument();
+  });
+});
+
+describe('DashboardPage — cards by email', () => {
+  const GMAIL = 'us****@gmail.com';
+  const OUTLOOK = 'wo****@outlook.com';
+
+  beforeEach(() => {
+    mailboxes = [mailbox(), mailbox({ id: 'mb-2', emailMasked: OUTLOOK })];
+    cards = [
+      mockCard,
+      { ...emailCard, mailboxIds: ['mb-2'] },
+      { ...emailCard, id: 'card-3', cardNumberLast4: '5555', mailboxIds: ['mb-1', 'mb-2'] },
+      { ...emailCard, id: 'card-4', cardNumberLast4: '7777', mailboxIds: [] },
+    ];
+  });
+
+  const chooseEmail = async (option: string): Promise<void> => {
+    await userEvent.click(await screen.findByRole('combobox', { name: 'Show cards from' }));
+    await userEvent.click(screen.getByRole('option', { name: option }));
+  };
+
+  it('should say which linked email each card came from', async () => {
+    renderPage();
+    expect(await screen.findByText(`From ${OUTLOOK}`)).toBeInTheDocument();
+    expect(screen.getByText(`From ${GMAIL}`)).toBeInTheDocument();
+    expect(screen.getByText(`From ${GMAIL}, ${OUTLOOK}`)).toBeInTheDocument();
+  });
+
+  it('should offer All cards and every linked email, masked, starting on All cards', async () => {
+    renderPage();
+    const filter = await screen.findByRole('combobox', { name: 'Show cards from' });
+    expect(filter).toHaveTextContent('All cards');
+    await userEvent.click(filter);
+    expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual([
+      'All cards',
+      GMAIL,
+      OUTLOOK,
+    ]);
+  });
+
+  it("should show only the chosen email's cards, and every card again on All cards", async () => {
+    renderPage();
+    expect(await screen.findByText('•••• 7777')).toBeInTheDocument();
+
+    await chooseEmail(OUTLOOK);
+    expect(screen.getByText('•••• 9876')).toBeInTheDocument();
+    expect(screen.getByText('•••• 5555')).toBeInTheDocument();
+    expect(screen.queryByText('•••• 4242')).not.toBeInTheDocument();
+    expect(screen.queryByText('•••• 7777')).not.toBeInTheDocument();
+
+    await chooseEmail('All cards');
+    expect(screen.getByText('•••• 4242')).toBeInTheDocument();
+    expect(screen.getByText('•••• 7777')).toBeInTheDocument();
+  });
+
+  it('should say when the chosen email has no cards', async () => {
+    cards = [mockCard];
+    renderPage();
+    await chooseEmail(OUTLOOK);
+    expect(screen.getByText(/haven't found any credit cards in this email/)).toBeInTheDocument();
+  });
+
+  it('should show every card again once the chosen email is unlinked', async () => {
+    renderPage();
+    await chooseEmail(OUTLOOK);
+    expect(screen.queryByText('•••• 4242')).not.toBeInTheDocument();
+
+    mailboxes = [mailbox()];
+    await userEvent.click(screen.getByRole('button', { name: 'Refresh' }));
+    expect(await screen.findByText('•••• 4242')).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: 'Show cards from' })).toHaveTextContent(
+      'All cards',
+    );
   });
 });

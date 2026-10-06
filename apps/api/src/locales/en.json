@@ -85,6 +85,7 @@
       "dueDate": "Null only when the statement has nothing due.",
       "cardNumberLast4": "Last 4 digits of the card. Null when the bank's statement emails never show them; cardName names the card instead.",
       "cardName": "The card's name from the statement email subject (e.g. Pixel Play, Amazon Pay). Null when the subject names none.",
+      "cardMailboxIds": "Ids of the linked mailboxes (as in GET /mailboxes) this card's statements were found in. Empty when it has none.",
       "downloadAvailable": "Whether the statement email had a PDF that can be downloaded.",
       "syncAvailableAt": "When a manual sync is allowed again; null when it is allowed now."
     },

@@ -33,6 +33,8 @@ export interface CreditCard {
   availableCredit: number | null;
   currentBalance: number | null;
   latestStatement: CardStatement | null;
+  /** Ids of the linked mailboxes this card's statements were found in; empty for none. */
+  mailboxIds: string[];
 }
 
 export interface StatementFile {

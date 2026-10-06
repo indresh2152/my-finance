@@ -95,6 +95,7 @@ const buildOpenApiDocument = (lng: string): OpenAPIObject => {
       currentBalance: z.number().nullable().describe(t('schemas.inrAmount')),
       billingCycleDay: z.number().int().nullable(),
       latestStatement: cardStatementSchema.nullable(),
+      mailboxIds: z.array(z.string().uuid()).describe(t('schemas.cardMailboxIds')),
     }),
   );
 

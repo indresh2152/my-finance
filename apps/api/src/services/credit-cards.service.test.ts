@@ -22,6 +22,7 @@ const mockCardRow = {
   current_balance: '150000.00',
   billing_cycle_day: 15,
   latest_statement: null,
+  mailbox_ids: [],
 };
 
 describe('CreditCardsService.listByUserId', () => {
@@ -149,6 +150,15 @@ describe('CreditCardsService.listByUserId', () => {
       passwordHint: 'First 4 letters of name + DDMM',
       downloadAvailable: true,
     });
+  });
+
+  it('should list the mailboxes the card was found in', async () => {
+    const db = makeDb();
+    db.query.mockResolvedValueOnce({ rows: [{ id: PAN_PROFILE_ID }] }).mockResolvedValueOnce({
+      rows: [{ ...mockCardRow, mailbox_ids: ['mb-1', 'mb-2'] }],
+    });
+    const [card] = await new CreditCardsService(db as never).listByUserId(USER_ID, LNG);
+    expect(card?.mailboxIds).toEqual(['mb-1', 'mb-2']);
   });
 
   it('should report no statement for a card that has none', async () => {

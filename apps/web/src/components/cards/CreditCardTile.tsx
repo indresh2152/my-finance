@@ -2,6 +2,7 @@ import React from 'react';
 import { Box, Card, CardActionArea, CardContent, Chip, Stack, Typography } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
 import ContactlessIcon from '@mui/icons-material/Contactless';
+import MailOutlineIcon from '@mui/icons-material/MailOutline';
 import { useTranslation } from 'react-i18next';
 import type { CreditCard } from '../../services/credit-cards.api';
 import { maskLast4 } from '../../utils/format';
@@ -39,10 +40,31 @@ const AmountRow: React.FC<AmountRowProps> = ({ label, amount }) =>
 
 interface CreditCardTileProps {
   readonly card: CreditCard;
+  /** The masked addresses of the linked emails the card was found in. */
+  readonly sourceEmails: readonly string[];
   readonly isDownloading: boolean;
   /** Absent when mailbox features are off, since statements are fetched from the mailbox. */
   readonly onDownload?: (statementId: string) => void;
 }
+
+interface SourceEmailsProps {
+  readonly emails: readonly string[];
+}
+
+/** Which linked emails the card was found in, so cards from different emails can be told apart. */
+const SourceEmails: React.FC<SourceEmailsProps> = ({ emails }) => {
+  const { t } = useTranslation('cards');
+  if (emails.length === 0) return null;
+  const list = emails.join(', ');
+  return (
+    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
+      <MailOutlineIcon fontSize="inherit" color="action" aria-hidden />
+      <Typography variant="caption" color="text.secondary" noWrap title={list}>
+        {t('foundIn', { emails: list })}
+      </Typography>
+    </Box>
+  );
+};
 
 const FADED_SX = { opacity: 0.85 } as const;
 const ROW_SX = { display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 1 };
@@ -127,6 +149,7 @@ export const CardFace: React.FC<CardFaceProps> = ({ card }) => {
 /** The branded card face (a link to the card's page), then any amounts and the latest statement. */
 export const CreditCardTile: React.FC<CreditCardTileProps> = ({
   card,
+  sourceEmails,
   isDownloading,
   onDownload,
 }) => {
@@ -144,13 +167,15 @@ export const CreditCardTile: React.FC<CreditCardTileProps> = ({
         >
           <CardFace card={card} />
         </CardActionArea>
-        {/* A real card carries no status, so it sits under the face. */}
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
+        {/* A real card carries neither its email nor a status, so they sit under the face. */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
+          <SourceEmails emails={sourceEmails} />
           <Chip
             label={tCommon(`status.${card.status.toLowerCase()}` as 'status.active')}
             color={statusColor(card.status)}
             size="small"
             variant="outlined"
+            sx={{ ml: 'auto' }}
           />
         </Box>
         <Stack spacing={0.5} mt={0.5}>

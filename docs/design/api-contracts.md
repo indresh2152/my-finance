@@ -259,6 +259,9 @@ date when nothing was due) across all linked mailboxes, preferring the email tha
 `null`. Statement dates are `YYYY-MM-DD`; `dueDate` is `null` only when nothing is due ("No Payment
 Due"). Amounts are INR numbers (the UI masks them). `passwordHint` is the bank's description of the
 PDF password format, never the password, and never holds a date, ID or sample password.
+`mailboxIds` lists the ids (as in `GET /mailboxes`) of the linked mailboxes this card's
+statements were found in, sorted; it is empty for a card with no statements. A card can appear in
+more than one mailbox.
 
 **Response 200**
 ```json
@@ -287,7 +290,8 @@ PDF password format, never the password, and never holds a date, ID or sample pa
         "minimumAmountDue": 620.00,
         "passwordHint": "First 4 letters of your name in capitals + DDMM of birth",
         "downloadAvailable": true
-      }
+      },
+      "mailboxIds": ["uuid"]
     }
   ],
   "meta": { "total": 3 }

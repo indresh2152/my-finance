@@ -22,6 +22,7 @@ interface CreditCardRow {
   billing_cycle_day: number | null;
   /** Built in SQL as JSON, so amounts arrive as numbers and dates as YYYY-MM-DD. */
   latest_statement: CardStatement | null;
+  mailbox_ids: string[];
 }
 
 export interface CardStatement {
@@ -53,6 +54,8 @@ export interface CreditCard {
   currentBalance: number | null;
   billingCycleDay: number | null;
   latestStatement: CardStatement | null;
+  /** The linked mailboxes this card's statements were found in; empty for none. */
+  mailboxIds: string[];
 }
 
 /** Each cycle's preferred row first: the email with the PDF, then the newest one. */
@@ -72,13 +75,19 @@ const STATEMENT_JSON = `json_build_object(
           )`;
 
 /**
- * Cards with their latest statement across all mailboxes: the newest billing cycle, preferring a
- * row with a PDF, so a reminder email for the same cycle cannot hide the statement.
+ * Cards with the mailboxes they were found in, and their latest statement across all mailboxes: the newest billing cycle, preferring a row with a PDF, so a reminder email for the
+ * same cycle cannot hide the statement.
  */
 const CARDS_SQL = `SELECT c.id, c.card_number_last4, c.card_name, c.card_network, c.issuing_bank, c.card_variant,
           c.expiry_month, c.expiry_year, c.name_on_card, c.status,
           c.credit_limit, c.available_credit, c.current_balance, c.billing_cycle_day,
-          CASE WHEN s.id IS NULL THEN NULL ELSE ${STATEMENT_JSON} END AS latest_statement
+          CASE WHEN s.id IS NULL THEN NULL ELSE ${STATEMENT_JSON} END AS latest_statement,
+          ARRAY(
+            SELECT DISTINCT mail_connection_id::text
+            FROM card_statements
+            WHERE credit_card_id = c.id
+            ORDER BY 1
+          ) AS mailbox_ids
    FROM credit_cards c
    LEFT JOIN LATERAL (
      SELECT id, statement_date, due_date, total_amount_due, minimum_amount_due, password_hint,
@@ -135,6 +144,7 @@ const toCard = (row: CreditCardRow): CreditCard => ({
   currentBalance: toDecimal(row.current_balance),
   billingCycleDay: row.billing_cycle_day,
   latestStatement: row.latest_statement,
+  mailboxIds: row.mailbox_ids,
 });
 
 export class CreditCardsService {

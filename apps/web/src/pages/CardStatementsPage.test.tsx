@@ -38,6 +38,7 @@ const card: CreditCard = {
   availableCredit: null,
   currentBalance: null,
   latestStatement: null,
+  mailboxIds: [],
 };
 
 const history: CardStatementHistory = {
