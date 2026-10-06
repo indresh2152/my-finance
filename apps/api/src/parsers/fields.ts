@@ -27,21 +27,11 @@ export const MAX_SUBJECT_CHARS = 500;
 const AMOUNT_VALUE = String.raw`(?:Rs\.?|INR|₹)?[ \t]*\d[\d,]*(?:\.\d{1,2})?(?![\d-]|/(?!-)|\.\d)(?:[ \t]*(?:Cr|Dr)\b)?`;
 const DATE_VALUE = String.raw`\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}|\d{1,2}[\s-][A-Za-z]{3,9}[\s,-]+\d{2,4}|[A-Za-z]{3,9}\.?\s+\d{1,2},?\s+\d{4}`;
 /**
- * Between a label and its value: `space` characters, ':', '-', '–', optionally 'is' / 'of'.
+ * Between a label and its value: whitespace, ':', '-', '–', optionally 'is' / 'of'.
  * Bounded and unambiguous, so untrusted email text cannot trigger catastrophic backtracking.
  */
-const labelSeparator = (space: string): string => {
-  const gap = String.raw`[${space}:\-–]`;
-  return String.raw`${gap}{0,40}(?:\((?:Rs\.?|INR|₹)\)${gap}{0,40})?(?:(?:is|of)${gap}{1,40})?`;
-};
-const LABEL_SEPARATOR = labelSeparator(String.raw`\s`);
-/**
- * Without newlines: a statement summary lays labels out as table headers, and the next line's
- * first figure belongs to another column.
- */
-const SAME_LINE_SEPARATOR = labelSeparator(String.raw` \t`);
-/** Skips an 'as on 29-09-2026' between a balance label and its amount. */
-const STATED_DATE = String.raw`(?:[ \t:\-–]{0,10}(?:as[ \t]+(?:on|of|at)\b)?[ \t:\-–]{0,10}(?:${DATE_VALUE}))?`;
+const LABEL_GAP = String.raw`[\s:\-–]`;
+const LABEL_SEPARATOR = String.raw`${LABEL_GAP}{0,40}(?:\((?:Rs\.?|INR|₹)\)${LABEL_GAP}{0,40})?(?:(?:is|of)${LABEL_GAP}{1,40})?`;
 
 const AMOUNT_PARTS = /^(?:Rs\.?|INR|₹)?\s*(\d[\d,]*(?:\.\d{1,2})?)(?:\s*(Cr|Dr)\b)?/i;
 const NUMERIC_DATE = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{2}|\d{4})$/;
@@ -59,23 +49,6 @@ const SINGLE_MASK_NUMBER = /(?<![A-Za-z\d])[Xx](\d{4})(?!\d)/;
 const CARD_WORD = /\bcard\b/gi;
 const CARD_CONTEXT_LENGTH = 44;
 const ENDING_NUMBER = /\bending(?:\s+(?:with|in))?[\s:-]*(\d{4})(?!\d)/i;
-/**
- * A masked account number right after 'A/c', 'Acct' or 'Account' ('A/c no. XX1234', 'Account
- * ending 1234', 'a/c **1234'), with the 'Savings' / 'Current' word directly before it, if any.
- * Without 'ending' a mask character is required, so an amount or year after 'account' is not
- * taken. Every repeat is bounded, so untrusted text cannot stall the sync.
- */
-const KIND_WORD = String.raw`\b(savings?|current)[ \t]+(?:bank[ \t]+)?`;
-const ACCOUNT_WORD = String.raw`\b(?:a\/c|acct|account)\b`;
-const ACCOUNT_NUMBER = new RegExp(
-  String.raw`(?:${KIND_WORD})?${ACCOUNT_WORD}(?:\s{0,3}(?:no|number)\b\.?)?[\s:.-]{0,5}(?:ending(?:\s+(?:with|in))?[\s:-]{0,5}[Xx*•\s-]{0,24}|[Xx*•][Xx*•\s-]{0,23})(\d{4})(?!\d)`,
-  'i',
-);
-/** 'Savings Account', 'Current A/c': the account kind named in a subject. */
-const ACCOUNT_KIND = new RegExp(`${KIND_WORD}${ACCOUNT_WORD}`, 'i');
-const DEBIT_SUFFIX = /\bDr\b/i;
-/** A minus set apart from the label ('Avl Bal: -5,000'), unlike the dash in 'Bal:-5,000'. */
-const LEADING_MINUS = /[ \t]-$/;
 
 export const parseInrAmount = (raw: string): number | null => {
   const match = AMOUNT_PARTS.exec(raw.trim());
@@ -85,19 +58,6 @@ export const parseInrAmount = (raw: string): number | null => {
   if (!Number.isFinite(value)) return null;
   const isCredit = match?.[2]?.toLowerCase() === 'cr';
   return isCredit && value !== 0 ? -value : value;
-};
-
-/**
- * Bank balances read the other way round from card dues: no suffix or Cr is money in the account;
- * a Dr suffix or a leading minus (the end of `separator`, the text before the amount) means it is
- * overdrawn.
- */
-export const parseBalanceAmount = (raw: string, separator = ''): number | null => {
-  const value = parseInrAmount(raw);
-  if (value === null) return null;
-  const magnitude = Math.abs(value);
-  const overdrawn = DEBIT_SUFFIX.test(raw) || LEADING_MINUS.test(separator);
-  return overdrawn && magnitude !== 0 ? -magnitude : magnitude;
 };
 
 const monthNumber = (name: string): number | null => {
@@ -147,27 +107,17 @@ export type FieldReader<T> = (text: string) => T | null;
 const labelledValue = <T>(
   label: string,
   value: string,
-  parse: (raw: string, separator: string) => T | null,
-  separator = LABEL_SEPARATOR,
+  parse: (raw: string) => T | null,
 ): FieldReader<T> => {
-  const pattern = new RegExp(`(?:${label})(${separator})(${value})`, 'i');
+  const pattern = new RegExp(`(?:${label})${LABEL_SEPARATOR}(${value})`, 'i');
   return (text) => {
     const match = pattern.exec(text);
-    return match ? parse(match[2] ?? '', match[1] ?? '') : null;
+    return match ? parse(match[1] ?? '') : null;
   };
 };
 
 export const labelledAmount = (label: RegExp): FieldReader<number> =>
   labelledValue(label.source, AMOUNT_VALUE, parseInrAmount);
-
-/** The amount on the label's own line, optionally after the date it is stated for. */
-export const labelledBalance = (label: RegExp): FieldReader<number> =>
-  labelledValue(
-    `(?:${label.source})${STATED_DATE}`,
-    AMOUNT_VALUE,
-    parseBalanceAmount,
-    SAME_LINE_SEPARATOR,
-  );
 
 /** Up to this many characters after a header label are searched for the value row. */
 const HEADER_ROW_WINDOW = 400;
@@ -232,35 +182,6 @@ export const extractCardLast4 = (text: string): string | null => {
   return null;
 };
 
-export type AccountKind = 'SAVINGS' | 'CURRENT';
-
-const kindOf = (word: string | undefined): AccountKind | undefined => {
-  if (word === undefined) return undefined;
-  return word.toLowerCase().startsWith('saving') ? 'SAVINGS' : 'CURRENT';
-};
-
-export interface AccountMention {
-  readonly last4: string;
-  /** Only when 'Savings' / 'Current' directly precedes the account number. */
-  readonly kind?: AccountKind;
-}
-
-/**
- * The first masked bank account number. Anchored on the account label, because alert bodies often
- * mask a mobile or card number too.
- */
-export const extractAccount = (text: string): AccountMention | null => {
-  const match = ACCOUNT_NUMBER.exec(text);
-  const last4 = match?.[2];
-  if (!match || last4 === undefined) return null;
-  const kind = kindOf(match[1]);
-  return kind ? { last4, kind } : { last4 };
-};
-
-/** 'Savings' or 'Current' when the text names a savings or current account. */
-export const extractAccountKind = (text: string): AccountKind | undefined =>
-  kindOf(ACCOUNT_KIND.exec(text)?.[1]);
-
 export const findPdfAttachment = (
   attachments: readonly EmailAttachment[],
 ): EmailAttachment | null =>
@@ -268,10 +189,6 @@ export const findPdfAttachment = (
     (attachment) =>
       attachment.mimeType.toLowerCase() === PDF_MIME_TYPE || /\.pdf$/i.test(attachment.filename),
   ) ?? null;
-
-/** The last instant of a calendar day (YYYY-MM-DD) in India Standard Time. */
-export const istEndOfDay = (isoDate: string): Date =>
-  new Date(Date.parse(`${isoDate}T23:59:59.999Z`) - IST_OFFSET_MS);
 
 /** Calendar date (YYYY-MM-DD) of an instant in India Standard Time. */
 export const istDate = (instant: Date): string =>

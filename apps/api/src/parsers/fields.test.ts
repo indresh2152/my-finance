@@ -1,9 +1,4 @@
 import {
-  extractAccount,
-  extractAccountKind,
-  istEndOfDay,
-  labelledBalance,
-  parseBalanceAmount,
   labelledAmount,
   labelledDate,
   extractCardLast4,
@@ -37,38 +32,6 @@ describe('parseInrAmount', () => {
 
   it.each(['', 'Rs.', 'NIL', 'abc 12'])('should reject %p', (raw) => {
     expect(parseInrAmount(raw)).toBeNull();
-  });
-});
-
-describe('parseBalanceAmount', () => {
-  it.each([
-    ['Rs. 1,234.00', 1234],
-    ['INR 1,234.00 Cr', 1234],
-    ['INR 1,234.00 Dr', -1234],
-    ['Rs. 0.00 Dr', 0],
-  ])('should parse %s', (raw, expected) => {
-    expect(parseBalanceAmount(raw)).toBe(expected);
-  });
-
-  it('should reject a non-amount', () => {
-    expect(parseBalanceAmount('NIL')).toBeNull();
-  });
-
-  it.each([
-    ['Avl Bal: INR 50.00 Dr', -50],
-    ['Avl Bal: -5,000.00', -5000],
-    ['Avl Bal:-5,000.00', 5000],
-    ['Avl Bal - Rs. 5,000', 5000],
-    ['Avl Bal as on 29-09-2026: INR 5,000.00', 5000],
-    ['Avl Bal 31-08-2026 Rs 5,000', 5000],
-  ])('should read the labelled balance in %p', (text, expected) => {
-    expect(labelledBalance(/avl bal/)(text)).toBe(expected);
-  });
-
-  it('should not read a balance from the next line', () => {
-    expect(
-      labelledBalance(/closing bal/)('Opening Balance  Closing Bal\n1,000.00  5,000.00'),
-    ).toBeNull();
   });
 });
 
@@ -183,55 +146,6 @@ describe('findPdfAttachment', () => {
     expect(findPdfAttachment([logo, pdf])).toBe(pdf);
     expect(findPdfAttachment([{ ...logo, mimeType: 'application/pdf' }])?.locator).toBe('1');
     expect(findPdfAttachment([logo])).toBeNull();
-  });
-});
-
-describe('extractAccount', () => {
-  it.each([
-    ['A/c no. XX1234', '1234'],
-    ['a/c **5678 debited', '5678'],
-    ['Account Number: XXXX XXXX 9012', '9012'],
-    ['Acct ending with 3456', '3456'],
-    ['Mobile XXXXXX9876, Account XX2468', '2468'],
-  ])('should read %p', (text, expected) => {
-    expect(extractAccount(text)?.last4).toBe(expected);
-  });
-
-  it.each([
-    'Card XX1234',
-    'Account balance is Rs. 100',
-    'A/c XX123 only',
-    'Rs 1500.00 credited to your account 2500.00',
-    '',
-  ])('should return null for %p', (text) => {
-    expect(extractAccount(text)).toBeNull();
-  });
-
-  it('should take the account kind only from the words right before the number', () => {
-    expect(extractAccount('Savings A/c XX1234')).toEqual({ last4: '1234', kind: 'SAVINGS' });
-    expect(extractAccount('Current Account no. XX1234')).toEqual({
-      last4: '1234',
-      kind: 'CURRENT',
-    });
-    expect(extractAccount('A/c XX1234. Open a Savings Account today!')).toEqual({
-      last4: '1234',
-    });
-  });
-});
-
-describe('extractAccountKind', () => {
-  it.each([
-    ['Your Savings Account Statement', 'SAVINGS'],
-    ['Current A/c balance', 'CURRENT'],
-    ['Account balance', undefined],
-  ])('should read %p', (text, expected) => {
-    expect(extractAccountKind(text)).toBe(expected);
-  });
-});
-
-describe('istEndOfDay', () => {
-  it('should return the last millisecond of the day in IST', () => {
-    expect(istEndOfDay('2026-09-28').toISOString()).toBe('2026-09-28T18:29:59.999Z');
   });
 });
 

@@ -57,10 +57,6 @@ const DELETE_ORPHAN_CARDS_SQL = `DELETE FROM credit_cards c
    WHERE c.pan_profile_id = $1 AND c.source = 'EMAIL'
      AND NOT EXISTS (SELECT 1 FROM card_statements s WHERE s.credit_card_id = c.id)`;
 
-const DELETE_ORPHAN_ACCOUNTS_SQL = `DELETE FROM bank_accounts a
-   WHERE a.pan_profile_id = $1 AND a.source = 'EMAIL'
-     AND NOT EXISTS (SELECT 1 FROM account_balance_snapshots s WHERE s.bank_account_id = a.id)`;
-
 export class MailboxService {
   private readonly now: () => Date;
 
@@ -183,7 +179,6 @@ export class MailboxService {
       userId,
     ]);
     await client.query(DELETE_ORPHAN_CARDS_SQL, [panProfileId]);
-    await client.query(DELETE_ORPHAN_ACCOUNTS_SQL, [panProfileId]);
   }
 
   private async inTransaction(work: (client: PoolClient) => Promise<void>): Promise<void> {

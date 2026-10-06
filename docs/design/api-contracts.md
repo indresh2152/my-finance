@@ -5,9 +5,9 @@ Content-Type: `application/json`
 Currency: All monetary values are in **INR (₹)** as `number` with 2 decimal places.  
 Auth: `Authorization: Bearer <accessToken>` on all protected routes.
 
-**Financial instrument endpoints are read-only.** There are no POST/PUT/DELETE endpoints for credit cards, bank accounts, loans, investments, or insurance policies. All instrument data is fetched from external sources (or entered by seed/admin tooling) and displayed to the authenticated owner. Users cannot manually add or edit instruments in v1.
+**Financial instrument endpoints are read-only.** There are no POST/PUT/DELETE endpoints for credit cards, loans, investments, or insurance policies. All instrument data is fetched from external sources (or entered by seed/admin tooling) and displayed to the authenticated owner. Users cannot manually add or edit instruments in v1.
 
-**PAN requirement:** All financial data endpoints (`/overview`, `/credit-cards`, `/bank-accounts`, `/loans`, `/investments`, `/insurance`) require a registered PAN. If the authenticated user has no PAN, these endpoints return `403 PAN_NOT_REGISTERED`. Frontend should detect this code and redirect to the PAN registration flow rather than treating it as a generic "access denied."
+**PAN requirement:** All financial data endpoints (`/overview`, `/credit-cards`, `/loans`, `/investments`, `/insurance`) require a registered PAN. If the authenticated user has no PAN, these endpoints return `403 PAN_NOT_REGISTERED`. Frontend should detect this code and redirect to the PAN registration flow rather than treating it as a generic "access denied."
 
 **PAN gate flow (two layers):**
 1. **Primary**: On login or register, the response includes `hasPan: true/false`. If `false`, the frontend immediately redirects to `/pan-register` before the user can access any financial endpoint. This avoids unnecessary API calls.
@@ -216,11 +216,10 @@ Returns a summary of all financial instruments linked to the user's PAN — one 
 **Calculation rules:**
 - `totalCreditLimit` — sum of `credit_limit` across all ACTIVE credit cards
 - `totalCreditBalance` — sum of `current_balance` (amount owed) across all ACTIVE credit cards
-- `totalBankBalance` — sum of `balance` across all ACTIVE and DORMANT bank accounts (negative balances included; overdrawn accounts reduce the total)
 - `totalLoanOutstanding` — sum of `outstanding_amount` across all ACTIVE loans
 - `totalInvestmentValue` — sum of `current_value` across all investments (all statuses included)
 - `totalInsuredAmount` — sum of `sum_assured` across all ACTIVE insurance policies
-- Accounts/cards/loans with `status='CLOSED'` or `status='EXPIRED'` are excluded from all totals
+- Cards/loans with `status='CLOSED'` or `status='EXPIRED'` are excluded from all totals
 - All values rounded to 2 decimal places
 
 **Response 200**
@@ -230,14 +229,12 @@ Returns a summary of all financial instruments linked to the user's PAN — one 
   "summary": {
     "totalCreditLimit":      1000000.00,
     "totalCreditBalance":    167000.00,
-    "totalBankBalance":      850000.00,
     "totalLoanOutstanding":  4200000.00,
     "totalInvestmentValue":  1250000.00,
     "totalInsuredAmount":    5000000.00
   },
   "counts": {
     "creditCards":    3,
-    "bankAccounts":   2,
     "loans":          1,
     "investments":    5,
     "insurancePolicies": 2
@@ -305,43 +302,6 @@ Returns a single card (same shape as above, single object).
 
 ---
 
-## Bank Accounts
-
-### GET /bank-accounts
-
-**Response 200**
-```json
-{
-  "data": [
-    {
-      "id": "uuid",
-      "accountNumberLast4": "5678",
-      "accountType": "SAVINGS",
-      "bankName": "HDFC Bank",
-      "ifscPrefix": "HDFC",
-      "balance": 450000.00,
-      "status": "ACTIVE"
-    },
-    {
-      "id": "uuid",
-      "accountNumberLast4": "0012",
-      "accountType": "FD",
-      "bankName": "SBI",
-      "balance": 400000.00,
-      "interestRate": 7.25,
-      "maturityDate": "2026-03-31",
-      "status": "ACTIVE"
-    }
-  ],
-  "meta": { "total": 2 }
-}
-```
-
-**Field notes:**
-- `interestRate` and `maturityDate` are present **only** for `accountType: "FD"` and `accountType: "RD"`. They are **omitted** (not null) for SAVINGS and CURRENT accounts. Frontend must treat absence as not applicable.
-
----
-
 ## Loans
 
 ### GET /loans
@@ -380,7 +340,7 @@ Returns a single card (same shape as above, single object).
 |--------|----------|---------|--------------------------------------------------------------------------|
 | `type` | string[] | —       | Filter by `investment_type`. Repeatable: `?type=MUTUAL_FUND&type=STOCKS` |
 
-Filtering is server-side. If omitted, all investment types are returned. Valid values match the `investment_type` enum: `MUTUAL_FUND`, `STOCKS`, `PPF`, `NPS`, `BONDS`, `GOVT_SECURITIES`, `GOLD`, `REAL_ESTATE`, `OTHER`. Note: `FD` (Fixed Deposit) is a bank account type, not an investment type — filter `GET /bank-accounts` by `accountType=FD` instead.
+Filtering is server-side. If omitted, all investment types are returned. Valid values match the `investment_type` enum: `MUTUAL_FUND`, `STOCKS`, `PPF`, `NPS`, `BONDS`, `GOVT_SECURITIES`, `GOLD`, `REAL_ESTATE`, `OTHER`.
 
 **Response 200**
 ```json
@@ -628,7 +588,6 @@ Routes exist only when `MAILBOX_ENABLED=true`. All under `/api/v1/mailboxes`.
 | GET | /api/v1/mailboxes | JWT + PAN | 200 `{ mailboxes: Mailbox[] }` | 403 |
 | POST | /api/v1/mailboxes/{mailboxId}/sync | JWT + PAN | 202 `{ queued: true }` | 404 MAILBOX_NOT_FOUND, 409 MAILBOX_REAUTH_REQUIRED, 429 SYNC_TOO_FREQUENT |
 | DELETE | /api/v1/mailboxes/{mailboxId} | JWT + PAN | 204 | 404 MAILBOX_NOT_FOUND |
-| GET | /api/v1/mailboxes/accounts | JWT + PAN | 200 `{ data: EmailBankAccount[] }` | 403 PAN_NOT_REGISTERED |
 | GET | /api/v1/mailboxes/statements/{statementId}/download | JWT + PAN | 200 file (`Content-Disposition: attachment`, `Cache-Control: no-store`; `application/pdf` only when the bytes are a PDF) | 404 STATEMENT_NOT_FOUND\|STATEMENT_UNAVAILABLE, 409 MAILBOX_REAUTH_REQUIRED, 422, 429 (20/h per user) |
 
 `Mailbox` = `{ id, provider: 'GOOGLE'|'MICROSOFT', emailMasked, status: 'ACTIVE'|'REAUTH_REQUIRED',
@@ -637,17 +596,6 @@ lastSyncStatus: 'NEVER'|'RUNNING'|'SUCCEEDED'|'FAILED', lastSyncErrorCode, lastS
 cooldown, or `null` when it is allowed now, so clients can disable Refresh instead of meeting a 429.
 The download fetches the statement file live from the mailbox that received it; nothing is stored.
 Card statements themselves are returned by `GET /credit-cards` (`latestStatement`).
-
-`EmailBankAccount` = `{ id, bankName, accountNumberLast4, accountType: 'SAVINGS'|'CURRENT'|'FD'|'RD'|'NRE'|'NRO'|'OTHER',
-availableBalance, balanceAsOf }`. `bankName` is a bank code (`HDFC`, `ICICI`, `SBI`, `AXIS`, `KOTAK`);
-`availableBalance` is a number in INR (negative when overdrawn); `balanceAsOf` is an ISO timestamp.
-Each account carries the newest balance any of the caller's mailboxes has seen. Writes
-`EMAIL_ACCOUNT_LIST` (metadata: `count` only).
-
-```json
-{ "data": [ { "id": "uuid", "bankName": "ICICI", "accountNumberLast4": "5678", "accountType": "SAVINGS",
-  "availableBalance": 234567.89, "balanceAsOf": "2026-09-24T10:12:00.000Z" } ] }
-```
 
 ---
 

@@ -1,16 +1,6 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import {
-  Box,
-  Button,
-  Container,
-  IconButton,
-  Snackbar,
-  Stack,
-  Tab,
-  Tabs,
-  Tooltip,
-} from '@mui/material';
+import { Button, Container, IconButton, Snackbar, Stack, Tooltip } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
@@ -23,7 +13,6 @@ import { useMailboxes } from '../hooks/useMailboxes';
 import { useStatementDownload } from '../hooks/useStatementDownload';
 import { CreditCardTile } from '../components/cards/CreditCardTile';
 import { TileGrid } from '../components/TileGrid';
-import { BankAccountGrid } from '../components/accounts/BankAccountGrid';
 import { LinkPanAlert } from '../components/LinkPanAlert';
 import { PageTitle } from '../components/PageTitle';
 import { MailboxAlerts } from '../components/mailbox/MailboxAlerts';
@@ -59,7 +48,7 @@ interface RefreshButtonProps {
   readonly onClick: () => void;
 }
 
-/** Syncs every linked email; new cards, accounts and statements appear when the syncs finish. */
+/** Syncs every linked email; new cards and statements appear when the syncs finish. */
 const RefreshButton: React.FC<RefreshButtonProps> = ({ disabled, onClick }) => {
   const { t } = useTranslation('mailbox');
   return (
@@ -106,19 +95,9 @@ const CardGrid: React.FC<CardGridProps> = ({ emptyHint, isDownloading, onDownloa
   );
 };
 
-type DashboardTab = 'cards' | 'accounts';
-
-const TABS = [
-  { value: 'cards', labelKey: 'dashboard.tabs.creditCards' },
-  { value: 'accounts', labelKey: 'dashboard.tabs.accounts' },
-] as const satisfies readonly { value: DashboardTab; labelKey: string }[];
-
-const tabId = (tab: DashboardTab): string => `dashboard-tab-${tab}`;
-const panelId = (tab: DashboardTab): string => `dashboard-panel-${tab}`;
-
 /**
  * Shown to a user who skipped PAN registration (ProtectedRoute sends any other user without a PAN
- * to /pan-register): every tab needs a PAN, so none is loaded.
+ * to /pan-register): cards need a PAN, so none are loaded.
  */
 const LinkPanPrompt: React.FC = () => {
   const { t } = useTranslation('common');
@@ -137,7 +116,6 @@ const Dashboard: React.FC = () => {
   const { t: tCommon } = useTranslation('common');
   const mailbox = useMailboxes();
   const statements = useStatementDownload();
-  const [selectedTab, setSelectedTab] = useState<DashboardTab>('cards');
   const [showAllAmounts, setShowAllAmounts] = useState(false);
   const hasMailbox = (mailbox.mailboxes?.length ?? 0) > 0;
   // With mailbox features off there is nowhere to link an email, so no hint suggests it; with one
@@ -145,8 +123,6 @@ const Dashboard: React.FC = () => {
   let cardsEmptyHint: string | undefined;
   if (mailbox.isAvailable)
     cardsEmptyHint = t(hasMailbox ? 'emptyStateMailboxLinked' : 'emptyStateHint');
-  // Accounts only ever come from a mailbox, so the tab exists only while mailbox features are on.
-  const activeTab: DashboardTab = mailbox.isAvailable ? selectedTab : 'cards';
 
   return (
     <Container maxWidth="lg" sx={{ py: 4 }}>
@@ -176,39 +152,13 @@ const Dashboard: React.FC = () => {
         />
         {mailbox.gatheringIds.size > 0 && <SyncProgressBanner />}
 
-        <Box>
-          <Tabs
-            value={activeTab}
-            onChange={(_event, tab: DashboardTab) => setSelectedTab(tab)}
-            sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}
-          >
-            {TABS.filter(({ value }) => value === 'cards' || mailbox.isAvailable).map(
-              ({ value, labelKey }) => (
-                <Tab
-                  key={value}
-                  value={value}
-                  label={tCommon(labelKey)}
-                  id={tabId(value)}
-                  // Only the active tab's panel is rendered.
-                  aria-controls={value === activeTab ? panelId(value) : undefined}
-                />
-              ),
-            )}
-          </Tabs>
-          <AmountVisibilityContext.Provider value={showAllAmounts}>
-            <Box role="tabpanel" id={panelId(activeTab)} aria-labelledby={tabId(activeTab)}>
-              {activeTab === 'cards' ? (
-                <CardGrid
-                  emptyHint={cardsEmptyHint}
-                  isDownloading={statements.isDownloading}
-                  onDownload={mailbox.isAvailable ? statements.download : undefined}
-                />
-              ) : (
-                <BankAccountGrid hasMailbox={hasMailbox} />
-              )}
-            </Box>
-          </AmountVisibilityContext.Provider>
-        </Box>
+        <AmountVisibilityContext.Provider value={showAllAmounts}>
+          <CardGrid
+            emptyHint={cardsEmptyHint}
+            isDownloading={statements.isDownloading}
+            onDownload={mailbox.isAvailable ? statements.download : undefined}
+          />
+        </AmountVisibilityContext.Provider>
       </Stack>
 
       <Snackbar
@@ -221,7 +171,7 @@ const Dashboard: React.FC = () => {
   );
 };
 
-/** Credit cards and bank accounts in tabs. Linked emails are managed on the profile page. */
+/** The user's credit cards. Linked emails are managed on the profile page. */
 export const DashboardPage: React.FC = () => {
   const { user } = useAuth();
   if (!user) return null;

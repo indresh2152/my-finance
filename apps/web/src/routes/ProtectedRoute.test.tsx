@@ -21,7 +21,7 @@ const ChildPage: React.FC = () => {
   return (
     <div>
       Protected Content
-      <button onClick={() => navigate('/bank-accounts')}>Go to accounts</button>
+      <button onClick={() => navigate('/loans')}>Go to accounts</button>
     </div>
   );
 };
@@ -64,7 +64,7 @@ const renderRoute = (initialPath: string): ReturnType<typeof renderWithProviders
           }
         />
         <Route
-          path="/bank-accounts"
+          path="/loans"
           element={
             <ProtectedRoute>
               <ChildPage />
@@ -78,10 +78,10 @@ const renderRoute = (initialPath: string): ReturnType<typeof renderWithProviders
 
 describe('ProtectedRoute', () => {
   it('should keep the query string in the login redirect', async () => {
-    renderRoute('/bank-accounts?linked=1');
+    renderRoute('/loans?linked=1');
     await waitFor(() => expect(screen.getByText('Login Page')).toBeInTheDocument());
     expect(screen.getByTestId('login-search')).toHaveTextContent(
-      `?redirect=${encodeURIComponent('/bank-accounts?linked=1')}`,
+      `?redirect=${encodeURIComponent('/loans?linked=1')}`,
     );
   });
 
@@ -120,7 +120,7 @@ describe('ProtectedRoute', () => {
         }),
       ),
     );
-    renderRoute('/bank-accounts');
+    renderRoute('/loans');
     await waitFor(() => expect(screen.getByText('Protected Content')).toBeInTheDocument());
   });
 
@@ -143,7 +143,7 @@ describe('ProtectedRoute', () => {
     await waitFor(() => expect(screen.getByText('Protected Content')).toBeInTheDocument());
   });
 
-  it('should still redirect bank accounts to /pan-register after the user skips PAN', async () => {
+  it('should still redirect loans to /pan-register after the user skips PAN', async () => {
     server.use(
       http.post('/api/v1/auth/refresh', () => HttpResponse.json({ accessToken: 'token' })),
       http.get('/api/v1/users/me', () =>

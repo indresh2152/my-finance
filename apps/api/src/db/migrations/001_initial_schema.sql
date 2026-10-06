@@ -21,9 +21,9 @@ DO $$ BEGIN
     'USER_REGISTER', 'USER_LOGIN', 'USER_LOGIN_FAILED', 'USER_LOGOUT', 'USER_DELETE',
     'TOKEN_REFRESH', 'USER_PROFILE_VIEW', 'USER_PROFILE_UPDATE', 'DATA_EXPORT_REQUEST',
     'PAN_REGISTER', 'PAN_VIEW', 'OVERVIEW_VIEW', 'CARD_LIST', 'CARD_VIEW',
-    'BANK_ACCOUNT_LIST', 'LOAN_LIST', 'INVESTMENT_LIST', 'INSURANCE_LIST', 'AUDIT_LOG_VIEW',
+    'LOAN_LIST', 'INVESTMENT_LIST', 'INSURANCE_LIST', 'AUDIT_LOG_VIEW',
     'MAILBOX_LINK', 'MAILBOX_UNLINK', 'MAILBOX_SYNC',
-    'EMAIL_CARD_LIST', 'EMAIL_ACCOUNT_LIST', 'STATEMENT_DOWNLOAD'
+    'EMAIL_CARD_LIST', 'STATEMENT_DOWNLOAD'
   );
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
@@ -50,16 +50,6 @@ END $$;
 
 DO $$ BEGIN
   CREATE TYPE mail_sync_status AS ENUM ('NEVER', 'RUNNING', 'SUCCEEDED', 'FAILED');
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
-
-DO $$ BEGIN
-  CREATE TYPE bank_account_type AS ENUM ('SAVINGS', 'CURRENT', 'FD', 'RD', 'NRE', 'NRO', 'OTHER');
-EXCEPTION WHEN duplicate_object THEN NULL;
-END $$;
-
-DO $$ BEGIN
-  CREATE TYPE bank_account_status AS ENUM ('ACTIVE', 'DORMANT', 'CLOSED', 'FROZEN');
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
@@ -97,8 +87,9 @@ CREATE INDEX IF NOT EXISTS idx_pan_profiles_pan_hash ON pan_profiles (pan_hash);
 
 -- USER rows: added by the user, all identity fields required.
 -- EMAIL rows: derived from bank emails; only bank, masked last4 and the card's name (from the
--- subject) are known. Some banks' emails never show the digits (HDFC Pixel, Scapia, OneCard): the
--- name alone identifies those cards.
+-- subject) are known. Some banks' emails never show the digits (HDFC Pixel, Scapia, OneCard): those
+-- cards are told apart by name and billing_cycle_day, since one holder can have two cards of the same
+-- name. The service matches them; a unique index cannot (the day may drift around month-end).
 CREATE TABLE IF NOT EXISTS credit_cards (
   id                UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
   pan_profile_id    UUID          NOT NULL REFERENCES pan_profiles(id) ON DELETE CASCADE,
@@ -106,9 +97,6 @@ CREATE TABLE IF NOT EXISTS credit_cards (
   card_number_hash  TEXT,
   card_number_last4 CHAR(4),
   card_name         VARCHAR(60),                 -- e.g. 'Pixel Play'; NULL when the subject names none
-  -- A card is its digits when known, otherwise its name: a name stored next to the digits never
-  -- makes a second card.
-  card_key          VARCHAR(60)   GENERATED ALWAYS AS (COALESCE(card_number_last4, card_name)) STORED,
   card_network      card_network,
   issuing_bank      VARCHAR(100)  NOT NULL,
   card_variant      card_variant  NOT NULL DEFAULT 'CLASSIC',
@@ -138,8 +126,10 @@ CREATE INDEX IF NOT EXISTS idx_credit_cards_pan_profile_id ON credit_cards (pan_
 CREATE INDEX IF NOT EXISTS idx_credit_cards_status         ON credit_cards (status);
 CREATE UNIQUE INDEX IF NOT EXISTS uq_credit_cards_card_number_hash
   ON credit_cards (card_number_hash) WHERE card_number_hash IS NOT NULL;
+-- A card with digits is its digits: a name stored next to them never makes a second card.
 CREATE UNIQUE INDEX IF NOT EXISTS uq_credit_cards_email
-  ON credit_cards (pan_profile_id, issuing_bank, card_key) WHERE source = 'EMAIL';
+  ON credit_cards (pan_profile_id, issuing_bank, card_number_last4)
+  WHERE source = 'EMAIL' AND card_number_last4 IS NOT NULL;
 
 CREATE TABLE IF NOT EXISTS refresh_tokens (
   id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -224,41 +214,3 @@ CREATE TABLE IF NOT EXISTS card_statements (
 );
 
 CREATE INDEX IF NOT EXISTS idx_card_statements_mail_connection_id ON card_statements (mail_connection_id);
-
-CREATE TABLE IF NOT EXISTS bank_accounts (
-  id                   UUID                PRIMARY KEY DEFAULT gen_random_uuid(),
-  pan_profile_id       UUID                NOT NULL REFERENCES pan_profiles(id) ON DELETE CASCADE,
-  source               record_source       NOT NULL DEFAULT 'USER',
-  account_number_hash  TEXT,
-  account_number_last4 CHAR(4)             NOT NULL,
-  account_type         bank_account_type   NOT NULL DEFAULT 'OTHER',
-  bank_name            VARCHAR(100)        NOT NULL,
-  branch_name          VARCHAR(100),
-  ifsc_prefix          CHAR(4),
-  interest_rate        NUMERIC(5,2),
-  maturity_date        DATE,
-  status               bank_account_status NOT NULL DEFAULT 'ACTIVE',
-  created_at           TIMESTAMPTZ         NOT NULL DEFAULT NOW(),
-  updated_at           TIMESTAMPTZ         NOT NULL DEFAULT NOW(),
-  CONSTRAINT bank_accounts_user_fields_required CHECK (source <> 'USER' OR account_number_hash IS NOT NULL)
-);
-
-CREATE INDEX IF NOT EXISTS idx_bank_accounts_pan_profile_id ON bank_accounts (pan_profile_id);
-CREATE UNIQUE INDEX IF NOT EXISTS uq_bank_accounts_hash
-  ON bank_accounts (account_number_hash) WHERE account_number_hash IS NOT NULL;
-CREATE UNIQUE INDEX IF NOT EXISTS uq_bank_accounts_email
-  ON bank_accounts (pan_profile_id, bank_name, account_number_last4) WHERE source = 'EMAIL';
-
--- Latest balance each mailbox has seen for an account.
-CREATE TABLE IF NOT EXISTS account_balance_snapshots (
-  id                 UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
-  bank_account_id    UUID          NOT NULL REFERENCES bank_accounts(id) ON DELETE CASCADE,
-  mail_connection_id UUID          NOT NULL REFERENCES mail_connections(id) ON DELETE CASCADE,
-  available_balance  NUMERIC(15,2) NOT NULL,
-  balance_as_of      TIMESTAMPTZ   NOT NULL,
-  source_message_id  TEXT          NOT NULL,
-  updated_at         TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
-  CONSTRAINT uq_balance_snapshots_account_mailbox UNIQUE (bank_account_id, mail_connection_id)
-);
-
-CREATE INDEX IF NOT EXISTS idx_balance_snapshots_mail_connection_id ON account_balance_snapshots (mail_connection_id);

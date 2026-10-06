@@ -112,3 +112,7 @@ When you fix one, delete its entry.
   database row stays valid until it expires.
 - **PanRegisterPage stays on the form after a 409 `PAN_ALREADY_REGISTERED`.** It shows the error but
   doesn't refresh the user's `hasPan` state.
+- **A card found first by name can show up twice once its digits appear.** An email that names a card
+  without its last 4 digits makes a name-only card; a later email for the same card that shows the
+  digits makes a second card, because name-only and digit cards are matched separately (see
+  `RecordUpsertService` in `apps/api/src/services/mailbox/record-upsert.service.ts`).

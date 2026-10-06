@@ -48,7 +48,6 @@ export const auditActionEnum = pgEnum('audit_action', [
   'OVERVIEW_VIEW',
   'CARD_LIST',
   'CARD_VIEW',
-  'BANK_ACCOUNT_LIST',
   'LOAN_LIST',
   'INVESTMENT_LIST',
   'INSURANCE_LIST',
@@ -57,10 +56,9 @@ export const auditActionEnum = pgEnum('audit_action', [
   'MAILBOX_UNLINK',
   'MAILBOX_SYNC',
   'EMAIL_CARD_LIST',
-  'EMAIL_ACCOUNT_LIST',
   'STATEMENT_DOWNLOAD',
 ]);
-// USER rows / EMAIL rows: see credit_cards and bank_accounts below — mirrored by db/mailbox.schema.ts too.
+// USER rows / EMAIL rows: see credit_cards below.
 export const recordSourceEnum = pgEnum('record_source', ['USER', 'EMAIL']);
 
 export const users = pgTable('users', {
@@ -102,10 +100,6 @@ export const creditCards = pgTable(
     cardNumberHash: text('card_number_hash'),
     cardNumberLast4: char('card_number_last4', { length: 4 }),
     cardName: varchar('card_name', { length: 60 }),
-    /** The card's identity: its digits when known, otherwise its name. */
-    cardKey: varchar('card_key', { length: 60 }).generatedAlwaysAs(
-      sql`COALESCE(card_number_last4, card_name)`,
-    ),
     cardNetwork: cardNetworkEnum('card_network'),
     issuingBank: varchar('issuing_bank', { length: 100 }).notNull(),
     cardVariant: cardVariantEnum('card_variant').notNull().default('CLASSIC'),
@@ -116,6 +110,7 @@ export const creditCards = pgTable(
     creditLimit: numeric('credit_limit', { precision: 15, scale: 2 }),
     availableCredit: numeric('available_credit', { precision: 15, scale: 2 }),
     currentBalance: numeric('current_balance', { precision: 15, scale: 2 }),
+    /** Day of month the statement is generated; tells apart EMAIL cards known only by name. */
     billingCycleDay: smallint('billing_cycle_day'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
@@ -125,8 +120,8 @@ export const creditCards = pgTable(
       .on(t.cardNumberHash)
       .where(sql`${t.cardNumberHash} IS NOT NULL`),
     uniqueIndex('uq_credit_cards_email')
-      .on(t.panProfileId, t.issuingBank, t.cardKey)
-      .where(sql`${t.source} = 'EMAIL'`),
+      .on(t.panProfileId, t.issuingBank, t.cardNumberLast4)
+      .where(sql`${t.source} = 'EMAIL' AND ${t.cardNumberLast4} IS NOT NULL`),
     check(
       'credit_cards_identity_required',
       sql`${t.cardNumberLast4} IS NOT NULL OR (${t.source} = 'EMAIL' AND ${t.cardName} IS NOT NULL)`,

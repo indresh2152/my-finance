@@ -1,16 +1,8 @@
 import { matchesSender } from './sender-match';
 import type { EmailMeta, EmailParser } from './email-parser';
 import { CARD_STATEMENT_PARSERS } from './banks/card-statements';
-import { ACCOUNT_BALANCE_PARSERS } from './banks/account-balances';
 
-/**
- * Card statements first: find() returns the first match, and the balance parsers must never claim
- * a card email.
- */
-export const BANK_PARSERS: readonly EmailParser[] = [
-  ...CARD_STATEMENT_PARSERS,
-  ...ACCOUNT_BALANCE_PARSERS,
-];
+export const BANK_PARSERS: readonly EmailParser[] = CARD_STATEMENT_PARSERS;
 
 export class ParserRegistry {
   constructor(private readonly parsers: readonly EmailParser[]) {

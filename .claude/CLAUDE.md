@@ -2,7 +2,7 @@
 
 ## What this project is
 
-A comprehensive personal finance dashboard for Indian users. The app gives users a single place to view all their financial instruments — credit cards, bank accounts, loans, investments, and insurance policies — all linked through their **PAN (Permanent Account Number)**, the 10-character alphanumeric tax ID issued by India's Income Tax Department.
+A comprehensive personal finance dashboard for Indian users. The app gives users a single place to view all their financial instruments — credit cards, loans, investments, and insurance policies — all linked through their **PAN (Permanent Account Number)**, the 10-character alphanumeric tax ID issued by India's Income Tax Department.
 
 One core feature is discovering and displaying all credit cards associated with a user's PAN. The broader vision covers the full picture of a user's financial life in India.
 
@@ -13,7 +13,7 @@ Built with React + Vite on the frontend and Node.js (Express) on the backend, ba
 - Issued by the Income Tax Department of India
 - Format: `AAAAA0000A` — 5 uppercase letters, 4 digits, 1 uppercase letter (e.g., `ABCDE1234F`)
 - Every individual or entity in India has **exactly one PAN**
-- All financial instruments (bank accounts, credit cards, investments, loans, insurance) are seeded with the holder's PAN when opened
+- All financial instruments (credit cards, investments, loans, insurance) are seeded with the holder's PAN when opened
 - Validation regex: `/^[A-Z]{5}[0-9]{4}[A-Z]$/`
 - Display masking: hide the 4 numeric digits → `ABCDE####F`
 
@@ -50,7 +50,7 @@ See `docs/design/deployment.md` for the full Dockerfile, Compose files, and K8s 
 - **One PAN per user.** Each app user links exactly one PAN. All their financial instruments are fetched via that single PAN profile.
 - **India-specific.** Currency is INR (₹). Use Indian number formatting (lakhs/crores). Banks, card networks, and regulatory context are India-specific.
 - **Security-first.** All financial data lookups go through authenticated endpoints. Rate-limit PAN registration and lookup routes.
-- **Implementation is underway.** The MVP is built and working: auth (register/login/refresh), PAN verification and linking, credit card listing, and OpenAPI docs. New features still follow the design docs in `docs/design/` and the plans in `docs/superpowers/`. Areas in the broader vision that are not built yet (bank accounts, loans, investments, insurance) need a design or plan before any code is written.
+- **Implementation is underway.** The MVP is built and working: auth (register/login/refresh), PAN verification and linking, credit card listing, and OpenAPI docs. New features still follow the design docs in `docs/design/` and the plans in `docs/superpowers/`. Areas in the broader vision that are not built yet (loans, investments, insurance) need a design or plan before any code is written. Bank accounts are out of scope: bank emails carry account details only in password-protected PDF statements, so there is nothing reliable to read.
 
 ## Quality mandates (always active)
 

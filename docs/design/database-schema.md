@@ -21,22 +21,22 @@ All tables use `UUID` primary keys (`gen_random_uuid()`). Timestamps are `TIMEST
 │ updated_at   │            └──────────────┬───────────────┘
 └──────────────┘                           │ 1:many to all instrument tables
           │                                │
-          │            ┌───────────────────┼──────────────────────┐
-          │            │                   │                      │
-          │   ┌────────▼──────┐  ┌─────────▼──────┐  ┌──────────▼──────┐
-          │   │ credit_cards  │  │ bank_accounts  │  │     loans       │
-          │   │───────────────│  │────────────────│  │─────────────────│
-          │   │ id (PK)       │  │ id (PK)        │  │ id (PK)         │
-          │   │ pan_profile_id│  │ pan_profile_id │  │ pan_profile_id  │
-          │   │ card_no_hash  │  │ acct_no_hash   │  │ loan_acct_hash  │
-          │   │ card_no_last4 │  │ acct_no_last4  │  │ loan_acct_last4 │
-          │   │ card_network  │  │ account_type   │  │ loan_type       │
-          │   │ issuing_bank  │  │ bank_name      │  │ lender          │
-          │   │ card_variant  │  │ ifsc_prefix    │  │ principal_amount │
-          │   │ expiry_month  │  │ balance        │  │ outstanding_amt  │
-          │   │ expiry_year   │  │ status         │  │ emi_amount      │
-          │   │ name_on_card  │  │ ...            │  │ interest_rate   │
-          │   │ status        │  └────────────────┘  │ ...             │
+          │            ┌───────────────────┴──────────────────────┐
+          │            │                                          │
+          │   ┌────────▼──────┐                      ┌──────────▼──────┐
+          │   │ credit_cards  │                      │     loans       │
+          │   │───────────────│                      │─────────────────│
+          │   │ id (PK)       │                      │ id (PK)         │
+          │   │ pan_profile_id│                      │ pan_profile_id  │
+          │   │ card_no_hash  │                      │ loan_acct_hash  │
+          │   │ card_no_last4 │                      │ loan_acct_last4 │
+          │   │ card_network  │                      │ loan_type       │
+          │   │ issuing_bank  │                      │ lender          │
+          │   │ card_variant  │                      │ principal_amount │
+          │   │ expiry_month  │                      │ outstanding_amt  │
+          │   │ expiry_year   │                      │ emi_amount      │
+          │   │ name_on_card  │                      │ interest_rate   │
+          │   │ status        │                      │ ...             │
           │   │ credit_limit  │                       └─────────────────┘
           │   │ available_cr  │
           │   │ balance       │  ┌──────────────────┐  ┌──────────────────┐
@@ -138,7 +138,6 @@ CREATE TABLE credit_cards (
   card_number_hash  TEXT,                        -- HMAC of full 16-digit card number; NULL for EMAIL rows
   card_number_last4 CHAR(4),                     -- NULL only for EMAIL cards whose emails never show digits
   card_name         VARCHAR(60),                 -- card's name from the email subject ('Pixel Play'), if any
-  card_key          VARCHAR(60)   GENERATED ALWAYS AS (COALESCE(card_number_last4, card_name)) STORED,
   card_network      card_network,
   issuing_bank      VARCHAR(100)  NOT NULL,
   card_variant      card_variant  NOT NULL DEFAULT 'CLASSIC',
@@ -168,47 +167,11 @@ CREATE INDEX idx_credit_cards_status         ON credit_cards (status);
 CREATE UNIQUE INDEX uq_credit_cards_card_number_hash
   ON credit_cards (card_number_hash) WHERE card_number_hash IS NOT NULL;
 CREATE UNIQUE INDEX uq_credit_cards_email
-  ON credit_cards (pan_profile_id, issuing_bank, card_key) WHERE source = 'EMAIL';
+  ON credit_cards (pan_profile_id, issuing_bank, card_number_last4)
+  WHERE source = 'EMAIL' AND card_number_last4 IS NOT NULL;
 ```
 
-`source` distinguishes user-added (`USER`) from email-derived (`EMAIL`) cards. EMAIL rows carry only bank, last4 and `card_name` (the card's name from the email subject, when it names one); some banks' statement emails never show the digits (HDFC Pixel, Scapia, OneCard), so `credit_cards_identity_required` needs last4 or a name, and the `credit_cards_user_fields_required` CHECK keeps USER rows unchanged. An EMAIL card is its digits when known, otherwise its name: the generated `card_key` holds that, and rows are unique per `(pan_profile_id, issuing_bank, card_key)`, so storing a name next to the digits never creates a second card.
-
----
-
-### `bank_accounts`
-
-Savings, current, NRE/NRO, and fixed/recurring deposit accounts — both user-added and email-derived rows share this table.
-
-```sql
-CREATE TYPE bank_account_type   AS ENUM ('SAVINGS', 'CURRENT', 'FD', 'RD', 'NRE', 'NRO', 'OTHER');
-CREATE TYPE bank_account_status AS ENUM ('ACTIVE', 'DORMANT', 'CLOSED', 'FROZEN');
-
-CREATE TABLE bank_accounts (
-  id                   UUID                PRIMARY KEY DEFAULT gen_random_uuid(),
-  pan_profile_id       UUID                NOT NULL REFERENCES pan_profiles(id) ON DELETE CASCADE,
-  source               record_source       NOT NULL DEFAULT 'USER',
-  account_number_hash  TEXT,                          -- HMAC of full account number; NULL for EMAIL rows
-  account_number_last4 CHAR(4)             NOT NULL,
-  account_type         bank_account_type   NOT NULL DEFAULT 'OTHER',
-  bank_name            VARCHAR(100)        NOT NULL,
-  branch_name          VARCHAR(100),
-  ifsc_prefix          CHAR(4),            -- first 4 chars of IFSC, e.g. 'HDFC'
-  interest_rate        NUMERIC(5,2),       -- for FD/RD, annual rate e.g. 7.25
-  maturity_date        DATE,               -- for FD/RD
-  status               bank_account_status NOT NULL DEFAULT 'ACTIVE',
-  created_at           TIMESTAMPTZ         NOT NULL DEFAULT NOW(),
-  updated_at           TIMESTAMPTZ         NOT NULL DEFAULT NOW(),
-  CONSTRAINT bank_accounts_user_fields_required CHECK (source <> 'USER' OR account_number_hash IS NOT NULL)
-);
-
-CREATE INDEX idx_bank_accounts_pan_profile_id ON bank_accounts (pan_profile_id);
-CREATE UNIQUE INDEX uq_bank_accounts_hash
-  ON bank_accounts (account_number_hash) WHERE account_number_hash IS NOT NULL;
-CREATE UNIQUE INDEX uq_bank_accounts_email
-  ON bank_accounts (pan_profile_id, bank_name, account_number_last4) WHERE source = 'EMAIL';
-```
-
-**Note:** the standalone `balance` column has been removed — a user-added account has no email-derived counterpart to reconcile against, but keeping one model for both meant moving balances out to `account_balance_snapshots` below (one row per mailbox that has seen a balance for the account). This is a real behaviour change versus the `GET /bank-accounts` `balance` field and the `/overview` `totalBankBalance` rule described elsewhere in these docs — reconciling those is out of scope for this change; see the report for this task.
+`source` distinguishes user-added (`USER`) from email-derived (`EMAIL`) cards. EMAIL rows carry only bank, last4 and `card_name` (the card's name from the email subject, when it names one); some banks' statement emails never show the digits (HDFC Pixel, Scapia, OneCard), so `credit_cards_identity_required` needs last4 or a name, and the `credit_cards_user_fields_required` CHECK keeps USER rows unchanged. An EMAIL card with digits is its digits: rows are unique per `(pan_profile_id, issuing_bank, card_number_last4)`, so storing a name next to the digits never creates a second card. A card known only by its name is matched by name **and** `billing_cycle_day` (the day of month its statements are generated), because one holder can have two cards of the same name (two Scapia cards, statements on the 14th and the 25th). The sync service does that match, since a unique index cannot: a statement within 3 days of a same-named card's cycle day (wrapping at month-end, so a 31st cycle closing on 28 Feb still matches) belongs to that card; otherwise it is a new card. The service takes a transaction-scoped advisory lock on (PAN, bank, name) while matching, so concurrent mailbox syncs cannot insert the same card twice. The cycle day is set from a name-only card's first statement and never moved, so if the holder changes their billing date by more than 3 days, later statements make a second card. Conversely, two same-named cards whose statements fall within 3 days of each other are taken for one card.
 
 ---
 
@@ -294,27 +257,6 @@ CREATE INDEX idx_card_statements_mail_connection_id ON card_statements (mail_con
 "Latest statement" for a card = highest `statement_date` across all its rows (any mailbox); tie → latest `created_at`.
 
 ---
-
-### `account_balance_snapshots`
-
-Latest balance each mailbox has seen for an account (Phase 3 — filled by the balance/account-statement parsers).
-
-```sql
-CREATE TABLE account_balance_snapshots (
-  id                 UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
-  bank_account_id    UUID          NOT NULL REFERENCES bank_accounts(id) ON DELETE CASCADE,
-  mail_connection_id UUID          NOT NULL REFERENCES mail_connections(id) ON DELETE CASCADE,
-  available_balance  NUMERIC(15,2) NOT NULL,
-  balance_as_of      TIMESTAMPTZ   NOT NULL,       -- email's date (or date stated in email body)
-  source_message_id  TEXT          NOT NULL,
-  updated_at         TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
-  CONSTRAINT uq_balance_snapshots_account_mailbox UNIQUE (bank_account_id, mail_connection_id)
-);
-
-CREATE INDEX idx_balance_snapshots_mail_connection_id ON account_balance_snapshots (mail_connection_id);
-```
-
-Upsert only replaces when the incoming `balance_as_of` is newer. Displayed balance = snapshot with the greatest `balance_as_of` across mailboxes.
 
 ---
 
@@ -466,7 +408,6 @@ CREATE TYPE audit_action AS ENUM (
   'OVERVIEW_VIEW',      -- GET /overview
   'CARD_LIST',          -- GET /credit-cards
   'CARD_VIEW',          -- GET /credit-cards/:cardId
-  'BANK_ACCOUNT_LIST',  -- GET /bank-accounts
   'LOAN_LIST',          -- GET /loans
   'INVESTMENT_LIST',    -- GET /investments
   'INSURANCE_LIST',     -- GET /insurance
@@ -477,7 +418,6 @@ CREATE TYPE audit_action AS ENUM (
   'MAILBOX_UNLINK',      -- DELETE /mailboxes/:mailboxId
   'MAILBOX_SYNC',        -- mail-sync-mailbox job completion (scheduled or manual)
   'EMAIL_CARD_LIST',     -- GET /mailboxes/credit-cards (Phase 2)
-  'EMAIL_ACCOUNT_LIST',  -- GET /mailboxes/accounts (Phase 3)
   'STATEMENT_DOWNLOAD'   -- GET /mailboxes/statements/:id/download (Phase 2)
 );
 
@@ -552,7 +492,6 @@ const ROUTE_ACTION_MAP: Record<string, AuditAction> = {
   'GET /api/v1/overview':               AuditAction.OVERVIEW_VIEW,
   'GET /api/v1/credit-cards':           AuditAction.CARD_LIST,
   'GET /api/v1/credit-cards/:cardId':   AuditAction.CARD_VIEW,
-  'GET /api/v1/bank-accounts':          AuditAction.BANK_ACCOUNT_LIST,
   'GET /api/v1/loans':                  AuditAction.LOAN_LIST,
   'GET /api/v1/investments':            AuditAction.INVESTMENT_LIST,
   'GET /api/v1/insurance':              AuditAction.INSURANCE_LIST,
@@ -698,7 +637,6 @@ The seed is idempotent — it uses `INSERT ... ON CONFLICT DO NOTHING`.
 |-------------------------|-------------------------|------------------------------------|
 | Full PAN                | HMAC-SHA256 hash        | Never — masked form only (`ABCDE####F`) |
 | Card number             | HMAC-SHA256 hash        | Last 4 digits only                 |
-| Bank account number     | HMAC-SHA256 hash        | Last 4 digits only                 |
 | Loan account number     | HMAC-SHA256 hash        | Last 4 digits only                 |
 | Insurance policy number | HMAC-SHA256 hash        | Masked display only (`POL****9012`) |
 | Password                | bcrypt (cost=12)        | Never                              |

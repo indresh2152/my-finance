@@ -15,7 +15,6 @@ const deps: AppDeps = {
   mailbox: {
     service: {} as never,
     statements: {} as never,
-    accounts: {} as never,
     appBaseUrl: 'https://app.example',
   },
 };
@@ -136,10 +135,10 @@ describe('OpenAPI document', () => {
 
   it('should discover routes on every mounted router, including nested ones and path params', () => {
     const nested = Router();
-    nested.delete('/:accountId', jest.fn());
+    nested.delete('/:statementId', jest.fn());
     const mailbox = Router();
     mailbox.get('/', jest.fn());
-    mailbox.use('/accounts', nested);
+    mailbox.use('/statements', nested);
 
     const app = express();
     app.use(Router());
@@ -147,7 +146,7 @@ describe('OpenAPI document', () => {
     app.get('/health', jest.fn());
 
     expect(listApiRoutes(app).sort()).toEqual([
-      'delete /api/v1/mailbox/accounts/{accountId}',
+      'delete /api/v1/mailbox/statements/{statementId}',
       'get /api/v1/mailbox',
     ]);
   });

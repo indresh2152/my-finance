@@ -239,15 +239,13 @@ describe('MailboxService.unlink', () => {
     expect(txSql[2]).toContain('DELETE FROM credit_cards');
     expect(txSql[2]).toContain("source = 'EMAIL'");
     expect(paramsAt(db.client.query, 2)).toEqual(['pan-1']);
-    expect(txSql[3]).toContain('DELETE FROM bank_accounts');
-    expect(paramsAt(db.client.query, 3)).toEqual(['pan-1']);
-    expect(txSql[4]).toMatch(/^SAVEPOINT /);
-    expect(txSql[5]).toContain('INSERT INTO audit_logs');
-    expect(paramsAt(db.client.query, 5)).toEqual(
+    expect(txSql[3]).toMatch(/^SAVEPOINT /);
+    expect(txSql[4]).toContain('INSERT INTO audit_logs');
+    expect(paramsAt(db.client.query, 4)).toEqual(
       expect.arrayContaining(['user-1', 'MAILBOX_UNLINK', 'mail_connection', 'mb-1']),
     );
-    expect(txSql[6]).toMatch(/^RELEASE SAVEPOINT /);
-    expect(txSql[7]).toBe('COMMIT');
+    expect(txSql[5]).toMatch(/^RELEASE SAVEPOINT /);
+    expect(txSql[6]).toBe('COMMIT');
     expect(db.client.release).toHaveBeenCalled();
     expect(sqlOf(db.query).some((sql) => sql.includes('INSERT INTO audit_logs'))).toBe(false);
   });

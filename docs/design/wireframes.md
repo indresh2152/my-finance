@@ -18,8 +18,8 @@ When a user logs in for the first time (or has no PAN registered), all financial
 │  │  🔗  Link your PAN to get started                        │  │
 │  │                                                          │  │
 │  │  Your Permanent Account Number (PAN) links all your      │  │
-│  │  financial instruments — credit cards, bank accounts,    │  │
-│  │  loans, investments, and insurance policies.             │  │
+│  │  financial instruments — credit cards, loans,            │  │
+│  │  investments, and insurance policies.                    │  │
 │  │                                                          │  │
 │  │  PAN Number                                              │  │
 │  │  ┌────────────────────────────────────────────────────┐  │  │
@@ -76,13 +76,13 @@ When a user logs in for the first time (or has no PAN registered), all financial
 
 ## Overview / Dashboard (`/`)
 
-> **Built (2026-10-05) — tabbed dashboard plus profile.** The UI has two pages: this dashboard
+> **Built (2026-10-05) — dashboard plus profile.** The UI has two pages: this dashboard
 > and `/profile`. A user who skipped PAN registration sees only the title and a "Link PAN" prompt;
-> nothing else is loaded. The Accounts tab is hidden when mailbox features are off. Emails are
-> linked on `/profile` (the empty-state hints say so); the dashboard has no Link email. **Refresh**
+> nothing else is loaded. The dashboard shows credit cards only (bank accounts are out of scope:
+> bank emails carry their details only in password-protected PDFs). Emails are linked on `/profile` (the empty-state hints say so); the dashboard has no Link email. **Refresh**
 > (shown once an email is linked) syncs every linked email that can sync now, skipping ones that
-> need a reconnect; it is disabled while they sync, and a refresh error shows above the tabs. The
-> 👁 beside the title shows or hides every masked amount (statement amounts, balances) at once;
+> need a reconnect or are in the 5-minute cooldown; a refresh error shows above the cards. The
+> 👁 beside the title shows or hides every masked amount on the cards at once;
 > amounts start hidden, and each one's own eye still toggles it alone. The header does not show
 > the PAN, not even masked.
 >
@@ -103,14 +103,11 @@ When a user logs in for the first time (or has no PAN registered), all financial
 > │  MyFinance                                    [API Docs] (J)    │
 > ├─────────────────────────────────────────────────────────────────┤
 > │  Dashboard 👁                                       [⟳ Refresh] │
-> │  ("Gathering your card and account details…" while syncing)     │
+> │  ("Gathering your card details…" while syncing)                 │
 > │                                                                 │
-> │  [ Credit cards ● ]  [ Accounts ]                               │
-> │  ───────────────────────────────────────────────────────────    │
 > │  ┌──────────────┐ ┌──────────────┐ ┌──────────────┐             │
-> │  │ card tile    │ │ card tile    │ │ card tile    │  ← or bank  │
-> │  └──────────────┘ └──────────────┘ └──────────────┘    account  │
-> │                                                        tiles    │
+> │  │ card face    │ │ card face    │ │ card face    │             │
+> │  └──────────────┘ └──────────────┘ └──────────────┘             │
 > └─────────────────────────────────────────────────────────────────┘
 > ```
 
@@ -120,7 +117,7 @@ The home screen shows a net-worth snapshot and navigation tiles to all financial
 ┌─────────────────────────────────────────────────────────────────┐
 │  my-finance                              [Indresh ▼]  [Logout]  │
 ├──────────────────────────────────────────────────────────────── ┤
-│  [Overview] [Cards] [Bank] [Loans] [Investments] [Insurance]    │
+│  [Overview] [Cards] [Loans] [Investments] [Insurance]           │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
 │  Good morning, Indresh                  PAN: ABCDE####F  [✓]   │
@@ -130,13 +127,13 @@ The home screen shows a net-worth snapshot and navigation tiles to all financial
 │  │  Net Worth (Assets - Liabilities)      ₹ XX,XX,XXX      │  │
 │  └──────────────────────────────────────────────────────────┘  │
 │                                                                 │
-│  ┌────────────────────┐   ┌────────────────────┐              │
-│  │  Credit Cards      │   │  Bank Accounts     │              │
-│  │  3 cards           │   │  2 accounts        │              │
-│  │  Limit  ₹10,00,000 │   │  Balance ₹8,50,000 │              │
-│  │  Used   ₹1,67,000  │   │                    │              │
-│  │        [View All →]│   │       [View All →] │              │
-│  └────────────────────┘   └────────────────────┘              │
+│  ┌────────────────────┐                                        │
+│  │  Credit Cards      │                                        │
+│  │  3 cards           │                                        │
+│  │  Limit  ₹10,00,000 │                                        │
+│  │  Used   ₹1,67,000  │                                        │
+│  │        [View All →]│                                        │
+│  └────────────────────┘                                        │
 │                                                                 │
 │  ┌────────────────────┐   ┌────────────────────┐              │
 │  │  Loans             │   │  Investments       │              │
@@ -166,7 +163,7 @@ The home screen shows a net-worth snapshot and navigation tiles to all financial
 ┌─────────────────────────────────────────────────────────────────┐
 │  my-finance                              [Indresh ▼]  [Logout]  │
 ├─────────────────────────────────────────────────────────────────┤
-│  [Overview] [Cards ●] [Bank] [Loans] [Investments] [Insurance]  │
+│  [Overview] [Cards ●] [Loans] [Investments] [Insurance]         │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
 │  Credit Cards  (PAN: ABCDE####F)                               │
@@ -227,26 +224,6 @@ the PDF from the mailbox and is hidden when the email had no PDF or mailbox feat
 └──────────────────────────────────┘
 ```
 
-### Bank accounts found in email
-
-A **Bank accounts** section sits on the Credit Cards page, below the card grid and above the
-linked mailboxes panel (it is hidden when mailbox features are off). Each account shows the bank,
-the last 4 digits, a type chip (left out when the email did not say), the available balance
-masked until the eye icon is pressed, and the day the balance was reported (IST). Empty states
-mirror the card grid: "No bank accounts yet." with a hint to link email, or "We haven't found any
-bank accounts in your linked email yet…" when a mailbox is linked.
-
-```
-Bank accounts
-┌──────────────────────────────────┐   ┌──────────────────────────────────┐
-│  KOTAK                [Savings]  │   │  SBI                             │
-│  •••• 7890                       │   │  •••• 9012                       │
-│                                  │   │                                  │
-│  Available balance ₹ •••••• [👁] │   │  Available balance ₹ •••••• [👁] │
-│               as of 24 Sep 2026  │   │               as of 28 Sep 2026  │
-└──────────────────────────────────┘   └──────────────────────────────────┘
-```
-
 ---
 
 ## Card Detail — Slide-over / Modal
@@ -286,42 +263,13 @@ Bank accounts
 
 ---
 
-## Bank Accounts Page (`/bank-accounts`)
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  my-finance                              [Indresh ▼]  [Logout]  │
-├─────────────────────────────────────────────────────────────────┤
-│  [Overview] [Cards] [Bank ●] [Loans] [Investments] [Insurance]  │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  Bank Accounts  (PAN: ABCDE####F)                              │
-│                                                                 │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │  HDFC Bank                                     SAVINGS  │   │
-│  │  Account ending ••••5678           ● ACTIVE             │   │
-│  │  Balance:  ₹4,50,000                                    │   │
-│  └─────────────────────────────────────────────────────────┘   │
-│                                                                 │
-│  ┌─────────────────────────────────────────────────────────┐   │
-│  │  SBI                                                FD  │   │
-│  │  Account ending ••••0012           ● ACTIVE             │   │
-│  │  Amount:  ₹4,00,000    Rate: 7.25% p.a.                 │   │
-│  │  Matures: 31 Mar 2026                                   │   │
-│  └─────────────────────────────────────────────────────────┘   │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-```
-
----
-
 ## Loans Page (`/loans`)
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │  my-finance                              [Indresh ▼]  [Logout]  │
 ├─────────────────────────────────────────────────────────────────┤
-│  [Overview] [Cards] [Bank] [Loans ●] [Investments] [Insurance]  │
+│  [Overview] [Cards] [Loans ●] [Investments] [Insurance]         │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
 │  Loans  (PAN: ABCDE####F)                                      │
@@ -348,7 +296,7 @@ Bank accounts
 ┌─────────────────────────────────────────────────────────────────┐
 │  my-finance                              [Indresh ▼]  [Logout]  │
 ├─────────────────────────────────────────────────────────────────┤
-│  [Overview] [Cards] [Bank] [Loans] [Investments ●] [Insurance]  │
+│  [Overview] [Cards] [Loans] [Investments ●] [Insurance]         │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
 │  Investments  (PAN: ABCDE####F)           Total: ₹12,50,000    │
@@ -381,7 +329,7 @@ Bank accounts
 ┌─────────────────────────────────────────────────────────────────┐
 │  my-finance                              [Indresh ▼]  [Logout]  │
 ├─────────────────────────────────────────────────────────────────┤
-│  [Overview] [Cards] [Bank] [Loans] [Investments] [Insurance ●]  │
+│  [Overview] [Cards] [Loans] [Investments] [Insurance ●]         │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
 │  Insurance Policies  (PAN: ABCDE####F)                         │
@@ -450,7 +398,7 @@ Bank accounts
 │  │  ABCDE####F    [✓ Verified — 15 Jan 2025]                │  │
 │  │                                                          │  │
 │  │  Your PAN links all your financial instruments:          │  │
-│  │  3 cards · 2 bank accounts · 1 loan ·                   │  │
+│  │  3 cards · 1 loan ·                                      │  │
 │  │  5 investments · 2 insurance policies                    │  │
 │  └──────────────────────────────────────────────────────────┘  │
 │                                                                 │
@@ -467,7 +415,7 @@ Bank accounts
 
 - Top nav collapses to a bottom tab bar (Overview, Cards, Bank, More)
 - "More" tab expands to Loans, Investments, Insurance, Profile
-- Cards and account rows become full-width stacked list items
+- Card and instrument rows become full-width stacked list items
 - Card detail and instrument detail open as bottom sheets (not modals)
 - Financial overview tiles become horizontal scroll strip on small screens
 - Minimum touch target: 44×44px on all interactive elements

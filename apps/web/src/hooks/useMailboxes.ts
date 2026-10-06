@@ -18,7 +18,6 @@ import {
   type SyncRequests,
 } from '../services/mailbox.api';
 import { CREDIT_CARDS_QUERY_KEY } from '../services/credit-cards.api';
-import { EMAIL_ACCOUNTS_QUERY_KEY } from '../services/accounts.api';
 
 const GENERIC_ERROR = 'generic';
 const SYNC_TOO_FREQUENT = 'SYNC_TOO_FREQUENT';
@@ -36,10 +35,9 @@ const syncAllError = (results: readonly PromiseSettledResult<void>[]): string | 
   return codes[0] ?? null;
 };
 
-/** Cards and accounts both come from mailbox syncs, so both are refetched when a mailbox changes. */
-const invalidateFoundRecords = (queryClient: QueryClient): void => {
+/** Cards come from mailbox syncs, so they are refetched when a mailbox changes. */
+const invalidateCards = (queryClient: QueryClient): void => {
   void queryClient.invalidateQueries({ queryKey: CREDIT_CARDS_QUERY_KEY });
-  void queryClient.invalidateQueries({ queryKey: EMAIL_ACCOUNTS_QUERY_KEY });
 };
 
 export type LinkNotice = { severity: 'success' | 'error'; code: string } | null;
@@ -117,10 +115,10 @@ const finishedSyncKey = (mailbox: Mailbox): string =>
   `${mailbox.lastSyncStatus}@${mailbox.lastSyncedAt ?? ''}`;
 
 /**
- * Refetches cards and accounts when a mailbox finishes a sync, so they appear without a reload.
+ * Refetches cards when a mailbox finishes a sync, so they appear without a reload.
  * A RUNNING sync keeps its previous key, so starting a sync alone does not refetch.
  */
-const useRefreshFoundRecordsOnSync = (mailboxes: readonly Mailbox[] | undefined): void => {
+const useRefreshCardsOnSync = (mailboxes: readonly Mailbox[] | undefined): void => {
   const queryClient = useQueryClient();
   const finished = useRef(new Map<string, string>());
   useEffect(() => {
@@ -133,7 +131,7 @@ const useRefreshFoundRecordsOnSync = (mailboxes: readonly Mailbox[] | undefined)
         if (previous !== undefined && previous !== key) changed = true;
         finished.current.set(mailbox.id, key);
       });
-    if (changed) invalidateFoundRecords(queryClient);
+    if (changed) invalidateCards(queryClient);
   }, [mailboxes, queryClient]);
 };
 
@@ -209,10 +207,10 @@ export const useMailboxes = ({ justLinked = false }: UseMailboxesOptions = {}): 
   const unlinkMutation = useMutation({
     mutationFn: unlinkMailbox,
     onMutate: () => setActionError(null),
-    // Unlinking deletes cards and accounts found only in that mailbox.
+    // Unlinking deletes cards found only in that mailbox.
     onSuccess: () => {
       refreshList();
-      invalidateFoundRecords(queryClient);
+      invalidateCards(queryClient);
     },
     onError: reportError,
     onSettled: () => setUnlinkTarget(null),
@@ -222,7 +220,7 @@ export const useMailboxes = ({ justLinked = false }: UseMailboxesOptions = {}): 
   const gatheringIds = gatheringMailboxIds(mailboxes, syncRequests, pollUntil, now);
   useRerenderAt(nextGatheringChangeAt(mailboxes, pollUntil, now));
   useRerenderAt(nextSyncAvailableAt(mailboxes, now));
-  useRefreshFoundRecordsOnSync(mailboxes);
+  useRefreshCardsOnSync(mailboxes);
   const isBusy = syncAllMutation.isPending || unlinkMutation.isPending;
   // Awaiting a reconnect, already gathering, or in the server's cooldown: the server would refuse.
   const syncableIds: ReadonlySet<string> = new Set(

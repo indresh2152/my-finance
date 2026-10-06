@@ -18,10 +18,6 @@
   },
   "dashboard": {
     "title": "Dashboard",
-    "tabs": {
-      "creditCards": "Credit cards",
-      "accounts": "Accounts"
-    },
     "linkPanPrompt": "Link your PAN to see your credit cards and other financial data."
   },
   "userMenu": {
@@ -33,7 +29,7 @@
     "title": "Profile",
     "username": "Username",
     "email": "Email",
-    "linkPanFirst": "Link your PAN before linking an email: we match the cards and accounts we find to it."
+    "linkPanFirst": "Link your PAN before linking an email: we match the cards we find to it."
   },
   "linkPanAction": "Link PAN"
 }

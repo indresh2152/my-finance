@@ -1,6 +1,6 @@
 # Compliance & Regulatory Requirements
 
-`my-finance` handles credit card metadata, bank account data, investment records, insurance policies, and India's Permanent Account Number (PAN). This places it under multiple overlapping compliance frameworks. This document describes each one, what it demands from the application, and how the design addresses it.
+`my-finance` handles credit card metadata, investment records, insurance policies, and India's Permanent Account Number (PAN). This places it under multiple overlapping compliance frameworks. This document describes each one, what it demands from the application, and how the design addresses it.
 
 > This document is a design-phase guide, not a legal opinion. Engage a qualified compliance auditor before going live with real user data.
 
@@ -329,12 +329,12 @@ platform data-use policies, in addition to the DPDP obligations above.
 - Scopes: Google `gmail.readonly` (restricted — requires Google verification + annual CASA assessment before
   public launch); Microsoft `Mail.Read` (publisher verification recommended; some tenants require admin consent).
 - Google API Services User Data Policy — Limited Use applies: data is used only to show the user their own
-  cards/accounts; no ads, no transfer, no human reading, no model training.
+  cards; no ads, no transfer, no human reading, no model training.
 - Only bank-sender emails are read; bodies, subjects and attachments are never stored or logged.
   Stored: parsed fields, provider message ids, attachment locators, encrypted refresh token, masked + hashed email.
 - Unlink deletes the credential and derived EMAIL rows (and revokes at Google). Account erasure must revoke each
   connection before deleting the user.
-- Audit actions: MAILBOX_LINK, MAILBOX_UNLINK, MAILBOX_SYNC (+ Phase 2/3: EMAIL_CARD_LIST, EMAIL_ACCOUNT_LIST,
+- Audit actions: MAILBOX_LINK, MAILBOX_UNLINK, MAILBOX_SYNC (+ Phase 2: EMAIL_CARD_LIST,
   STATEMENT_DOWNLOAD).
 
 ---

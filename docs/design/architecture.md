@@ -2,7 +2,7 @@
 
 ## Overview
 
-`my-finance` is a comprehensive personal finance dashboard for Indian users. It gives users one place to see all their financial instruments — credit cards, bank accounts, loans, investments, and insurance policies — all linked through their **PAN (Permanent Account Number)**, the 10-character tax ID issued by India's Income Tax Department (format: `AAAAA0000A`, e.g., `ABCDE1234F`).
+`my-finance` is a comprehensive personal finance dashboard for Indian users. It gives users one place to see all their financial instruments — credit cards, loans, investments, and insurance policies — all linked through their **PAN (Permanent Account Number)**, the 10-character tax ID issued by India's Income Tax Department (format: `AAAAA0000A`, e.g., `ABCDE1234F`).
 
 Credit card discovery by PAN is one of the core features. The system is structured as a monorepo with a React SPA frontend and a REST API backend.
 
@@ -24,12 +24,12 @@ Credit card discovery by PAN is one of the core features. The system is structur
 ┌──────────────────────────────▼──────────────────────────────────┐
 │                 Node.js Express API (port 4000)                  │
 │                                                                  │
-│  /auth  /overview  /credit-cards  /bank-accounts  /loans        │
+│  /auth  /overview  /credit-cards  /loans                        │
 │                    /investments   /insurance       /users        │
 │                                                                  │
 │  ┌────────────────────────────────────────────────────────────┐  │
 │  │                      Service Layer                         │  │
-│  │  AuthService | OverviewService | CardService | BankService │  │
+│  │  AuthService | OverviewService | CardService               │  │
 │  │  LoanService | InvestmentService | InsuranceService        │  │
 │  └─────────────────────────────┬──────────────────────────────┘  │
 │                                │                                 │
@@ -42,7 +42,7 @@ Credit card discovery by PAN is one of the core features. The system is structur
 ┌─────────────────────────────────▼───────────────────────────────┐
 │                        PostgreSQL 16                            │
 │                                                                  │
-│  users | pan_profiles | credit_cards | bank_accounts | loans    │
+│  users | pan_profiles | credit_cards | loans                    │
 │  investments | insurance_policies | refresh_tokens | audit_logs │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -67,10 +67,9 @@ Credit card discovery by PAN is one of the core features. The system is structur
 | Route                     | Component              | Auth | Description                                           |
 |---------------------------|------------------------|------|-------------------------------------------------------|
 | `/login`                  | `LoginPage`            | No   | Username + password login                             |
-| `/`                       | `DashboardPage`        | Yes  | **Credit cards** and **Accounts** tabs (built) |
+| `/`                       | `DashboardPage`        | Yes  | **Credit cards** (built)                              |
 | `/credit-cards`           | `LegacyPageRedirect`   | No (redirect only; the target page is guarded) | Redirects an OAuth result (`?linked` / `?error`) to `/profile`, anything else to `/` (as does `/linked-email`) (built) |
 | `/credit-cards/:cardId`   | `CardDetailPage`       | Yes  | Full details of a single credit card                  |
-| `/bank-accounts`          | `BankAccountsPage`     | Yes  | All bank accounts linked to user's PAN                |
 | `/loans`                  | `LoansPage`            | Yes  | All loans (home, personal, auto, etc.)                |
 | `/investments`            | `InvestmentsPage`      | Yes  | Mutual funds, stocks, PPF, NPS, bonds                 |
 | `/insurance`              | `InsurancePage`        | Yes  | Life, health, vehicle, home insurance policies        |
@@ -119,7 +118,7 @@ During `isLoading: true`, render a full-page loading spinner — never flash pro
 `ProtectedRoute` wraps all authenticated routes. Behavior:
 1. If `isLoading` is true → render the full-page spinner.
 2. If `user` is null → redirect to `/login?redirect=<current path>` so the user returns to the original URL after logging in.
-3. If `user.hasPan` is false and the route is a financial route (`/`, `/bank-accounts`, `/loans`, `/investments`, `/insurance`) → redirect to `/pan-register`.
+3. If `user.hasPan` is false and the route is a financial route (`/`, `/loans`, `/investments`, `/insurance`) → redirect to `/pan-register`.
 4. Otherwise → render the child route.
 
 After successful `POST /pan/register`, call `AuthContext.setPan(panMasked)` which sets `hasPan: true` in context, then navigate to `/`.
@@ -148,7 +147,6 @@ apps/api/
 │   │   ├── auth.routes.ts
 │   │   ├── overview.routes.ts
 │   │   ├── credit-cards.routes.ts
-│   │   ├── bank-accounts.routes.ts
 │   │   ├── loans.routes.ts
 │   │   ├── investments.routes.ts
 │   │   ├── insurance.routes.ts
@@ -269,11 +267,11 @@ Refresh tokens are AES-256-GCM encrypted in `mail_connections`. An in-process pg
 `pgboss` schema of the app database) runs `mail-sync-mailbox` jobs — one per mailbox (`stately` policy) — every
 6 hours (`mail-sync-all`) and on demand. Each job reads only emails from known bank senders since the last sync
 (first sync: 180 days), passes them through the parser registry, and upserts `credit_cards`/`card_statements`
-and `bank_accounts`/`account_balance_snapshots` rows with `source = 'EMAIL'`. Email bodies are never stored.
+rows with `source = 'EMAIL'`. Email bodies are never stored.
 Code: `apps/api/src/services/mailbox/`, `apps/api/src/parsers/`, `apps/api/src/jobs/`.
 
 The whole feature (routes + worker) is off unless `MAILBOX_ENABLED=true`. See `docs/design/database-schema.md`
-for the `mail_connections` / `oauth_states` / `card_statements` / `account_balance_snapshots` schema,
+for the `mail_connections` / `oauth_states` / `card_statements` schema,
 `docs/design/api-contracts.md` for the `/mailboxes/*` endpoints, and `docs/design/compliance.md` for the
 mail-data handling rules.
 

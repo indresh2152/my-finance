@@ -8,7 +8,6 @@ import type { BankCode } from '../email-parser';
 export const BANK_SENDERS: Readonly<Record<BankCode, readonly string[]>> = {
   HDFC: ['@hdfcbank.net', '@hdfcbank.com', '@hdfc.bank.in'],
   ICICI: ['@icicibank.com', '@icici.bank.in'],
-  SBI: ['@sbi.co.in', '@sbi.bank.in'],
   SBI_CARD: ['@sbicard.com'],
   AXIS: ['@axisbank.com', '@axis.bank.in'],
   KOTAK: ['@kotak.com', '@kotakbank.com', '@kotak.bank.in'],
@@ -23,7 +22,6 @@ export const BANK_SENDERS: Readonly<Record<BankCode, readonly string[]>> = {
 export const BANK_NAME_WORDS: Readonly<Record<BankCode, readonly string[]>> = {
   HDFC: ['hdfc'],
   ICICI: ['icici'],
-  SBI: ['sbi', 'state'],
   SBI_CARD: ['sbi'],
   AXIS: ['axis'],
   KOTAK: ['kotak', 'mahindra'],

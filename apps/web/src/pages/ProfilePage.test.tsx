@@ -12,7 +12,7 @@ import { ProfilePage } from './ProfilePage';
 import { AuthProvider } from '../context/AuthContext';
 import { SYNC_POLL_INTERVAL_MS, type Mailbox } from '../services/mailbox.api';
 
-const GATHERING = 'Gathering your card and account details…';
+const GATHERING = 'Gathering your card details…';
 const NO_MAILBOX = 'No mailbox linked yet.';
 
 vi.mock('../services/navigation', () => ({ redirectTo: vi.fn() }));

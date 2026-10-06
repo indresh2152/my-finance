@@ -11,7 +11,6 @@ export type MailboxAuditAction =
   | 'MAILBOX_UNLINK'
   | 'MAILBOX_SYNC'
   | 'EMAIL_CARD_LIST'
-  | 'EMAIL_ACCOUNT_LIST'
   | 'STATEMENT_DOWNLOAD';
 
 export interface AuditEntry {

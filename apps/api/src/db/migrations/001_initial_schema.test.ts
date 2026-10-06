@@ -76,11 +76,11 @@ describeWithDb('001_initial_schema', () => {
     ).rejects.toThrow(/uq_credit_cards_email/);
   });
 
-  it('should accept an EMAIL card known only by its name, once per bank and name', async () => {
-    const insert = `INSERT INTO credit_cards (pan_profile_id, source, card_name, issuing_bank)
-                    VALUES ($1, 'EMAIL', 'Pixel Play', 'HDFC')`;
-    await expect(pool.query(insert, [panProfileId])).resolves.toBeDefined();
-    await expect(pool.query(insert, [panProfileId])).rejects.toThrow(/uq_credit_cards_email/);
+  it('should accept two EMAIL cards known only by the same name, told apart by cycle day', async () => {
+    const insert = `INSERT INTO credit_cards (pan_profile_id, source, card_name, issuing_bank, billing_cycle_day)
+                    VALUES ($1, 'EMAIL', 'Scapia', 'FEDERAL', $2)`;
+    await expect(pool.query(insert, [panProfileId, 14])).resolves.toBeDefined();
+    await expect(pool.query(insert, [panProfileId, 25])).resolves.toBeDefined();
   });
 
   it('should reject an EMAIL card with neither digits nor a name', async () => {
@@ -112,23 +112,6 @@ describeWithDb('001_initial_schema', () => {
         [panProfileId],
       ),
     ).resolves.toBeDefined();
-  });
-
-  it('should reject a USER bank account without an account number hash', async () => {
-    await expect(
-      pool.query(
-        `INSERT INTO bank_accounts (pan_profile_id, source, account_number_last4, bank_name)
-         VALUES ($1, 'USER', '3333', 'ICICI')`,
-        [panProfileId],
-      ),
-    ).rejects.toThrow(/bank_accounts_user_fields_required/);
-  });
-
-  it('should reject a duplicate EMAIL bank account for the same bank and last4', async () => {
-    const insert = `INSERT INTO bank_accounts (pan_profile_id, source, account_number_last4, bank_name)
-                    VALUES ($1, 'EMAIL', '4444', 'ICICI')`;
-    await pool.query(insert, [panProfileId]);
-    await expect(pool.query(insert, [panProfileId])).rejects.toThrow(/uq_bank_accounts_email/);
   });
 
   it('should reject linking the same mailbox twice for one user', async () => {

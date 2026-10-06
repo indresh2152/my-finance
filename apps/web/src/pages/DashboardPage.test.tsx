@@ -10,9 +10,8 @@ import { AuthProvider } from '../context/AuthContext';
 import { SYNC_POLL_INTERVAL_MS, type Mailbox } from '../services/mailbox.api';
 import { mailbox } from '../test/fixtures';
 import type { CreditCard } from '../services/credit-cards.api';
-import type { EmailAccount } from '../services/accounts.api';
 
-const GATHERING = 'Gathering your card and account details…';
+const GATHERING = 'Gathering your card details…';
 
 vi.mock('../services/navigation', () => ({ redirectTo: vi.fn() }));
 
@@ -58,16 +57,7 @@ const statementCard: CreditCard = {
   },
 };
 
-const emailAccount: EmailAccount = {
-  id: 'acc-1',
-  bankName: 'KOTAK',
-  accountNumberLast4: '7890',
-  accountType: 'SAVINGS',
-  availableBalance: 234567.89,
-  balanceAsOf: '2026-09-24T10:12:00.000Z',
-};
-
-/** The alert holding `text`; the page may show several (cards and accounts). */
+/** The alert holding `text`; the page may show several. */
 const alertWith = (text: string | RegExp): HTMLElement => {
   const alert = screen.getByText(text).closest<HTMLElement>('[role="alert"]');
   if (!alert) throw new Error('no alert around the text');
@@ -76,8 +66,6 @@ const alertWith = (text: string | RegExp): HTMLElement => {
 
 let cards: CreditCard[] = [];
 let cardRequests = 0;
-let accounts: EmailAccount[] = [];
-let accountRequests = 0;
 let mailboxes: Mailbox[] = [];
 let mailboxRequests = 0;
 let syncedIds: string[] = [];
@@ -101,10 +89,6 @@ const server = setupServer(
     mailboxRequests += 1;
     return HttpResponse.json({ mailboxes });
   }),
-  http.get('/api/v1/mailboxes/accounts', () => {
-    accountRequests += 1;
-    return HttpResponse.json({ data: accounts });
-  }),
   http.post('/api/v1/mailboxes/:id/sync', ({ params }) => {
     syncedIds.push(String(params['id']));
     return HttpResponse.json({ queued: true }, { status: 202 });
@@ -119,8 +103,6 @@ beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 beforeEach(() => {
   cards = [mockCard];
   cardRequests = 0;
-  accounts = [];
-  accountRequests = 0;
   mailboxes = [mailbox()];
   mailboxRequests = 0;
   syncedIds = [];
@@ -137,33 +119,10 @@ const renderPage = (path = '/'): ReturnType<typeof renderWithProviders> =>
     { initialEntries: [path] },
   );
 
-/** Switches to the Accounts tab and returns its panel. */
-const openAccountsTab = async (): Promise<HTMLElement> => {
-  await userEvent.click(await screen.findByRole('tab', { name: 'Accounts' }));
-  return screen.getByRole('tabpanel', { name: 'Accounts' });
-};
-
 describe('DashboardPage — layout', () => {
   it('should render the page title', async () => {
     renderPage();
     expect(await screen.findByRole('heading', { name: 'Dashboard' })).toBeInTheDocument();
-  });
-
-  it('should open on the Credit cards tab and switch to Accounts', async () => {
-    accounts = [emailAccount];
-    renderPage();
-    const cardsTab = await screen.findByRole('tab', { name: 'Credit cards' });
-    expect(cardsTab).toHaveAttribute('aria-selected', 'true');
-    expect(
-      await within(screen.getByRole('tabpanel', { name: 'Credit cards' })).findByText('HDFC Bank'),
-    ).toBeInTheDocument();
-
-    const panel = await openAccountsTab();
-    expect(await within(panel).findByText('KOTAK')).toBeInTheDocument();
-    expect(screen.queryByText('HDFC Bank')).not.toBeInTheDocument();
-
-    await userEvent.click(cardsTab);
-    expect(await screen.findByText('HDFC Bank')).toBeInTheDocument();
   });
 
   it('should not manage mailboxes here: no Link email, list or Unlink', async () => {
@@ -180,7 +139,7 @@ describe('DashboardPage — layout', () => {
     renderPage();
     expect(await screen.findByText(/link your pan/i)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Link PAN' })).toHaveAttribute('href', '/pan-register');
-    expect(screen.queryByRole('tab')).not.toBeInTheDocument();
+    expect(screen.queryByText('HDFC Bank')).not.toBeInTheDocument();
     expect(cardRequests).toBe(0);
     expect(mailboxRequests).toBe(0);
   });
@@ -392,62 +351,7 @@ describe('DashboardPage — cards', () => {
   });
 });
 
-describe('DashboardPage — bank accounts', () => {
-  it('should show each account with its balance masked and the date it was reported', async () => {
-    accounts = [emailAccount];
-    const { container } = renderPage();
-    const panel = await openAccountsTab();
-    expect(await within(panel).findByText('KOTAK')).toBeInTheDocument();
-    expect(within(panel).getByText('•••• 7890')).toBeInTheDocument();
-    expect(within(panel).getByText('Savings')).toBeInTheDocument();
-    expect(within(panel).getByText(/^as of 24 Sept? 2026$/)).toBeInTheDocument();
-    expect(container.textContent).not.toMatch(/2,34,567/);
-
-    await userEvent.click(within(panel).getByRole('button', { name: 'Show Available balance' }));
-    expect(within(panel).getByText('₹2,34,567.89')).toBeInTheDocument();
-  });
-
-  it('should leave out the type chip when the email did not say', async () => {
-    accounts = [{ ...emailAccount, accountType: 'OTHER' }];
-    renderPage();
-    const panel = await openAccountsTab();
-    expect(await within(panel).findByText('KOTAK')).toBeInTheDocument();
-    expect(within(panel).queryByText('Savings')).not.toBeInTheDocument();
-    expect(within(panel).queryByText(/other/i)).not.toBeInTheDocument();
-  });
-
-  it('should report that none were found when a mailbox is linked', async () => {
-    renderPage();
-    const panel = await openAccountsTab();
-    expect(
-      await within(panel).findByText(/haven't found any bank accounts in your linked email yet/),
-    ).toBeInTheDocument();
-  });
-
-  it('should suggest linking email when no mailbox is linked', async () => {
-    mailboxes = [];
-    renderPage();
-    const panel = await openAccountsTab();
-    expect(await within(panel).findByText('No bank accounts yet.')).toBeInTheDocument();
-    expect(
-      within(panel).getByText(
-        /Link your email from your profile and we'll find your bank accounts/,
-      ),
-    ).toBeInTheDocument();
-    expect(accountRequests).toBe(0);
-  });
-
-  it('should show an error when the accounts fail to load', async () => {
-    server.use(
-      http.get('/api/v1/mailboxes/accounts', () => new HttpResponse(null, { status: 500 })),
-    );
-    renderPage();
-    await openAccountsTab();
-    expect(
-      await screen.findByText('Failed to load bank accounts. Please try again.'),
-    ).toBeInTheDocument();
-  });
-
+describe('DashboardPage — mailbox features off', () => {
   it('should not suggest linking an email when mailbox features are off', async () => {
     server.use(http.get('/api/v1/mailboxes', () => new HttpResponse(null, { status: 404 })));
     cards = [];
@@ -457,57 +361,45 @@ describe('DashboardPage — bank accounts', () => {
     expect(screen.queryByText(/Link your email/)).not.toBeInTheDocument();
   });
 
-  it('should hide the Accounts tab when mailbox features are off', async () => {
+  it('should hide Refresh when mailbox features are off', async () => {
     server.use(http.get('/api/v1/mailboxes', () => new HttpResponse(null, { status: 404 })));
     renderPage();
     expect(await screen.findByText('HDFC Bank')).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: 'Credit cards' })).toBeInTheDocument();
-    expect(screen.queryByRole('tab', { name: 'Accounts' })).not.toBeInTheDocument();
+    await settle();
     expect(screen.queryByRole('button', { name: 'Refresh' })).not.toBeInTheDocument();
-    expect(accountRequests).toBe(0);
   });
 });
 
 describe('DashboardPage — gathering progress', () => {
-  it.each([
-    { tab: 'Credit cards', found: 'ICICI Bank' },
-    { tab: 'Accounts', found: 'KOTAK' },
-  ])(
-    'should reload the $tab tab when a sync fails after saving some records',
-    async ({ tab, found }) => {
-      vi.useFakeTimers({ shouldAdvanceTime: true });
-      try {
-        cards = [];
-        mailboxes = [
-          mailbox({
-            lastSyncStatus: 'NEVER',
-            lastSyncedAt: null,
-            createdAt: new Date().toISOString(),
-          }),
-        ];
-        renderPage();
-        const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-        await user.click(await screen.findByRole('tab', { name: tab }));
-        expect(await screen.findByText(GATHERING)).toBeInTheDocument();
+  it('should reload the cards when a sync fails after saving some of them', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      cards = [];
+      mailboxes = [
+        mailbox({
+          lastSyncStatus: 'NEVER',
+          lastSyncedAt: null,
+          createdAt: new Date().toISOString(),
+        }),
+      ];
+      renderPage();
+      expect(await screen.findByText(GATHERING)).toBeInTheDocument();
 
-        cards = [emailCard];
-        accounts = [emailAccount];
-        mailboxes = [mailbox({ lastSyncStatus: 'FAILED', lastSyncedAt: null })];
-        await vi.advanceTimersByTimeAsync(SYNC_POLL_INTERVAL_MS);
-        expect(await screen.findByText(found)).toBeInTheDocument();
-      } finally {
-        vi.useRealTimers();
-      }
-    },
-  );
+      cards = [emailCard];
+      mailboxes = [mailbox({ lastSyncStatus: 'FAILED', lastSyncedAt: null })];
+      await vi.advanceTimersByTimeAsync(SYNC_POLL_INTERVAL_MS);
+      expect(await screen.findByText('ICICI Bank')).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
 
 describe('DashboardPage — show all amounts', () => {
   const SHOW_ALL = 'Show all amounts';
 
   beforeEach(() => {
-    cards = [statementCard];
-    accounts = [emailAccount];
+    cards = [statementCard, mockCard];
   });
 
   it('should keep amounts hidden by default', async () => {
@@ -517,19 +409,17 @@ describe('DashboardPage — show all amounts', () => {
     expect(container.textContent).not.toMatch(/12,345/);
   });
 
-  it('should show every amount on both tabs, and hide them again', async () => {
+  it('should show every amount on every card, and hide them again', async () => {
     const { container } = renderPage();
     expect(await screen.findByText('Amount due')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: SHOW_ALL }));
     expect(screen.getByText('₹12,345.67')).toBeInTheDocument();
-
-    const panel = await openAccountsTab();
-    expect(await within(panel).findByText('₹2,34,567.89')).toBeInTheDocument();
+    expect(screen.getByText('₹5,00,000.00')).toBeInTheDocument();
 
     const toggle = screen.getByRole('button', { name: SHOW_ALL });
     expect(toggle).toHaveAttribute('aria-pressed', 'true');
     await userEvent.click(toggle);
-    expect(container.textContent).not.toMatch(/2,34,567/);
+    expect(container.textContent).not.toMatch(/12,345|5,00,000/);
   });
 
   it('should still let one amount be hidden while the rest are shown', async () => {

@@ -10,7 +10,6 @@ import { RecordUpsertService } from './record-upsert.service';
 import { MailSyncService } from './mail-sync.service';
 import { MailboxService } from './mailbox.service';
 import { StatementDownloadService } from './statement-download.service';
-import { EmailAccountsService } from './email-accounts.service';
 
 export interface MailboxModuleDeps {
   db: Pool;
@@ -48,7 +47,5 @@ export const createMailboxModule = async ({
 
   const statements = new StatementDownloadService({ db, providers, keyRing: config.keyRing });
 
-  const accounts = new EmailAccountsService(db);
-
-  return { service, statements, accounts, appBaseUrl: config.appBaseUrl };
+  return { service, statements, appBaseUrl: config.appBaseUrl };
 };

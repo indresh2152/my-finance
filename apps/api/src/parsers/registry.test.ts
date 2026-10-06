@@ -53,15 +53,14 @@ describe('ParserRegistry', () => {
     expect(registry.find({ from: 'x@other.com', subject: 'Statement' })).toBeNull();
   });
 
-  it('should ship the card statement and balance parsers with unique keys', () => {
+  it('should ship the card statement parsers with unique keys', () => {
     expect(new ParserRegistry(BANK_PARSERS).allSenders()).toEqual(
-      expect.arrayContaining(['@hdfcbank.net', '@sbi.co.in']),
+      expect.arrayContaining(['@hdfcbank.net', '@sbicard.com']),
     );
-    expect(BANK_PARSERS).toHaveLength(11);
+    expect(BANK_PARSERS).toHaveLength(6);
     expect(new ParserRegistry(BANK_PARSERS).allSubjectKeywords()).toEqual([
       'statement',
       'estatement',
-      'balance',
     ]);
   });
 });

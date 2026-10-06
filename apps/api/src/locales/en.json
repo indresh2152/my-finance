@@ -70,9 +70,7 @@
       "syncMailbox": "Queue a sync of a linked mailbox",
       "unlinkMailbox": "Unlink a mailbox and revoke its access",
       "downloadStatement": "Download a card statement PDF",
-      "downloadStatementDescription": "Fetches the statement attachment live from the linked mailbox that received it; nothing is stored. Rate limited to 20 per hour.",
-      "listEmailAccounts": "List bank accounts found in your linked email",
-      "listEmailAccountsDescription": "Each account comes with the newest balance any of your linked mailboxes has seen for it."
+      "downloadStatementDescription": "Fetches the statement attachment live from the linked mailbox that received it; nothing is stored. Rate limited to 20 per hour."
     },
     "schemas": {
       "accessToken": "Bearer token for the Authorization header.",
@@ -84,8 +82,7 @@
       "cardNumberLast4": "Last 4 digits of the card. Null when the bank's statement emails never show them; cardName names the card instead.",
       "cardName": "The card's name from the statement email subject (e.g. Pixel Play, Amazon Pay). Null when the subject names none.",
       "downloadAvailable": "Whether the statement email had a PDF that can be downloaded.",
-      "bankCode": "Bank code, e.g. HDFC, ICICI, SBI, AXIS or KOTAK.",
-      "balanceAsOf": "When the balance was reported: the email's date, or the date stated in it."
+      "syncAvailableAt": "When a manual sync is allowed again; null when it is allowed now."
     },
     "responses": {
       "ok": "Success",

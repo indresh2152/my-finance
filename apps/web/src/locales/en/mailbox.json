@@ -24,12 +24,12 @@
     "continueWith": "Continue with {{provider}}",
     "invalidEmail": "Enter a valid email address",
     "unsupported": "This email provider isn't supported yet. We support Gmail, Google Workspace, Outlook, Hotmail and Microsoft 365.",
-    "explainer": "We only read emails from your banks, with read-only access. We never store your emails — only the card and account details we find in them.",
+    "explainer": "We only read emails from your banks, with read-only access. We never store your emails — only the card details we find in them.",
     "close": "Close"
   },
   "unlinkDialog": {
     "title": "Unlink {{email}}?",
-    "body": "Cards and accounts found only in this mailbox will be removed from MyFinance.",
+    "body": "Cards found only in this mailbox will be removed from MyFinance.",
     "microsoftNote": "To fully remove access, also remove MyFinance from the app permissions in your Microsoft account.",
     "confirm": "Unlink",
     "cancel": "Cancel"
@@ -38,7 +38,7 @@
     "linked": "Mailbox linked."
   },
   "progress": {
-    "title": "Gathering your card and account details…",
+    "title": "Gathering your card details…",
     "body": "This can take a few minutes. Cards we find will appear here."
   },
   "errors": {
@@ -56,6 +56,6 @@
   },
   "refreshAll": {
     "label": "Refresh",
-    "hint": "Check your linked emails for new cards, accounts and statements"
+    "hint": "Check your linked emails for new cards and statements"
   }
 }

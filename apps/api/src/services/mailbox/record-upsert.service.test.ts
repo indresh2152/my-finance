@@ -1,5 +1,5 @@
 import { RecordUpsertService, fitFilename } from './record-upsert.service';
-import type { CardStatementResult, AccountBalanceResult } from '../../parsers/email-parser';
+import type { CardStatementResult } from '../../parsers/email-parser';
 
 interface MockClient {
   query: jest.Mock;
@@ -26,15 +26,6 @@ const statement: CardStatementResult = {
   attachment: { locator: '1', filename: 'stmt.pdf' },
 };
 
-const balance: AccountBalanceResult = {
-  kind: 'ACCOUNT_BALANCE',
-  bankName: 'ICICI',
-  last4: '5678',
-  balance: 234567.89,
-  asOf: '2026-09-24T10:12:00.000Z',
-  accountType: 'SAVINGS',
-};
-
 const sqlCalls = (client: MockClient): string[] =>
   client.query.mock.calls.map((call) => call[0] as string);
 
@@ -53,10 +44,9 @@ describe('RecordUpsertService.apply', () => {
     const sql = sqlCalls(client);
     expect(sql[0]).toBe('BEGIN');
     expect(sql[1]).toContain('INSERT INTO credit_cards');
-    expect(sql[1]).toContain(
-      "ON CONFLICT (pan_profile_id, issuing_bank, card_key) WHERE source = 'EMAIL'",
-    );
-    expect(paramsAt(client, 1)).toEqual(['pan-1', '1234', null, 'HDFC']);
+    expect(sql[1]).toContain('ON CONFLICT (pan_profile_id, issuing_bank, card_number_last4)');
+    expect(sql[1]).toContain("WHERE source = 'EMAIL' AND card_number_last4 IS NOT NULL");
+    expect(paramsAt(client, 1)).toEqual(['pan-1', '1234', null, 'HDFC', 5]);
     expect(sql[2]).toContain('INSERT INTO card_statements');
     expect(paramsAt(client, 2)).toEqual([
       'row-id',
@@ -74,17 +64,67 @@ describe('RecordUpsertService.apply', () => {
     expect(client.release).toHaveBeenCalled();
   });
 
-  it('should key a card without digits on its name, with no due date when nothing is due', async () => {
-    const { pool, client } = makePool();
+  describe('a card known only by name', () => {
     const named: CardStatementResult = {
       ...statement,
       last4: undefined,
-      cardName: 'Pixel Play',
-      dueDate: undefined,
-      totalDue: 0,
+      cardName: 'Scapia',
+      statementDate: '2026-09-25',
     };
-    await new RecordUpsertService(pool as never).apply('pan-1', 'mb-1', named, 'msg-1');
-    expect(paramsAt(client, 1)).toEqual(['pan-1', null, 'Pixel Play', 'HDFC']);
+
+    /** A pool whose name lookup returns `existing`; every other query returns a new row's id. */
+    const poolWithNamedCards = (
+      existing: { id: string; billing_cycle_day: number | null }[],
+    ): ReturnType<typeof makePool> => {
+      const made = makePool();
+      made.client.query.mockImplementation((sql: string) =>
+        Promise.resolve({
+          rows: sql.startsWith('SELECT id, billing_cycle_day') ? existing : [{ id: 'new-card' }],
+        }),
+      );
+      return made;
+    };
+
+    it('should lock the PAN, bank and name before looking up same-named cards', async () => {
+      const { pool, client } = poolWithNamedCards([]);
+      await new RecordUpsertService(pool as never).apply('pan-1', 'mb-1', named, 'msg-1');
+      const sql = sqlCalls(client);
+      expect(sql[1]).toContain('pg_advisory_xact_lock');
+      expect(paramsAt(client, 1)).toEqual(['pan-1', 'HDFC', 'Scapia']);
+      expect(sql[2]).toContain('card_number_last4 IS NULL');
+      expect(paramsAt(client, 2)).toEqual(['pan-1', 'HDFC', 'Scapia']);
+    });
+
+    it('should add the statement to the same-named card with the same statement day', async () => {
+      const { pool, client } = poolWithNamedCards([
+        { id: 'card-14', billing_cycle_day: 14 },
+        { id: 'card-25', billing_cycle_day: 25 },
+      ]);
+      await new RecordUpsertService(pool as never).apply('pan-1', 'mb-1', named, 'msg-1');
+      const sql = sqlCalls(client);
+      expect(sql.some((q) => q.startsWith('INSERT INTO credit_cards'))).toBe(false);
+      expect(sql[3]).toContain('INSERT INTO card_statements');
+      expect(paramsAt(client, 3)).toEqual(
+        expect.arrayContaining(['card-25', 'mb-1', '2026-09-25']),
+      );
+    });
+
+    it('should add a new card when no same-named card has that statement day', async () => {
+      const { pool, client } = poolWithNamedCards([{ id: 'card-14', billing_cycle_day: 14 }]);
+      await new RecordUpsertService(pool as never).apply('pan-1', 'mb-1', named, 'msg-1');
+      const sql = sqlCalls(client);
+      expect(sql[3]).toContain('INSERT INTO credit_cards');
+      expect(paramsAt(client, 3)).toEqual(['pan-1', null, 'Scapia', 'HDFC', 25]);
+      expect(paramsAt(client, 4)).toEqual(
+        expect.arrayContaining(['new-card', 'mb-1', '2026-09-25']),
+      );
+    });
+  });
+
+  it('should store no due date when nothing is due', async () => {
+    const { pool, client } = makePool();
+    const nothingDue = { ...statement, dueDate: undefined, totalDue: 0 };
+    await new RecordUpsertService(pool as never).apply('pan-1', 'mb-1', nothingDue, 'msg-1');
     expect(paramsAt(client, 2)).toEqual(
       expect.arrayContaining(['row-id', 'mb-1', '2026-09-05', null, 0]),
     );
@@ -111,38 +151,6 @@ describe('RecordUpsertService.apply', () => {
       null,
       null,
     ]);
-  });
-
-  it('should upsert an EMAIL bank account and a newer-only balance snapshot', async () => {
-    const { pool, client } = makePool();
-    await new RecordUpsertService(pool as never).apply('pan-1', 'mb-1', balance, 'msg-2');
-
-    const sql = sqlCalls(client);
-    expect(sql[1]).toContain('INSERT INTO bank_accounts');
-    expect(paramsAt(client, 1)).toEqual(['pan-1', '5678', 'ICICI', 'SAVINGS']);
-    expect(sql[2]).toContain('INSERT INTO account_balance_snapshots');
-    expect(sql[2]).toContain(
-      'WHERE account_balance_snapshots.balance_as_of < EXCLUDED.balance_as_of',
-    );
-    expect(paramsAt(client, 2)).toEqual([
-      'row-id',
-      'mb-1',
-      234567.89,
-      '2026-09-24T10:12:00.000Z',
-      'msg-2',
-    ]);
-    expect(sql[3]).toBe('COMMIT');
-  });
-
-  it('should default the account type to OTHER', async () => {
-    const { pool, client } = makePool();
-    await new RecordUpsertService(pool as never).apply(
-      'pan-1',
-      'mb-1',
-      { ...balance, accountType: undefined },
-      'msg-2',
-    );
-    expect(paramsAt(client, 1)).toEqual(['pan-1', '5678', 'ICICI', 'OTHER']);
   });
 
   it('should roll back and release on failure', async () => {

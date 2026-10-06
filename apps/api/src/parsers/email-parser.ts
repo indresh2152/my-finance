@@ -1,7 +1,7 @@
 import type { ParsedEmail } from '../services/mailbox/providers/mail-provider';
 
-/** SBI_CARD (SBI Card, the card issuer) and SBI (State Bank of India) are separate companies. */
-export type BankCode = 'HDFC' | 'ICICI' | 'SBI' | 'SBI_CARD' | 'AXIS' | 'KOTAK' | 'FEDERAL';
+/** SBI_CARD is SBI Card, the card issuer; State Bank of India itself issues no cards we parse. */
+export type BankCode = 'HDFC' | 'ICICI' | 'SBI_CARD' | 'AXIS' | 'KOTAK' | 'FEDERAL';
 
 export interface CardStatementResult {
   kind: 'CARD_STATEMENT';
@@ -19,16 +19,7 @@ export interface CardStatementResult {
   attachment?: { locator: string; filename: string };
 }
 
-export interface AccountBalanceResult {
-  kind: 'ACCOUNT_BALANCE';
-  bankName: BankCode;
-  last4: string;
-  balance: number;
-  asOf: string; // ISO timestamp
-  accountType?: 'SAVINGS' | 'CURRENT' | 'OTHER';
-}
-
-export type ParsedResult = CardStatementResult | AccountBalanceResult;
+export type ParsedResult = CardStatementResult;
 
 export interface EmailMeta {
   from: string;
@@ -45,6 +36,6 @@ export interface EmailParser {
    */
   readonly subjectKeywords?: readonly string[];
   matches(meta: EmailMeta): boolean;
-  /** Pure: no I/O. Returns null when the email is not a usable statement/alert. */
+  /** Pure: no I/O. Returns null when the email is not a usable card statement. */
   parse(email: ParsedEmail): ParsedResult | null;
 }
