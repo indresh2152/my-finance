@@ -50,6 +50,23 @@
     "AMEX": "AMEX",
     "DINERS": "Diners Club"
   },
+  "tabs": {
+    "label": "Dashboard sections",
+    "cards": "Credit Cards",
+    "analytics": "Analytics"
+  },
+  "analytics": {
+    "chartTitle": "Amount due per card, last 12 months",
+    "chartLabel": "Line chart of the amount due on each monthly statement over the last 12 months, one line per credit card",
+    "scaleNote": "The amount axis is compressed: equal distances are not equal rupees, so small amounts stay readable.",
+    "xAxisLabel": "Statement month",
+    "yAxisLabel": "Amount due (₹)",
+    "empty": "No statements found in the last 12 months.",
+    "emptyFiltered": "No statements found in this email in the last 12 months. Choose All cards to see the rest.",
+    "loadFailed": "Failed to load the statement history. Please try again.",
+    "someFailed_one": "Couldn't load the statements of {{count}} card, so it is missing from the chart.",
+    "someFailed_other": "Couldn't load the statements of {{count}} cards, so they are missing from the chart."
+  },
   "history": {
     "open": "View statements for {{card}}",
     "back": "Back to dashboard",

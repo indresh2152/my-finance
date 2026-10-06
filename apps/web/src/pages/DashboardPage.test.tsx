@@ -606,3 +606,60 @@ describe('DashboardPage — cards by email', () => {
     );
   });
 });
+
+describe('DashboardPage — tabs', () => {
+  it('should open on Credit Cards', async () => {
+    renderPage();
+    expect(await screen.findByText('HDFC Bank')).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Credit Cards' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    );
+    expect(screen.getByRole('tab', { name: 'Analytics' })).toHaveAttribute(
+      'aria-selected',
+      'false',
+    );
+  });
+
+  it('should switch to Analytics and back', async () => {
+    cards = [];
+    renderPage();
+    await userEvent.click(await screen.findByRole('tab', { name: 'Analytics' }));
+    expect(await screen.findByText('No statements found in the last 12 months.')).toBeVisible();
+    expect(screen.queryByText('No credit cards yet.')).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('tab', { name: 'Credit Cards' }));
+    expect(await screen.findByText('No credit cards yet.')).toBeVisible();
+  });
+
+  it('should open on the tab named in the URL', async () => {
+    cards = [];
+    renderPage('/?tab=analytics');
+    expect(await screen.findByText('No statements found in the last 12 months.')).toBeVisible();
+    expect(screen.getByRole('tab', { name: 'Analytics' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tabpanel')).toHaveAttribute(
+      'aria-labelledby',
+      screen.getByRole('tab', { name: 'Analytics' }).id,
+    );
+  });
+
+  it('should fall back to Credit Cards for an unknown tab', async () => {
+    renderPage('/?tab=nope');
+    expect(await screen.findByText('HDFC Bank')).toBeInTheDocument();
+  });
+
+  it('should keep the email filter when switching to Analytics', async () => {
+    mailboxes = [
+      mailbox({ id: 'mb-1' }),
+      mailbox({ id: 'mb-2', emailMasked: 'ot****@outlook.com' }),
+    ];
+    renderPage();
+    await userEvent.click(await screen.findByRole('combobox', { name: 'Show cards from' }));
+    await userEvent.click(screen.getByRole('option', { name: 'ot****@outlook.com' }));
+    await userEvent.click(screen.getByRole('tab', { name: 'Analytics' }));
+    expect(await screen.findByText(/in this email in the last 12 months/)).toBeVisible();
+    expect(screen.getByRole('combobox', { name: 'Show cards from' })).toHaveTextContent(
+      'ot****@outlook.com',
+    );
+  });
+});

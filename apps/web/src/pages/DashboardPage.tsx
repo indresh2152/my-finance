@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Button, Container, Stack, Tooltip } from '@mui/material';
+import { useSearchParams } from 'react-router-dom';
+import { Button, Container, Stack, Tab, Tabs, Tooltip } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
@@ -9,6 +10,8 @@ import { CREDIT_CARDS_QUERY_KEY, listCreditCards } from '../services/credit-card
 import type { Mailbox } from '../services/mailbox.api';
 import { useMailboxes } from '../hooks/useMailboxes';
 import { useStatementDownload } from '../hooks/useStatementDownload';
+import { cardsInMailbox } from '../components/cards/cardPage';
+import { AnalyticsPanel } from '../components/analytics/AnalyticsPanel';
 import { CreditCardTile } from '../components/cards/CreditCardTile';
 import { DownloadErrorSnackbar } from '../components/cards/DownloadErrorSnackbar';
 import { ShowAllToggle } from '../components/cards/ShowAllToggle';
@@ -20,6 +23,10 @@ import { ALL_MAILBOXES, MailboxFilter } from '../components/mailbox/MailboxFilte
 import { SyncProgressBanner } from '../components/mailbox/SyncProgressBanner';
 
 const SKELETON_CARDS = 3;
+const TAB_PARAM = 'tab';
+type DashboardTab = 'cards' | 'analytics';
+const tabId = (tab: DashboardTab): string => `dashboard-tab-${tab}`;
+const PANEL_ID = 'dashboard-tabpanel';
 
 interface RefreshButtonProps {
   readonly disabled: boolean;
@@ -67,9 +74,7 @@ const CardGrid: React.FC<CardGridProps> = ({
   } = useQuery({ queryKey: CREDIT_CARDS_QUERY_KEY, queryFn: listCreditCards });
   const emailById = new Map(mailboxes.map((mailbox) => [mailbox.id, mailbox.emailMasked]));
   const isFiltered = mailboxFilter !== ALL_MAILBOXES;
-  const shownCards = isFiltered
-    ? cards?.filter((card) => card.mailboxIds.includes(mailboxFilter))
-    : cards;
+  const shownCards = cards && cardsInMailbox(cards, mailboxFilter);
 
   return (
     <TileGrid
@@ -116,6 +121,20 @@ const Dashboard: React.FC = () => {
   const statements = useStatementDownload();
   const [showAllAmounts, setShowAllAmounts] = useState(false);
   const [selectedMailbox, setSelectedMailbox] = useState(ALL_MAILBOXES);
+  // The tab lives in the URL so a reload or a back from a card page returns to the same tab.
+  const [searchParams, setSearchParams] = useSearchParams();
+  // Anything but 'analytics' is the default tab, so a mistyped URL still lands on the cards.
+  const tab: DashboardTab = searchParams.get(TAB_PARAM) === 'analytics' ? 'analytics' : 'cards';
+  const selectTab = (next: DashboardTab): void =>
+    setSearchParams(
+      (params) => {
+        const updated = new URLSearchParams(params);
+        if (next === 'cards') updated.delete(TAB_PARAM);
+        else updated.set(TAB_PARAM, next);
+        return updated;
+      },
+      { replace: true },
+    );
   const mailboxes = mailbox.mailboxes ?? [];
   const hasMailbox = mailboxes.length > 0;
   // A mailbox unlinked while selected leaves nothing to filter by, so every card shows again.
@@ -156,6 +175,21 @@ const Dashboard: React.FC = () => {
         )}
       </Stack>
 
+      <Tabs
+        value={tab}
+        onChange={(_event, next: DashboardTab) => selectTab(next)}
+        aria-label={t('tabs.label')}
+        sx={{ mb: 3, borderBottom: 1, borderColor: 'divider' }}
+      >
+        <Tab value="cards" id={tabId('cards')} aria-controls={PANEL_ID} label={t('tabs.cards')} />
+        <Tab
+          value="analytics"
+          id={tabId('analytics')}
+          aria-controls={PANEL_ID}
+          label={t('tabs.analytics')}
+        />
+      </Tabs>
+
       <Stack spacing={3}>
         <MailboxAlerts
           actionError={mailbox.actionError}
@@ -164,13 +198,19 @@ const Dashboard: React.FC = () => {
         {mailbox.gatheringIds.size > 0 && <SyncProgressBanner />}
 
         <AmountVisibilityContext.Provider value={showAllAmounts}>
-          <CardGrid
-            mailboxes={mailboxes}
-            mailboxFilter={mailboxFilter}
-            emptyHint={cardsEmptyHint}
-            isDownloading={statements.isDownloading}
-            onDownload={mailbox.isAvailable ? statements.download : undefined}
-          />
+          <div role="tabpanel" id={PANEL_ID} aria-labelledby={tabId(tab)}>
+            {tab === 'cards' ? (
+              <CardGrid
+                mailboxes={mailboxes}
+                mailboxFilter={mailboxFilter}
+                emptyHint={cardsEmptyHint}
+                isDownloading={statements.isDownloading}
+                onDownload={mailbox.isAvailable ? statements.download : undefined}
+              />
+            ) : (
+              <AnalyticsPanel mailboxFilter={mailboxFilter} />
+            )}
+          </div>
         </AmountVisibilityContext.Provider>
       </Stack>
 
