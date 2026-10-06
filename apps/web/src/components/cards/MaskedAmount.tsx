@@ -1,10 +1,9 @@
-import React, { useContext, useState } from 'react';
-import { Box, IconButton, Typography } from '@mui/material';
-import VisibilityIcon from '@mui/icons-material/Visibility';
-import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
+import React from 'react';
+import { Box, Typography } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import { formatInr } from '../../utils/format';
-import { AmountVisibilityContext } from '../../context/AmountVisibilityContext';
+import { useAmountReveal } from '../../hooks/useAmountReveal';
+import { MASKED_SX, RevealButton } from './RevealButton';
 
 interface MaskedAmountProps {
   readonly value: number;
@@ -18,35 +17,14 @@ interface MaskedAmountProps {
  */
 export const MaskedAmount: React.FC<MaskedAmountProps> = ({ value, label }) => {
   const { t } = useTranslation('cards');
-  const showAll = useContext(AmountVisibilityContext);
-  const [isRevealed, setRevealed] = useState(showAll);
-  const [followedShowAll, setFollowedShowAll] = useState(showAll);
-  // Adjusting state during render (not in an effect) avoids a frame showing the old state.
-  if (followedShowAll !== showAll) {
-    setFollowedShowAll(showAll);
-    setRevealed(showAll);
-  }
+  const { isRevealed, toggle } = useAmountReveal();
 
   return (
     <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.25 }}>
-      <Typography
-        variant="caption"
-        fontWeight={600}
-        sx={isRevealed ? undefined : { filter: 'blur(4px)', userSelect: 'none' }}
-      >
+      <Typography variant="caption" fontWeight={600} sx={isRevealed ? undefined : MASKED_SX}>
         {isRevealed ? formatInr(value) : t('amount.masked')}
       </Typography>
-      <IconButton
-        size="small"
-        aria-label={t(isRevealed ? 'amount.hide' : 'amount.show', { label })}
-        onClick={() => setRevealed((revealed) => !revealed)}
-      >
-        {isRevealed ? (
-          <VisibilityOffIcon fontSize="inherit" />
-        ) : (
-          <VisibilityIcon fontSize="inherit" />
-        )}
-      </IconButton>
+      <RevealButton isRevealed={isRevealed} onToggle={toggle} label={label} size="small" />
     </Box>
   );
 };

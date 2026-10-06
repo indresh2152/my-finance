@@ -40,10 +40,30 @@ export interface StatementFile {
   filename: string;
 }
 
+/** A card with up to 12 months of statements, one per billing cycle, newest first. */
+export interface CardStatementHistory {
+  card: CreditCard;
+  statements: CardStatement[];
+}
+
 export const CREDIT_CARDS_QUERY_KEY = ['credit-cards'] as const;
+
+/** Under the card list's key, so refreshing the cards refreshes their histories too. */
+export const cardStatementsQueryKey = (cardId: string): readonly string[] => [
+  ...CREDIT_CARDS_QUERY_KEY,
+  cardId,
+  'statements',
+];
 
 export const listCreditCards = async (): Promise<CreditCard[]> =>
   (await apiClient.get<{ cards: CreditCard[] }>('/credit-cards')).data.cards;
+
+export const getCardStatements = async (cardId: string): Promise<CardStatementHistory> =>
+  (
+    await apiClient.get<CardStatementHistory>(
+      `/credit-cards/${encodeURIComponent(cardId)}/statements`,
+    )
+  ).data;
 
 export const downloadStatement = async (statementId: string): Promise<StatementFile> => {
   const response = await apiClient.get<Blob>(`/mailboxes/statements/${statementId}/download`, {

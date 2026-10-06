@@ -48,7 +48,7 @@ export const mailConnections = pgTable(
     lastSyncStatus: mailSyncStatusEnum('last_sync_status').notNull().default('NEVER'),
     lastSyncErrorCode: varchar('last_sync_error_code', { length: 50 }),
     lastSyncedAt: timestamp('last_synced_at', { withTimezone: true }),
-    // sha256 of the sorted parser sender list used by the last successful sync; a change forces a 180-day rescan
+    // sha256 of the search filter (sorted senders, subject keywords, lookback) used by the last successful sync; a change forces a full 365-day rescan
     syncedSendersHash: text('synced_senders_hash'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),

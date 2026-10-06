@@ -23,7 +23,8 @@
     "mailbox_reauth_required": "Access to this mailbox has expired. Reconnect it to continue syncing.",
     "mailbox_sync_too_frequent": "This mailbox was synced recently. Try again in a few minutes.",
     "statement_not_found": "Statement not found.",
-    "statement_unavailable": "This statement is no longer available in your mailbox."
+    "statement_unavailable": "This statement is no longer available in your mailbox.",
+    "card_not_found": "Card not found."
   },
   "validation": {
     "pan_required": "PAN is required",
@@ -36,7 +37,8 @@
     "password_min": "Password must be at least 8 characters",
     "password_complexity": "Password must contain at least one uppercase letter, one digit, and one special character",
     "mailbox_id_invalid": "Mailbox ID must be a valid UUID",
-    "statement_id_invalid": "Statement ID must be a valid UUID"
+    "statement_id_invalid": "Statement ID must be a valid UUID",
+    "card_id_invalid": "Card ID must be a valid UUID"
   },
   "apiDocs": {
     "title": "my-finance API",
@@ -61,6 +63,8 @@
       "registerPan": "Link and verify your PAN",
       "getPan": "Get your linked PAN profile (masked)",
       "listCreditCards": "List credit cards linked to your PAN",
+      "getCardStatements": "Get a card and its last 12 months of statements",
+      "getCardStatementsDescription": "One statement per billing cycle issued in the current month or the 11 before it, newest first, preferring the email that had the PDF. Download each one with GET /api/v1/mailboxes/statements/{statementId}/download. A card not linked to your PAN returns 404.",
       "resolveMailbox": "Check whether an email address can be linked",
       "connectMailbox": "Start linking a mailbox",
       "connectMailboxDescription": "Returns the provider consent URL to open in the browser. Also sets a short-lived HttpOnly cookie that the OAuth callback must receive from the same browser.",

@@ -73,6 +73,9 @@ When you fix one, delete its entry.
 - **Failure:** two runs for the same mailbox can overlap. The upserts are idempotent, so no data is
   wrong. The only cost is duplicate provider calls and database work, and the run that finishes
   last sets `last_synced_at`.
+- **More likely since 2026-10-06:** the lookback grew from 180 to 365 days (for the card page's
+  12-month history), so a full scan reads about twice as much mail. Every existing mailbox does one
+  full scan on its next sync, because the lookback is part of the search-filter hash.
 - **Fix direction:**
   - Pass an `AbortSignal` into `syncMailbox` and stop between messages once the job deadline passes.
   - Or cap the messages per run so a run always finishes well inside the expiry.
@@ -100,6 +103,20 @@ When you fix one, delete its entry.
 - **Why it matters:** SOC 2 / CERT-In expect audit entries to name the actor.
 - **Fix direction:** call `setAuditUserId(res, user.id)` in the login and register handlers, and make
   `AuthService.refresh` return the user id so the refresh handler can do the same.
+
+## 9. Audit rows are never written for routes inside a mounted router
+
+- **Where:** `auditMiddleware` in `apps/api/src/middleware/audit.middleware.ts`.
+- **Problem:** the route key is built as `/api/v1` + `req.route.path`. Inside a router mounted at
+  `/api/v1/credit-cards`, `req.route.path` is only the router-relative path (`/` or
+  `/:cardId/statements`). So the key never matches `ROUTE_ACTION_MAP`, and nothing is written. Found
+  on 2026-10-06 with a supertest probe: `GET /api/v1/credit-cards` writes no `CARD_LIST` row. The
+  unit tests fake `req.route.path` as the full path, so they pass.
+- **Why it matters:** card list and card statement views (`CARD_LIST`, `CARD_VIEW`) go unaudited.
+  SOC 2 / CERT-In expect access to financial data to be logged.
+- **Fix direction:** build the key from `req.baseUrl + req.route.path` with the trailing `/` trimmed.
+  Add a supertest through `createApp` that asserts the INSERT. The route tests' `db.query` mocks then
+  need a default resolved value, because the audit INSERT calls `.catch` on the result.
 
 ## Minor (also deferred)
 

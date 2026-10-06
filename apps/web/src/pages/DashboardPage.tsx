@@ -1,17 +1,16 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Button, Container, IconButton, Snackbar, Stack, Tooltip } from '@mui/material';
+import { Button, Container, Stack, Tooltip } from '@mui/material';
 import RefreshIcon from '@mui/icons-material/Refresh';
-import VisibilityIcon from '@mui/icons-material/Visibility';
-import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import { useTranslation } from 'react-i18next';
-import type { TFunction } from 'i18next';
 import { useAuth } from '../context/AuthContext';
 import { AmountVisibilityContext } from '../context/AmountVisibilityContext';
 import { CREDIT_CARDS_QUERY_KEY, listCreditCards } from '../services/credit-cards.api';
 import { useMailboxes } from '../hooks/useMailboxes';
 import { useStatementDownload } from '../hooks/useStatementDownload';
 import { CreditCardTile } from '../components/cards/CreditCardTile';
+import { DownloadErrorSnackbar } from '../components/cards/DownloadErrorSnackbar';
+import { ShowAllToggle } from '../components/cards/ShowAllToggle';
 import { TileGrid } from '../components/TileGrid';
 import { LinkPanAlert } from '../components/LinkPanAlert';
 import { PageTitle } from '../components/PageTitle';
@@ -19,29 +18,6 @@ import { MailboxAlerts } from '../components/mailbox/MailboxAlerts';
 import { SyncProgressBanner } from '../components/mailbox/SyncProgressBanner';
 
 const SKELETON_CARDS = 3;
-
-/** Statement-specific wording first, then the shared mailbox error text, then a generic message. */
-const downloadErrorMessage = (t: TFunction<'cards'>, code: string): string =>
-  t([`statement.errors.${code}`, `mailbox:errors.${code}`, 'statement.errors.generic'] as never);
-const DOWNLOAD_ERROR_HIDE_MS = 6000;
-
-interface ShowAllToggleProps {
-  readonly showAll: boolean;
-  readonly onToggle: () => void;
-}
-
-/** Shows or hides every masked amount on the dashboard at once. */
-const ShowAllToggle: React.FC<ShowAllToggleProps> = ({ showAll, onToggle }) => {
-  const { t } = useTranslation('cards');
-  // A toggle keeps one name and reports its state through aria-pressed; only the tooltip changes.
-  return (
-    <Tooltip title={t(showAll ? 'amount.hideAll' : 'amount.showAll')}>
-      <IconButton aria-label={t('amount.showAll')} aria-pressed={showAll} onClick={onToggle}>
-        {showAll ? <VisibilityOffIcon /> : <VisibilityIcon />}
-      </IconButton>
-    </Tooltip>
-  );
-};
 
 interface RefreshButtonProps {
   readonly disabled: boolean;
@@ -161,12 +137,7 @@ const Dashboard: React.FC = () => {
         </AmountVisibilityContext.Provider>
       </Stack>
 
-      <Snackbar
-        open={statements.errorCode !== null}
-        autoHideDuration={DOWNLOAD_ERROR_HIDE_MS}
-        onClose={statements.clearError}
-        message={statements.errorCode && downloadErrorMessage(t, statements.errorCode)}
-      />
+      <DownloadErrorSnackbar download={statements} />
     </Container>
   );
 };

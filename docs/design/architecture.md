@@ -266,7 +266,7 @@ Users link Google or Microsoft mailboxes (OAuth + PKCE; provider chosen from the
 Refresh tokens are AES-256-GCM encrypted in `mail_connections`. An in-process pg-boss worker (tables in the
 `pgboss` schema of the app database) runs `mail-sync-mailbox` jobs — one per mailbox (`stately` policy) — every
 6 hours (`mail-sync-all`) and on demand. Each job reads only emails from known bank senders since the last sync
-(first sync: 180 days), passes them through the parser registry, and upserts `credit_cards`/`card_statements`
+(first sync, or after the search filter or lookback changes: 365 days), passes them through the parser registry, and upserts `credit_cards`/`card_statements`
 rows with `source = 'EMAIL'`. Email bodies are never stored.
 Code: `apps/api/src/services/mailbox/`, `apps/api/src/parsers/`, `apps/api/src/jobs/`.
 

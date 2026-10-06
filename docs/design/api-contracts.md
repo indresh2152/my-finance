@@ -302,6 +302,43 @@ Returns a single card (same shape as above, single object).
 
 ---
 
+### GET /credit-cards/:cardId/statements
+
+Returns one card (same shape as an item above) and its statements from the last 12 months: those
+issued in the current month or the 11 before it, newest first. Each billing cycle appears once
+(grouped by due date, or statement date when nothing was due), preferring the email that had the
+PDF. Statements use the `latestStatement` shape; download each one with
+`GET /mailboxes/statements/:statementId/download`. Mailbox sync reads 365 days of email, so a
+year of statements is available once a mailbox has synced.
+
+**Response 200**
+```json
+{
+  "card": { "id": "uuid", "cardNumberLast4": "1234", "issuingBank": "HDFC Bank", "...": "..." },
+  "statements": [
+    {
+      "id": "uuid",
+      "statementDate": "2026-09-05",
+      "dueDate": "2026-09-25",
+      "totalAmountDue": 12345.67,
+      "minimumAmountDue": 620.00,
+      "passwordHint": "First 4 letters of your name in capitals + DDMM of birth",
+      "downloadAvailable": true
+    }
+  ]
+}
+```
+
+**Response 404** — the card does not exist or is not linked to the user's PAN (never 403, so card
+IDs cannot be probed).
+```json
+{ "error": { "code": "CARD_NOT_FOUND", "message": "Card not found." } }
+```
+
+**Response 422** — `cardId` is not a UUID (`VALIDATION_ERROR`).
+
+---
+
 ## Loans
 
 ### GET /loans

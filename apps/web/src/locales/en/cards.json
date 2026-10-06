@@ -47,5 +47,24 @@
     "RUPAY": "RuPay",
     "AMEX": "AMEX",
     "DINERS": "Diners Club"
+  },
+  "history": {
+    "open": "View statements for {{card}}",
+    "back": "Back to dashboard",
+    "chartTitle": "Amount due, last 12 months",
+    "chartLabel": "Line chart of the amount due on each monthly statement over the last 12 months",
+    "noStatement": "No statement",
+    "listTitle": "Statements",
+    "month": "Month",
+    "statementFile": "Statement",
+    "amountDueMonth": "Amount due, {{month}}",
+    "minimumDueMonth": "Minimum due, {{month}}",
+    "empty": "No statements found in the last 12 months.",
+    "noPdf": "No PDF in email",
+    "downloadMonth": "Download {{month}} statement",
+    "passwordHintMonth": "Password hint for the {{month}} statement",
+    "notFound": "We couldn't find this card. It may have been removed, or it isn't linked to your PAN.",
+    "loadFailed": "Couldn't load this card's statements. Please try again.",
+    "retry": "Try again"
   }
 }

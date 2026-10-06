@@ -432,6 +432,16 @@ describe('DashboardPage — show all amounts', () => {
   });
 });
 
+describe('DashboardPage — card page link', () => {
+  it("should link each card face to the card's statement history", async () => {
+    renderPage();
+    const link = await screen.findByRole('link', {
+      name: 'View statements for HDFC Bank •••• 4242',
+    });
+    expect(link).toHaveAttribute('href', '/cards/card-1');
+  });
+});
+
 describe('DashboardPage — statements', () => {
   const DOWNLOAD_URL = '/api/v1/mailboxes/statements/:id/download';
 

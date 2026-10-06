@@ -161,3 +161,82 @@ describe('CreditCardsService.listByUserId', () => {
     expect(card?.latestStatement).toBeNull();
   });
 });
+
+describe('CreditCardsService.getStatementHistory', () => {
+  const CARD_ID = 'card-uuid';
+  const statement = {
+    id: 'stmt-1',
+    statementDate: '2026-09-05',
+    dueDate: '2026-09-25',
+    totalAmountDue: 12345.67,
+    minimumAmountDue: 620,
+    passwordHint: null,
+    downloadAvailable: true,
+  };
+
+  it('should throw PAN_NOT_REGISTERED when user has no PAN profile', async () => {
+    const db = makeDb();
+    db.query.mockResolvedValueOnce({ rows: [] });
+    await expect(
+      new CreditCardsService(db as never).getStatementHistory(USER_ID, CARD_ID, LNG),
+    ).rejects.toThrow(expect.objectContaining({ code: 'PAN_NOT_REGISTERED' }));
+  });
+
+  it("should report a card not linked to the user's PAN as not found", async () => {
+    const db = makeDb();
+    db.query
+      .mockResolvedValueOnce({ rows: [{ id: PAN_PROFILE_ID }] })
+      .mockResolvedValueOnce({ rows: [] });
+
+    db.query.mockResolvedValueOnce({ rows: [] });
+
+    await expect(
+      new CreditCardsService(db as never).getStatementHistory(USER_ID, CARD_ID, LNG),
+    ).rejects.toThrow(expect.objectContaining({ code: 'CARD_NOT_FOUND', status: 404 }));
+    expect(db.query.mock.calls[1]?.[1]).toEqual([PAN_PROFILE_ID, CARD_ID]);
+  });
+
+  it('should return the card and one statement per billing cycle from the last 12 months', async () => {
+    const db = makeDb();
+    db.query
+      .mockResolvedValueOnce({ rows: [{ id: PAN_PROFILE_ID }] })
+      .mockResolvedValueOnce({ rows: [mockCardRow] })
+      .mockResolvedValueOnce({ rows: [{ statement }] });
+
+    const result = await new CreditCardsService(db as never).getStatementHistory(
+      USER_ID,
+      CARD_ID,
+      LNG,
+    );
+
+    const cardSql = db.query.mock.calls[1]?.[0] as string;
+    expect(cardSql).toContain('WHERE c.pan_profile_id = $1 AND c.id = $2');
+    const [historySql, historyParams] = db.query.mock.calls[2] as [string, string[]];
+    expect(historyParams).toEqual([PAN_PROFILE_ID, CARD_ID]);
+    expect(historySql).toContain(
+      'credit_card_id = (SELECT id FROM credit_cards WHERE pan_profile_id = $1 AND id = $2)',
+    );
+    expect(historySql).toContain('DISTINCT ON (COALESCE(due_date, statement_date))');
+    expect(historySql).toContain("date_trunc('month', CURRENT_DATE) - INTERVAL '11 months'");
+    expect(historySql).toContain('(attachment_locator IS NOT NULL) DESC');
+    expect(historySql).toContain('ORDER BY s.statement_date DESC');
+    expect(result).toEqual({
+      card: expect.objectContaining({ id: 'card-uuid', creditLimit: 500000 }),
+      statements: [statement],
+    });
+  });
+
+  it('should return no statements for a card that has none', async () => {
+    const db = makeDb();
+    db.query
+      .mockResolvedValueOnce({ rows: [{ id: PAN_PROFILE_ID }] })
+      .mockResolvedValueOnce({ rows: [mockCardRow] })
+      .mockResolvedValueOnce({ rows: [] });
+    const result = await new CreditCardsService(db as never).getStatementHistory(
+      USER_ID,
+      CARD_ID,
+      LNG,
+    );
+    expect(result.statements).toEqual([]);
+  });
+});

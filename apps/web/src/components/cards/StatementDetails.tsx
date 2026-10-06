@@ -1,11 +1,10 @@
 import React from 'react';
-import { Box, Button, IconButton, Stack, Tooltip, Typography } from '@mui/material';
-import DownloadIcon from '@mui/icons-material/Download';
-import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import { Box, Stack, Typography } from '@mui/material';
 import { useTranslation } from 'react-i18next';
 import type { CardStatement } from '../../services/credit-cards.api';
 import { formatDate } from '../../utils/format';
 import { MaskedAmount } from './MaskedAmount';
+import { StatementFileActions } from './StatementFileActions';
 
 interface DetailRowProps {
   readonly label: string;
@@ -65,26 +64,11 @@ export const StatementDetails: React.FC<StatementDetailsProps> = ({
       <DetailRow label={t('statement.statementDate')}>
         <Typography variant="caption">{formatDate(statement.statementDate)}</Typography>
       </DetailRow>
-      {/* The password hint opens the PDF, so it shows only when the email had one. */}
-      {statement.downloadAvailable && (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, pt: 0.5 }}>
-          {onDownload && (
-            <Button
-              size="small"
-              startIcon={<DownloadIcon />}
-              disabled={isDownloading}
-              onClick={() => onDownload(statement.id)}
-            >
-              {t('statement.download')}
-            </Button>
-          )}
-          <Tooltip title={statement.passwordHint ?? t('statement.noPasswordHint')}>
-            <IconButton size="small" aria-label={t('statement.passwordHint')}>
-              <InfoOutlinedIcon fontSize="inherit" />
-            </IconButton>
-          </Tooltip>
-        </Box>
-      )}
+      <StatementFileActions
+        statement={statement}
+        isDownloading={isDownloading}
+        onDownload={onDownload}
+      />
     </Stack>
   );
 };

@@ -158,6 +158,22 @@ export interface MailboxesState {
   confirmUnlink: (mailbox: Mailbox) => void;
 }
 
+const MAILBOX_LIST_QUERY = {
+  queryKey: MAILBOXES_QUERY_KEY,
+  queryFn: listMailboxes,
+  retry: (failureCount: number, err: unknown): boolean =>
+    !isFeatureOff(err) && failureCount < MAX_RETRIES,
+};
+
+/**
+ * Whether mailbox features are on, for pages that only need to know that (such as whether a
+ * statement can be downloaded). Shares the mailbox list's cache, without its polling or actions.
+ */
+export const useMailboxAvailability = (): boolean => {
+  const { data, error } = useQuery(MAILBOX_LIST_QUERY);
+  return data !== undefined || (error !== null && !isFeatureOff(error));
+};
+
 interface UseMailboxesOptions {
   /** A mailbox was linked just before this page loaded, so poll until its first sync shows up. */
   readonly justLinked?: boolean;
@@ -175,9 +191,7 @@ export const useMailboxes = ({ justLinked = false }: UseMailboxesOptions = {}): 
     isLoading,
     error,
   } = useQuery({
-    queryKey: MAILBOXES_QUERY_KEY,
-    queryFn: listMailboxes,
-    retry: (failureCount, err) => !isFeatureOff(err) && failureCount < MAX_RETRIES,
+    ...MAILBOX_LIST_QUERY,
     refetchInterval: (query) => mailboxPollInterval(query.state.data, pollUntil, Date.now()),
   });
   const isError = error !== null && !isFeatureOff(error);

@@ -38,6 +38,29 @@ describe('auditMiddleware', () => {
     expect(pool.query).not.toHaveBeenCalled();
   });
 
+  it.each([
+    [
+      'a valid card ID',
+      '550e8400-e29b-41d4-a716-446655440000',
+      '550e8400-e29b-41d4-a716-446655440000',
+    ],
+    ['a malformed card ID, which would fail the uuid column', 'not-a-uuid', null],
+  ])('should record %s as the resource', async (_name, cardId, expected) => {
+    const pool = makePool();
+    const req = makeReq({
+      path: `/api/v1/credit-cards/${cardId}/statements`,
+      route: { path: '/credit-cards/:cardId/statements' },
+      params: { cardId },
+    }) as Request;
+    const res = makeRes() as unknown as Response;
+    auditMiddleware(pool as never)(req, res, mockNext);
+    res.emit('finish');
+    await new Promise((r) => setTimeout(r, 10));
+    const params = pool.query.mock.calls[0]?.[1] as unknown[];
+    expect(params[1]).toBe('CARD_VIEW');
+    expect(params[3]).toBe(expected);
+  });
+
   it('should call next() and write an audit log on finish for a known route', async () => {
     const pool = makePool();
     const middleware = auditMiddleware(pool as never);

@@ -9,6 +9,7 @@ import { z } from 'zod';
 import { i18next } from '../i18n';
 import { buildLoginSchema, buildRegisterSchema } from '../routes/auth.routes';
 import { buildPanSchema } from '../routes/pan.routes';
+import { buildCardIdSchema } from '../routes/credit-cards.routes';
 import { registerMailboxPaths } from './mailbox.openapi';
 
 extendZodWithOpenApi(z);
@@ -205,6 +206,26 @@ const buildOpenApiDocument = (lng: string): OpenAPIObject => {
       200: json(t('responses.ok'), z.object({ cards: z.array(creditCardSchema) })),
       401: error('unauthorized'),
       403: error('panNotRegistered'),
+    },
+  });
+
+  registry.registerPath({
+    method: 'get',
+    path: '/api/v1/credit-cards/{cardId}/statements',
+    tags: [t('tags.creditCards')],
+    summary: t('operations.getCardStatements'),
+    description: t('operations.getCardStatementsDescription'),
+    security: bearer,
+    request: { params: buildCardIdSchema(lng) },
+    responses: {
+      200: json(
+        t('responses.ok'),
+        z.object({ card: creditCardSchema, statements: z.array(cardStatementSchema) }),
+      ),
+      401: error('unauthorized'),
+      403: error('panNotRegistered'),
+      404: error('notFound'),
+      422: error('validation'),
     },
   });
 

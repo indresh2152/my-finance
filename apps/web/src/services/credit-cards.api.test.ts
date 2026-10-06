@@ -2,7 +2,7 @@ import { setupServer } from 'msw/node';
 import { http, HttpResponse } from 'msw';
 import { vi } from 'vitest';
 import { apiErrorCode } from './api';
-import { downloadStatement } from './credit-cards.api';
+import { cardStatementsQueryKey, downloadStatement, getCardStatements } from './credit-cards.api';
 
 /** jsdom's Blob has no text(). */
 const readBlobText = (blob: Blob): Promise<string> =>
@@ -56,5 +56,21 @@ describe('downloadStatement', () => {
     server.use(http.get(DOWNLOAD_URL, () => new HttpResponse('bad gateway', { status: 502 })));
     const err: unknown = await downloadStatement('stmt-1').catch((e: unknown) => e);
     expect(apiErrorCode(err)).toBeNull();
+  });
+});
+
+describe('getCardStatements', () => {
+  it('should return the card and its statements', async () => {
+    const body = { card: { id: 'card-1' }, statements: [{ id: 'stmt-1' }] };
+    server.use(
+      http.get('/api/v1/credit-cards/:cardId/statements', ({ params }) =>
+        params['cardId'] === 'card-1' ? HttpResponse.json(body) : HttpResponse.error(),
+      ),
+    );
+    await expect(getCardStatements('card-1')).resolves.toEqual(body);
+  });
+
+  it("should key a card's history under the card list", () => {
+    expect(cardStatementsQueryKey('card-1')).toEqual(['credit-cards', 'card-1', 'statements']);
   });
 });

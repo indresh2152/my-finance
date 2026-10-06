@@ -26,6 +26,7 @@ import {
   makeProvider,
   refs,
   ring,
+  searchFilterHash,
 } from '../../test/mail-sync-service.fixtures';
 
 afterEach(() => jest.clearAllMocks());
@@ -107,7 +108,7 @@ describe('MailSyncService.syncMailbox', () => {
     });
   });
 
-  it('should rescan 180 days when the parser sender set has changed since the last sync', async () => {
+  it('should rescan a full year when the parser sender set has changed since the last sync', async () => {
     const provider = makeProvider();
     const row = connectionRow({
       last_synced_at: new Date('2026-09-20T00:00:00Z'),
@@ -121,6 +122,20 @@ describe('MailSyncService.syncMailbox', () => {
     });
   });
 
+  it('should rescan a full year once for a mailbox last synced with the 180-day lookback', async () => {
+    const provider = makeProvider();
+    const row = connectionRow({
+      last_synced_at: new Date('2026-09-20T00:00:00Z'),
+      synced_senders_hash: sha256Hex('@hdfcbank.net'),
+    });
+    await build(makeDb(row), provider).service.syncMailbox('mb-1');
+    expect(provider.search).toHaveBeenCalledWith('at', {
+      senders: ['@hdfcbank.net'],
+      subjectKeywords: [],
+      since: new Date(NOW.getTime() - 365 * DAY_MS),
+    });
+  });
+
   it('should filter the search by subject keywords and include them in the hash', async () => {
     const provider = makeProvider();
     const db = makeDb(connectionRow());
@@ -131,7 +146,9 @@ describe('MailSyncService.syncMailbox', () => {
       subjectKeywords: ['statement'],
       since: INITIAL_SINCE,
     });
-    expect(paramsWhere(db.query, SUCCEEDED)[2]).toBe(sha256Hex('@hdfcbank.net,subject:statement'));
+    expect(paramsWhere(db.query, SUCCEEDED)[2]).toBe(
+      searchFilterHash(['@hdfcbank.net', 'subject:statement']),
+    );
   });
 
   it('should hash the senders in sorted order', async () => {
@@ -144,7 +161,9 @@ describe('MailSyncService.syncMailbox', () => {
       subjectKeywords: [],
       since: INITIAL_SINCE,
     });
-    expect(paramsWhere(db.query, SUCCEEDED)[2]).toBe(sha256Hex('@axisbank.com,@hdfcbank.net'));
+    expect(paramsWhere(db.query, SUCCEEDED)[2]).toBe(
+      searchFilterHash(['@axisbank.com', '@hdfcbank.net']),
+    );
   });
 
   it('should skip duplicates, unmatched emails, null results, parser crashes and deleted messages', async () => {
@@ -197,7 +216,7 @@ describe('MailSyncService.syncMailbox', () => {
       fieldsMissing: {},
     });
     expect(provider.search).not.toHaveBeenCalled();
-    expect(paramsWhere(db.query, SUCCEEDED)).toEqual(['mb-1', NOW, sha256Hex('')]);
+    expect(paramsWhere(db.query, SUCCEEDED)).toEqual(['mb-1', NOW, searchFilterHash([])]);
   });
 
   it('should persist a rotated refresh token', async () => {

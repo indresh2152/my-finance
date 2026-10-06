@@ -1,6 +1,9 @@
 import type { Pool } from 'pg';
 import { AppError } from '../middleware/error.middleware';
 import { i18next } from '../i18n';
+import { requirePanProfileId } from './pan-profile.lookup';
+
+const HTTP_NOT_FOUND = 404;
 
 interface CreditCardRow {
   id: string;
@@ -52,15 +55,13 @@ export interface CreditCard {
   latestStatement: CardStatement | null;
 }
 
-/**
- * Latest statement per card across all mailboxes: the newest billing cycle (its due date, or its
- * statement date when nothing was due), preferring a row with a PDF, so a reminder email for the
- * same cycle cannot hide the statement.
- */
-const LIST_CARDS_SQL = `SELECT c.id, c.card_number_last4, c.card_name, c.card_network, c.issuing_bank, c.card_variant,
-          c.expiry_month, c.expiry_year, c.name_on_card, c.status,
-          c.credit_limit, c.available_credit, c.current_balance, c.billing_cycle_day,
-          CASE WHEN s.id IS NULL THEN NULL ELSE json_build_object(
+/** Each cycle's preferred row first: the email with the PDF, then the newest one. */
+const CYCLE_PREFERENCE = `(attachment_locator IS NOT NULL) DESC, statement_date DESC, created_at DESC`;
+
+/** One billing cycle: its due date, or its statement date when nothing was due. */
+const BILLING_CYCLE = `COALESCE(due_date, statement_date)`;
+
+const STATEMENT_JSON = `json_build_object(
             'id', s.id,
             'statementDate', s.statement_date,
             'dueDate', s.due_date,
@@ -68,18 +69,53 @@ const LIST_CARDS_SQL = `SELECT c.id, c.card_number_last4, c.card_name, c.card_ne
             'minimumAmountDue', s.minimum_amount_due,
             'passwordHint', s.password_hint,
             'downloadAvailable', s.attachment_locator IS NOT NULL
-          ) END AS latest_statement
+          )`;
+
+/**
+ * Cards with their latest statement across all mailboxes: the newest billing cycle, preferring a
+ * row with a PDF, so a reminder email for the same cycle cannot hide the statement.
+ */
+const CARDS_SQL = `SELECT c.id, c.card_number_last4, c.card_name, c.card_network, c.issuing_bank, c.card_variant,
+          c.expiry_month, c.expiry_year, c.name_on_card, c.status,
+          c.credit_limit, c.available_credit, c.current_balance, c.billing_cycle_day,
+          CASE WHEN s.id IS NULL THEN NULL ELSE ${STATEMENT_JSON} END AS latest_statement
    FROM credit_cards c
    LEFT JOIN LATERAL (
      SELECT id, statement_date, due_date, total_amount_due, minimum_amount_due, password_hint,
             attachment_locator
      FROM card_statements
      WHERE credit_card_id = c.id
-     ORDER BY COALESCE(due_date, statement_date) DESC, (attachment_locator IS NOT NULL) DESC, statement_date DESC, created_at DESC
+     ORDER BY ${BILLING_CYCLE} DESC, ${CYCLE_PREFERENCE}
      LIMIT 1
    ) s ON TRUE
-   WHERE c.pan_profile_id = $1
+   WHERE c.pan_profile_id = $1`;
+
+const LIST_CARDS_SQL = `${CARDS_SQL}
    ORDER BY c.created_at DESC`;
+
+const GET_CARD_SQL = `${CARDS_SQL} AND c.id = $2`;
+
+/**
+ * One statement per billing cycle (preferring the email with the PDF) issued in the current month
+ * or the 11 before it, newest first. Scoped to the PAN as well, so it runs alongside the card query.
+ */
+const STATEMENT_HISTORY_SQL = `SELECT ${STATEMENT_JSON} AS statement
+   FROM (
+     SELECT DISTINCT ON (${BILLING_CYCLE})
+            id, statement_date, due_date, total_amount_due, minimum_amount_due, password_hint,
+            attachment_locator
+     FROM card_statements
+     WHERE credit_card_id = (SELECT id FROM credit_cards WHERE pan_profile_id = $1 AND id = $2)
+       AND statement_date >= date_trunc('month', CURRENT_DATE) - INTERVAL '11 months'
+     ORDER BY ${BILLING_CYCLE}, ${CYCLE_PREFERENCE}
+   ) s
+   ORDER BY s.statement_date DESC`;
+
+export interface CardStatementHistory {
+  card: CreditCard;
+  /** Up to 12 months of statements, one per billing cycle, newest first. */
+  statements: CardStatement[];
+}
 
 const toDecimal = (v: string | null): number | null => (v !== null ? parseFloat(v) : null);
 
@@ -105,20 +141,31 @@ export class CreditCardsService {
   constructor(private readonly db: Pool) {}
 
   async listByUserId(userId: string, lng: string): Promise<CreditCard[]> {
-    const panRes = await this.db.query<{ id: string }>(
-      'SELECT id FROM pan_profiles WHERE user_id = $1',
-      [userId],
-    );
-
-    const panProfile = panRes.rows[0];
-    if (!panProfile) {
-      throw new AppError('PAN_NOT_REGISTERED', 403, i18next.t('error.pan_not_registered', { lng }));
-    }
-
-    const panProfileId = panProfile.id;
-
+    const panProfileId = await requirePanProfileId(this.db, userId, lng);
     const { rows } = await this.db.query<CreditCardRow>(LIST_CARDS_SQL, [panProfileId]);
-
     return rows.map(toCard);
+  }
+
+  /** A card that is not linked to the user's PAN is reported as not found, never as forbidden. */
+  async getStatementHistory(
+    userId: string,
+    cardId: string,
+    lng: string,
+  ): Promise<CardStatementHistory> {
+    const panProfileId = await requirePanProfileId(this.db, userId, lng);
+    const params = [panProfileId, cardId];
+    const [{ rows: cardRows }, { rows: statementRows }] = await Promise.all([
+      this.db.query<CreditCardRow>(GET_CARD_SQL, params),
+      this.db.query<{ statement: CardStatement }>(STATEMENT_HISTORY_SQL, params),
+    ]);
+    const cardRow = cardRows[0];
+    if (!cardRow) {
+      throw new AppError(
+        'CARD_NOT_FOUND',
+        HTTP_NOT_FOUND,
+        i18next.t('error.card_not_found', { lng }),
+      );
+    }
+    return { card: toCard(cardRow), statements: statementRows.map((row) => row.statement) };
   }
 }

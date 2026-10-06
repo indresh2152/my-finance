@@ -15,6 +15,9 @@ const LoginPage = lazy(() => import('./pages/LoginPage').then((m) => ({ default:
 const DashboardPage = lazy(() =>
   import('./pages/DashboardPage').then((m) => ({ default: m.DashboardPage })),
 );
+const CardStatementsPage = lazy(() =>
+  import('./pages/CardStatementsPage').then((m) => ({ default: m.CardStatementsPage })),
+);
 const ProfilePage = lazy(() =>
   import('./pages/ProfilePage').then((m) => ({ default: m.ProfilePage })),
 );
@@ -46,6 +49,7 @@ const router = createBrowserRouter([
     ),
     children: [
       { index: true, element: <DashboardPage /> },
+      { path: 'cards/:cardId', element: <CardStatementsPage /> },
       { path: 'profile', element: <ProfilePage /> },
       { path: 'pan-register', element: <PanRegisterPage /> },
       { path: 'api-docs', element: <ApiDocsPage /> },

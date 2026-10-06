@@ -20,7 +20,8 @@ import {
 const logger = pino({ ...errorLoggerOptions, name: 'mail-sync' });
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const INITIAL_LOOKBACK_DAYS = 180;
+/** A full year, so a card's page can show 12 months of statements. */
+const INITIAL_LOOKBACK_DAYS = 365;
 const INITIAL_LOOKBACK_MS = INITIAL_LOOKBACK_DAYS * DAY_MS;
 const OVERLAP_MS = DAY_MS;
 const SENDER_SEPARATOR = ',';
@@ -143,9 +144,13 @@ export class MailSyncService {
       startedAt: this.now(),
       senders,
       subjectKeywords,
-      // Covers the subject filter too: narrowing or widening it needs a fresh full lookback.
+      // Covers the subject filter and lookback too: changing either needs a fresh full lookback.
       searchFilterHash: sha256Hex(
-        [...senders, ...subjectKeywords.map((k) => `subject:${k}`)].join(SENDER_SEPARATOR),
+        [
+          ...senders,
+          ...subjectKeywords.map((k) => `subject:${k}`),
+          `lookback:${INITIAL_LOOKBACK_DAYS}`,
+        ].join(SENDER_SEPARATOR),
       ),
     };
     await this.deps.db.query(MARK_RUNNING_SQL, [row.id]);
@@ -215,7 +220,7 @@ export class MailSyncService {
     return { ...counts, fieldsMissing };
   }
 
-  /** Incremental from the last sync (minus overlap), unless it never ran or the sender set changed. */
+  /** Incremental from the last sync (minus overlap), unless it never ran or the search filter changed. */
   private windowStart(run: SyncRun): Date {
     const { last_synced_at: lastSyncedAt, synced_senders_hash: previousHash } = run.row;
     // New parsers (new banks, later phases) need the full lookback, not just the incremental window.

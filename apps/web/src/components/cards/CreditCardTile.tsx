@@ -1,5 +1,6 @@
 import React from 'react';
-import { Box, Card, CardContent, Chip, Stack, Typography } from '@mui/material';
+import { Box, Card, CardActionArea, CardContent, Chip, Stack, Typography } from '@mui/material';
+import { Link as RouterLink } from 'react-router-dom';
 import ContactlessIcon from '@mui/icons-material/Contactless';
 import { useTranslation } from 'react-i18next';
 import type { CreditCard } from '../../services/credit-cards.api';
@@ -8,6 +9,7 @@ import { MaskedAmount } from './MaskedAmount';
 import { DetailRow, StatementDetails } from './StatementDetails';
 import { NetworkMark } from './NetworkMark';
 import { cardDesign } from './cardBrands';
+import { cardLabel, cardPagePath } from './cardPage';
 
 /** ISO/IEC 7810 ID-1, the size of a bank card. */
 const CARD_ASPECT_RATIO = '85.6 / 53.98';
@@ -63,7 +65,7 @@ interface CardFaceProps {
  * and the card's own name top right, chip, masked number, name on card, expiry and network mark.
  * Details an email did not reveal are left out.
  */
-const CardFace: React.FC<CardFaceProps> = ({ card }) => {
+export const CardFace: React.FC<CardFaceProps> = ({ card }) => {
   const { t } = useTranslation('cards');
   const design = cardDesign(card.issuingBank, card.cardName);
   const hasExpiry = card.expiryMonth !== null && card.expiryYear !== null;
@@ -122,7 +124,7 @@ const CardFace: React.FC<CardFaceProps> = ({ card }) => {
   );
 };
 
-/** The branded card face, then any amounts and the latest statement. */
+/** The branded card face (a link to the card's page), then any amounts and the latest statement. */
 export const CreditCardTile: React.FC<CreditCardTileProps> = ({
   card,
   isDownloading,
@@ -134,7 +136,14 @@ export const CreditCardTile: React.FC<CreditCardTileProps> = ({
   return (
     <Card variant="outlined" sx={{ height: '100%' }}>
       <CardContent>
-        <CardFace card={card} />
+        <CardActionArea
+          component={RouterLink}
+          to={cardPagePath(card.id)}
+          aria-label={t('history.open', { card: cardLabel(card) })}
+          sx={{ borderRadius: 2 }}
+        >
+          <CardFace card={card} />
+        </CardActionArea>
         {/* A real card carries no status, so it sits under the face. */}
         <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1 }}>
           <Chip

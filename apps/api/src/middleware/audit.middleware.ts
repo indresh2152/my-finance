@@ -5,6 +5,7 @@ import pino from 'pino';
 const logger = pino({ name: 'audit' });
 
 const SKIP_PATHS = new Set(['/health', '/ready']);
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const ROUTE_ACTION_MAP: Record<string, string> = {
   'POST /api/v1/auth/register': 'USER_REGISTER',
@@ -20,11 +21,13 @@ const ROUTE_ACTION_MAP: Record<string, string> = {
   'GET /api/v1/overview': 'OVERVIEW_VIEW',
   'GET /api/v1/credit-cards': 'CARD_LIST',
   'GET /api/v1/credit-cards/:cardId': 'CARD_VIEW',
+  'GET /api/v1/credit-cards/:cardId/statements': 'CARD_VIEW',
 };
 
 const RESOURCE_TYPE_MAP: Record<string, string> = {
   'GET /api/v1/credit-cards': 'credit_card',
   'GET /api/v1/credit-cards/:cardId': 'credit_card',
+  'GET /api/v1/credit-cards/:cardId/statements': 'credit_card',
   'POST /api/v1/pan/register': 'pan_profile',
   'GET /api/v1/pan': 'pan_profile',
 };
@@ -62,10 +65,10 @@ export const auditMiddleware =
       }
 
       const resourceType = RESOURCE_TYPE_MAP[routeKey] ?? null;
-      const resourceId =
-        (req.params as Record<string, string>)['cardId'] ??
-        (req.params as Record<string, string>)['id'] ??
-        null;
+      const params = req.params as Record<string, string>;
+      const requestedId = params['cardId'] ?? params['id'];
+      // resource_id is a uuid column: a malformed ID (a 422) would fail the insert and lose the row.
+      const resourceId = requestedId !== undefined && UUID.test(requestedId) ? requestedId : null;
 
       pool
         .query(

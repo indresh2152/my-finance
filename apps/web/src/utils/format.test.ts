@@ -1,4 +1,4 @@
-import { formatDate, formatInr, maskLast4 } from './format';
+import { formatDate, formatInr, formatInrCompact, formatMonth, maskLast4 } from './format';
 
 describe('formatInr', () => {
   it('should use Indian digit grouping and the rupee sign', () => {
@@ -17,5 +17,20 @@ describe('formatDate', () => {
 describe('maskLast4', () => {
   it('should hide all but the last 4 digits', () => {
     expect(maskLast4('1234')).toBe('•••• 1234');
+  });
+});
+
+describe('formatInrCompact', () => {
+  it('should shorten amounts into thousands, lakhs and crores', () => {
+    expect(formatInrCompact(500)).toBe('₹500');
+    expect(formatInrCompact(150000)).toBe('₹1.5L');
+    expect(formatInrCompact(25000000)).toBe('₹2.5Cr');
+  });
+});
+
+describe('formatMonth', () => {
+  it('should show a month or a date in it as short month and year', () => {
+    expect(formatMonth('2026-01')).toBe('Jan 2026');
+    expect(formatMonth('2026-09-30')).toMatch(/^Sept? 2026$/);
   });
 });
