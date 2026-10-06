@@ -11,6 +11,7 @@ import { buildLoginSchema, buildRegisterSchema } from '../routes/auth.routes';
 import { buildPanSchema } from '../routes/pan.routes';
 import { buildCardIdSchema } from '../routes/credit-cards.routes';
 import { registerMailboxPaths } from './mailbox.openapi';
+import { CARD_STATUSES } from '../services/card-status';
 
 extendZodWithOpenApi(z);
 
@@ -89,7 +90,7 @@ const buildOpenApiDocument = (lng: string): OpenAPIObject => {
       expiryMonth: z.number().int().nullable(),
       expiryYear: z.number().int().nullable(),
       nameOnCard: z.string().nullable(),
-      status: z.string(),
+      status: z.enum(CARD_STATUSES).describe(t('schemas.cardStatus')),
       creditLimit: z.number().nullable().describe(t('schemas.inrAmount')),
       availableCredit: z.number().nullable().describe(t('schemas.inrAmount')),
       currentBalance: z.number().nullable().describe(t('schemas.inrAmount')),

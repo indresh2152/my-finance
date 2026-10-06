@@ -8,6 +8,7 @@ import type {
 import type { EmailParser, ParsedResult } from '../parsers/email-parser';
 import { parseKeyRing, encrypt } from '../utils/crypto.utils';
 import { sha256Hex } from '../utils/pkce.utils';
+import { DAY_MS } from '../utils/time.utils';
 
 export type QueryResult = { rows: Array<Record<string, unknown>> };
 
@@ -27,7 +28,6 @@ export const searchFilterHash = (parts: readonly string[]): string =>
   sha256Hex([...parts, `lookback:${LOOKBACK_DAYS}`].join(','));
 export const HDFC_SENDERS_HASH = searchFilterHash(['@hdfcbank.net']);
 export const NOW = new Date('2026-09-26T10:00:00Z');
-export const DAY_MS = 24 * 60 * 60 * 1000;
 export const SUCCEEDED = "last_sync_status = 'SUCCEEDED'";
 export const FAILED = "last_sync_status = 'FAILED'";
 export const INITIAL_SINCE = new Date(NOW.getTime() - LOOKBACK_DAYS * DAY_MS);

@@ -292,6 +292,13 @@ describe('DashboardPage — cards', () => {
     expect(container.textContent).not.toMatch(/5,00,000|3,50,000|1,50,000/);
   });
 
+  it('should label a card with no recent statements as inactive', async () => {
+    cards = [{ ...emailCard, status: 'INACTIVE' }];
+    renderPage();
+    expect(await screen.findByText('Inactive')).toBeInTheDocument();
+    expect(screen.queryByText('Active')).not.toBeInTheDocument();
+  });
+
   it("should show a card's name before its digits", async () => {
     cards = [{ ...emailCard, cardName: 'Amazon Pay' }];
     renderPage();

@@ -1,9 +1,8 @@
 import rateLimit, { type RateLimitRequestHandler } from 'express-rate-limit';
 import type { Request, Response } from 'express';
 import { i18next } from '../i18n';
+import { DAY_MS, HOUR_MS, MINUTE_MS } from '../utils/time.utils';
 
-const MINUTE_MS = 60 * 1000;
-const HOUR_MS = 60 * MINUTE_MS;
 /** OAuth redirects per client IP per minute; a real user needs one per link attempt. */
 export const MAILBOX_CALLBACK_MAX_PER_MINUTE = 30;
 const TOO_MANY_REQUESTS = 429;
@@ -24,13 +23,13 @@ export const loginRateLimiter = makeRateLimiter(
 );
 
 export const registerRateLimiter = makeRateLimiter(
-  60 * 60 * 1000,
+  HOUR_MS,
   10,
   'Too many registration attempts. Try again later.',
 );
 
 export const panRateLimiter = makeRateLimiter(
-  24 * 60 * 60 * 1000,
+  DAY_MS,
   3,
   'Too many PAN registration attempts. Try again tomorrow.',
 );

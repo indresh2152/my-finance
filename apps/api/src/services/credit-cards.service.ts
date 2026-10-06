@@ -2,6 +2,7 @@ import type { Pool } from 'pg';
 import { AppError } from '../middleware/error.middleware';
 import { i18next } from '../i18n';
 import { requirePanProfileId } from './pan-profile.lookup';
+import { deriveCardStatus, type CardStatus, type StoredCardStatus } from './card-status';
 
 const HTTP_NOT_FOUND = 404;
 
@@ -15,7 +16,7 @@ interface CreditCardRow {
   expiry_month: number | null;
   expiry_year: number | null;
   name_on_card: string | null;
-  status: string;
+  status: StoredCardStatus;
   credit_limit: string | null;
   available_credit: string | null;
   current_balance: string | null;
@@ -23,6 +24,8 @@ interface CreditCardRow {
   /** Built in SQL as JSON, so amounts arrive as numbers and dates as YYYY-MM-DD. */
   latest_statement: CardStatement | null;
   mailbox_ids: string[];
+  /** The newest successful sync among the mailboxes holding a statement of the latest one's date. */
+  last_synced_at: Date | null;
 }
 
 export interface CardStatement {
@@ -48,7 +51,7 @@ export interface CreditCard {
   expiryMonth: number | null;
   expiryYear: number | null;
   nameOnCard: string | null;
-  status: string;
+  status: CardStatus;
   creditLimit: number | null;
   availableCredit: number | null;
   currentBalance: number | null;
@@ -87,7 +90,13 @@ const CARDS_SQL = `SELECT c.id, c.card_number_last4, c.card_name, c.card_network
             FROM card_statements
             WHERE credit_card_id = c.id
             ORDER BY 1
-          ) AS mailbox_ids
+          ) AS mailbox_ids,
+          (
+            SELECT MAX(m.last_synced_at)
+            FROM card_statements cs
+            JOIN mail_connections m ON m.id = cs.mail_connection_id
+            WHERE cs.credit_card_id = c.id AND cs.statement_date = s.statement_date
+          ) AS last_synced_at
    FROM credit_cards c
    LEFT JOIN LATERAL (
      SELECT id, statement_date, due_date, total_amount_due, minimum_amount_due, password_hint,
@@ -138,7 +147,11 @@ const toCard = (row: CreditCardRow): CreditCard => ({
   expiryMonth: row.expiry_month,
   expiryYear: row.expiry_year,
   nameOnCard: row.name_on_card,
-  status: row.status,
+  status: deriveCardStatus(
+    row.status,
+    row.latest_statement?.statementDate ?? null,
+    row.last_synced_at,
+  ),
   creditLimit: toDecimal(row.credit_limit),
   availableCredit: toDecimal(row.available_credit),
   currentBalance: toDecimal(row.current_balance),

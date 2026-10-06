@@ -4,6 +4,7 @@ import { errorLoggerOptions } from '../../middleware/error.middleware';
 import { writeAuditLog } from '../audit-log.writer';
 import type { KeyRing } from '../../utils/crypto.utils';
 import { sha256Hex } from '../../utils/pkce.utils';
+import { DAY_MS } from '../../utils/time.utils';
 import { isBadDataError, pgErrorCode } from '../../utils/db.utils';
 import type { EmailMeta, EmailParser, ParsedResult } from '../../parsers/email-parser';
 import { getProvider, type ProviderRegistry } from './providers';
@@ -19,7 +20,6 @@ import {
 
 const logger = pino({ ...errorLoggerOptions, name: 'mail-sync' });
 
-const DAY_MS = 24 * 60 * 60 * 1000;
 /** A full year, so a card's page can show 12 months of statements. */
 const INITIAL_LOOKBACK_DAYS = 365;
 const INITIAL_LOOKBACK_MS = INITIAL_LOOKBACK_DAYS * DAY_MS;

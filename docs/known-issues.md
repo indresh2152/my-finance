@@ -118,6 +118,19 @@ When you fix one, delete its entry.
   Add a supertest through `createApp` that asserts the INSERT. The route tests' `db.query` mocks then
   need a default resolved value, because the audit INSERT calls `.catch` on the result.
 
+## 10. A bank whose emails stop parsing makes its cards look inactive
+
+- **Where:** `deriveCardStatus` in `apps/api/src/services/card-status.ts`, together with mail sync in
+  `apps/api/src/services/mailbox/mail-sync.service.ts`.
+- **Problem:** a card is `INACTIVE` when its latest statement is more than 70 days older than its
+  mailbox's last successful sync. A sync counts as successful even when every statement email it
+  finds is skipped (no parser, or required fields missing). If a bank changes its email layout,
+  `last_synced_at` keeps moving forward and no new statements are stored.
+- **Why it matters:** 70 days later, cards from that bank show as "Inactive" even though they are
+  still in use and still getting statements.
+- **Fix direction:** have the sync record, per mailbox and bank, the newest statement email it saw
+  even when it could not parse it. Measure inactivity against that rather than `last_synced_at`.
+
 ## Minor (also deferred)
 
 - **`apiErrorCode` exists twice.** It is exported from both `apps/web/src/services/api.ts` and

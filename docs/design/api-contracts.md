@@ -262,6 +262,13 @@ PDF password format, never the password, and never holds a date, ID or sample pa
 `mailboxIds` lists the ids (as in `GET /mailboxes`) of the linked mailboxes this card's
 statements were found in, sorted; it is empty for a card with no statements. A card can appear in
 more than one mailbox.
+`status` is one of `ACTIVE`, `INACTIVE`, `BLOCKED`, `EXPIRED`, `CLOSED`. `INACTIVE` is never
+stored: it is worked out on each read for an `ACTIVE` card whose `latestStatement` date is more
+than 70 days (about two billing cycles plus email delay) before the newest successful sync among
+the mailboxes holding a statement of that date. Banks usually send no statement for an unused
+card. Measuring from the sync rather than today means a mailbox that stopped syncing does not make
+its cards look unused. A card with no statement, or whose mailboxes never synced, keeps its stored
+status. The same applies to the `card` in `GET /credit-cards/:cardId/statements`.
 
 **Response 200**
 ```json

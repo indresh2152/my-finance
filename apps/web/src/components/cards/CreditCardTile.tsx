@@ -4,7 +4,7 @@ import { Link as RouterLink } from 'react-router-dom';
 import ContactlessIcon from '@mui/icons-material/Contactless';
 import MailOutlineIcon from '@mui/icons-material/MailOutline';
 import { useTranslation } from 'react-i18next';
-import type { CreditCard } from '../../services/credit-cards.api';
+import type { CardStatus, CreditCard } from '../../services/credit-cards.api';
 import { maskLast4 } from '../../utils/format';
 import { MaskedAmount } from './MaskedAmount';
 import { DetailRow, StatementDetails } from './StatementDetails';
@@ -15,10 +15,11 @@ import { cardLabel, cardPagePath } from './cardPage';
 /** ISO/IEC 7810 ID-1, the size of a bank card. */
 const CARD_ASPECT_RATIO = '85.6 / 53.98';
 
-const statusColor = (status: string): 'success' | 'error' | 'warning' | 'default' => {
+const statusColor = (status: CardStatus): 'success' | 'error' | 'warning' | 'default' => {
   if (status === 'ACTIVE') return 'success';
   if (status === 'BLOCKED') return 'error';
   if (status === 'EXPIRED') return 'warning';
+  // INACTIVE (no recent statements) and CLOSED are neutral.
   return 'default';
 };
 

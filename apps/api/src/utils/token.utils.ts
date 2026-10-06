@@ -1,8 +1,9 @@
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
+import { DAY_MS } from './time.utils';
 
 /** Lifetime of a refresh token: the JWT, its refresh_tokens row, and its cookie. */
-export const REFRESH_TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+export const REFRESH_TOKEN_TTL_MS = 7 * DAY_MS;
 
 export interface AccessTokenPayload {
   userId: string;

@@ -12,6 +12,7 @@
   },
   "status": {
     "active": "Active",
+    "inactive": "Inactive",
     "blocked": "Blocked",
     "expired": "Expired",
     "closed": "Closed"

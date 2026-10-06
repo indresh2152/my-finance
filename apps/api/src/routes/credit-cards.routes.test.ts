@@ -66,6 +66,7 @@ describe('GET /api/v1/credit-cards', () => {
           billing_cycle_day: 15,
           latest_statement: null,
           mailbox_ids: ['mb-1'],
+          last_synced_at: null,
         },
       ],
     });
@@ -142,6 +143,7 @@ describe('GET /api/v1/credit-cards/:cardId/statements', () => {
             billing_cycle_day: null,
             latest_statement: statement,
             mailbox_ids: [],
+            last_synced_at: null,
           },
         ],
       })

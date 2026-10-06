@@ -18,6 +18,8 @@ export interface CardStatement {
  * Cards found in bank emails carry only the bank and last 4 digits (or, when the bank's emails
  * never show the digits, the card's name); the other details may be null.
  */
+export type CardStatus = 'ACTIVE' | 'INACTIVE' | 'BLOCKED' | 'EXPIRED' | 'CLOSED';
+
 export interface CreditCard {
   id: string;
   cardNumberLast4: string | null;
@@ -28,7 +30,7 @@ export interface CreditCard {
   expiryMonth: number | null;
   expiryYear: number | null;
   nameOnCard: string | null;
-  status: string;
+  status: CardStatus;
   creditLimit: number | null;
   availableCredit: number | null;
   currentBalance: number | null;

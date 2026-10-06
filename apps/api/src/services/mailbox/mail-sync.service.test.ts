@@ -11,7 +11,6 @@ import { decrypt } from '../../utils/crypto.utils';
 import { sha256Hex } from '../../utils/pkce.utils';
 import { paramsWhere, sqlOf } from '../../test/mailbox-service.fixtures';
 import {
-  DAY_MS,
   FAILED,
   HDFC_SENDERS_HASH,
   INITIAL_SINCE,
@@ -28,6 +27,7 @@ import {
   ring,
   searchFilterHash,
 } from '../../test/mail-sync-service.fixtures';
+import { DAY_MS } from '../../utils/time.utils';
 
 afterEach(() => jest.clearAllMocks());
 

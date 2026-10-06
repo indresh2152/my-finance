@@ -4,6 +4,12 @@ const USER_ID = '550e8400-e29b-41d4-a716-446655440000';
 const PAN_PROFILE_ID = 'pan-profile-uuid';
 const LNG = 'en';
 
+/** A card whose newest statement is 97 days older than its mailbox's last sync. */
+const dormant = {
+  latest_statement: { id: 'stmt-1', statementDate: '2026-07-01' },
+  last_synced_at: new Date('2026-10-06T08:00:00Z'),
+};
+
 const makeDb = (): { query: jest.Mock } => ({ query: jest.fn() });
 
 const mockCardRow = {
@@ -23,6 +29,7 @@ const mockCardRow = {
   billing_cycle_day: 15,
   latest_statement: null,
   mailbox_ids: [],
+  last_synced_at: null,
 };
 
 describe('CreditCardsService.listByUserId', () => {
@@ -161,6 +168,15 @@ describe('CreditCardsService.listByUserId', () => {
     expect(card?.mailboxIds).toEqual(['mb-1', 'mb-2']);
   });
 
+  it('should report a card with no statement in the 70 days before its last sync as inactive', async () => {
+    const db = makeDb();
+    db.query.mockResolvedValueOnce({ rows: [{ id: PAN_PROFILE_ID }] }).mockResolvedValueOnce({
+      rows: [{ ...mockCardRow, ...dormant }],
+    });
+    const [card] = await new CreditCardsService(db as never).listByUserId(USER_ID, LNG);
+    expect(card?.status).toBe('INACTIVE');
+  });
+
   it('should report no statement for a card that has none', async () => {
     const db = makeDb();
     db.query
@@ -234,6 +250,20 @@ describe('CreditCardsService.getStatementHistory', () => {
       card: expect.objectContaining({ id: 'card-uuid', creditLimit: 500000 }),
       statements: [statement],
     });
+  });
+
+  it('should report the card as inactive when it has gone quiet', async () => {
+    const db = makeDb();
+    db.query
+      .mockResolvedValueOnce({ rows: [{ id: PAN_PROFILE_ID }] })
+      .mockResolvedValueOnce({ rows: [{ ...mockCardRow, ...dormant }] })
+      .mockResolvedValueOnce({ rows: [] });
+    const result = await new CreditCardsService(db as never).getStatementHistory(
+      USER_ID,
+      CARD_ID,
+      LNG,
+    );
+    expect(result.card.status).toBe('INACTIVE');
   });
 
   it('should return no statements for a card that has none', async () => {
