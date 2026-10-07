@@ -88,7 +88,7 @@ interface CardFaceProps {
  * and the card's own name top right, chip, masked number, name on card, expiry and network mark.
  * Details an email did not reveal are left out.
  */
-export const CardFace: React.FC<CardFaceProps> = ({ card }) => {
+const CardFace: React.FC<CardFaceProps> = ({ card }) => {
   const { t } = useTranslation('cards');
   const design = cardDesign(card.issuingBank, card.cardName);
   const hasExpiry = card.expiryMonth !== null && card.expiryYear !== null;

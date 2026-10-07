@@ -1,11 +1,11 @@
 import React from 'react';
 import { Box, Paper, Stack, Typography } from '@mui/material';
-import { axisClasses } from '@mui/x-charts/ChartsAxis';
 import { LineChart } from '@mui/x-charts/LineChart';
 import { useTranslation } from 'react-i18next';
 import type { CardStatementHistory } from '../../services/credit-cards.api';
 import { useAmountReveal } from '../../hooks/useAmountReveal';
 import { formatInr, formatInrCompact, formatMonth } from '../../utils/format';
+import { AXIS_LABEL_SX, CHART_MARGIN } from './chartLayout';
 import { amountTicks, fromAxis, toAxis } from './amountTicks';
 import { cardLabel } from '../cards/cardPage';
 import { monthlyAmounts } from '../cards/statementMonths';
@@ -35,12 +35,6 @@ const uniqueLabels = (labels: readonly string[]): string[] => {
     return labels.filter((other) => other === label).length > 1 ? `${label} (${count})` : label;
   });
 };
-
-/** Moves each axis label clear of the tick values beside it. */
-const AXIS_LABEL_SX = {
-  [`& .${axisClasses.left} .${axisClasses.label}`]: { transform: 'translateX(-20px)' },
-  [`& .${axisClasses.bottom} .${axisClasses.label}`]: { transform: 'translateY(16px)' },
-} as const;
 
 interface CardsTrendChartProps {
   readonly histories: readonly CardStatementHistory[];
@@ -98,13 +92,13 @@ export const CardsTrendChart: React.FC<CardsTrendChartProps> = ({ histories, tod
       >
         <LineChart
           height={CHART_HEIGHT}
-          margin={{ left: 85, right: 40, top: 20, bottom: 60 }}
+          margin={CHART_MARGIN}
           xAxis={[
             {
               scaleType: 'point',
               data: months,
               valueFormatter: formatMonth,
-              label: t('analytics.xAxisLabel'),
+              label: t('chart.xAxisLabel'),
             },
           ]}
           yAxis={[
@@ -112,7 +106,7 @@ export const CardsTrendChart: React.FC<CardsTrendChartProps> = ({ histories, tod
               min: 0,
               max: toAxis(ticks[ticks.length - 1] ?? 0),
               tickInterval: ticks.map(toAxis),
-              label: t('analytics.yAxisLabel'),
+              label: t('chart.yAxisLabel'),
               valueFormatter: (value: number) =>
                 isRevealed ? formatInrCompact(fromAxis(value)) : masked,
             },

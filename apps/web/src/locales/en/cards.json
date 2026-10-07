@@ -55,12 +55,14 @@
     "cards": "Credit Cards",
     "analytics": "Analytics"
   },
+  "chart": {
+    "xAxisLabel": "Statement month",
+    "yAxisLabel": "Amount due (₹)"
+  },
   "analytics": {
     "chartTitle": "Amount due per card, last 12 months",
     "chartLabel": "Line chart of the amount due on each monthly statement over the last 12 months, one line per credit card",
     "scaleNote": "The amount axis is compressed: equal distances are not equal rupees, so small amounts stay readable.",
-    "xAxisLabel": "Statement month",
-    "yAxisLabel": "Amount due (₹)",
     "empty": "No statements found in the last 12 months.",
     "emptyFiltered": "No statements found in this email in the last 12 months. Choose All cards to see the rest.",
     "loadFailed": "Failed to load the statement history. Please try again.",

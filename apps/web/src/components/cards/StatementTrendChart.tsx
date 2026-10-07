@@ -5,10 +5,11 @@ import { useTranslation } from 'react-i18next';
 import type { CardStatement } from '../../services/credit-cards.api';
 import { useAmountReveal } from '../../hooks/useAmountReveal';
 import { formatInr, formatInrCompact, formatMonth } from '../../utils/format';
+import { AXIS_LABEL_SX, CHART_MARGIN } from '../analytics/chartLayout';
 import { monthlyAmounts } from './statementMonths';
 import { MASKED_SX, RevealButton } from './RevealButton';
 
-const CHART_HEIGHT = 280;
+const CHART_HEIGHT = 320;
 
 interface StatementTrendChartProps {
   readonly statements: readonly CardStatement[];
@@ -45,13 +46,19 @@ export const StatementTrendChart: React.FC<StatementTrendChartProps> = ({ statem
       >
         <LineChart
           height={CHART_HEIGHT}
-          margin={{ left: 70, right: 20, top: 20, bottom: 30 }}
+          margin={CHART_MARGIN}
           xAxis={[
-            { scaleType: 'point', data: months.map((m) => m.month), valueFormatter: formatMonth },
+            {
+              scaleType: 'point',
+              data: months.map((m) => m.month),
+              valueFormatter: formatMonth,
+              label: t('chart.xAxisLabel'),
+            },
           ]}
           yAxis={[
             {
               min: 0,
+              label: t('chart.yAxisLabel'),
               valueFormatter: (value: number) => (isRevealed ? formatInrCompact(value) : masked),
             },
           ]}
@@ -67,6 +74,7 @@ export const StatementTrendChart: React.FC<StatementTrendChartProps> = ({ statem
               },
             },
           ]}
+          sx={AXIS_LABEL_SX}
           slotProps={{ legend: { hidden: true } }}
         />
       </Box>

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Link as RouterLink, useParams } from 'react-router-dom';
-import { Alert, Box, Button, Container, Grid, Skeleton, Stack } from '@mui/material';
+import { Alert, Box, Button, Container, Skeleton, Stack } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
@@ -10,7 +10,6 @@ import { apiErrorCode } from '../services/api';
 import { cardStatementsQueryKey, getCardStatements } from '../services/credit-cards.api';
 import { useMailboxAvailability } from '../hooks/useMailboxes';
 import { useStatementDownload } from '../hooks/useStatementDownload';
-import { CardFace } from '../components/cards/CreditCardTile';
 import { cardLabel } from '../components/cards/cardPage';
 import { DownloadErrorSnackbar } from '../components/cards/DownloadErrorSnackbar';
 import { ShowAllToggle } from '../components/cards/ShowAllToggle';
@@ -21,8 +20,7 @@ import { PageTitle } from '../components/PageTitle';
 
 /** A malformed card ID is as unknown as a card that is not the user's. */
 const NOT_FOUND_CODES = new Set(['CARD_NOT_FOUND', 'VALIDATION_ERROR']);
-const CARD_FACE_MAX_WIDTH = 360;
-const SKELETON_HEIGHT = 280;
+const SKELETON_HEIGHT = 320;
 
 const BackToDashboard: React.FC = () => {
   const { t } = useTranslation('cards');
@@ -90,16 +88,7 @@ const CardStatements: React.FC<CardStatementsProps> = ({ cardId }) => {
         />
       </Stack>
       <AmountVisibilityContext.Provider value={showAllAmounts}>
-        <Grid container spacing={3}>
-          <Grid item xs={12} md={4}>
-            <Box sx={{ maxWidth: CARD_FACE_MAX_WIDTH }}>
-              <CardFace card={card} />
-            </Box>
-          </Grid>
-          <Grid item xs={12} md={8}>
-            <StatementTrendChart statements={statements} today={today} />
-          </Grid>
-        </Grid>
+        <StatementTrendChart statements={statements} today={today} />
         <StatementHistoryTable
           statements={statements}
           isDownloading={download.isDownloading}
